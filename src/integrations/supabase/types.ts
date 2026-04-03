@@ -14,7 +14,146 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      affiliate_commissions: {
+        Row: {
+          affiliate_user_id: string
+          commission_cents: number
+          created_at: string
+          id: string
+          referred_user_id: string
+          status: string
+        }
+        Insert: {
+          affiliate_user_id: string
+          commission_cents: number
+          created_at?: string
+          id?: string
+          referred_user_id: string
+          status?: string
+        }
+        Update: {
+          affiliate_user_id?: string
+          commission_cents?: number
+          created_at?: string
+          id?: string
+          referred_user_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      balances: {
+        Row: {
+          balance_cents: number
+          created_at: string
+          id: string
+          total_deposited_cents: number
+          total_spent_cents: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance_cents?: number
+          created_at?: string
+          id?: string
+          total_deposited_cents?: number
+          total_spent_cents?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance_cents?: number
+          created_at?: string
+          id?: string
+          total_deposited_cents?: number
+          total_spent_cents?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          referral_code: string | null
+          referred_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          referral_code?: string | null
+          referred_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          referral_code?: string | null
+          referred_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          description: string | null
+          external_id: string | null
+          id: string
+          metadata: Json | null
+          payment_gateway: string | null
+          payment_method: string | null
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_gateway?: string | null
+          payment_method?: string | null
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_gateway?: string | null
+          payment_method?: string | null
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
