@@ -13,33 +13,44 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("gh_token"));
-  const [user, setUser] = useState<GitHubUser | null>(null);
-  const [isLoading, setIsLoading] = useState(!!token);
+  const [user, setUser] = useState<GitHubUser | null>(() => {
+    const cached = localStorage.getItem("gh_user");
+    return cached ? JSON.parse(cached) : null;
+  });
+  const [isLoading, setIsLoading] = useState(!!token && !user);
 
   useEffect(() => {
-    // Check for code in URL after OAuth callback
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    if (code) {
-      window.history.replaceState({}, "", window.location.pathname);
-      exchangeToken(code);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (token) {
+    if (token && !user) {
       setIsLoading(true);
       getUser(token)
-        .then(setUser)
+        .then((u) => {
+          setUser(u);
+          localStorage.setItem("gh_user", JSON.stringify(u));
+        })
         .catch(() => {
           setToken(null);
+          setUser(null);
           localStorage.removeItem("gh_token");
+          localStorage.removeItem("gh_user");
         })
         .finally(() => setIsLoading(false));
     }
   }, [token]);
 
-  async function exchangeToken(code: string) {
+  const login = useCallback(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const redirectUri = encodeURIComponent(window.location.origin + "/auth/callback");
+    window.location.href = `${supabaseUrl}/functions/v1/github-oauth?action=login&redirect_uri=${redirectUri}`;
+  }, []);
+
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("gh_token");
+    localStorage.removeItem("gh_user");
+  }, []);
+
+  const handleTokenExchange = useCallback(async (code: string) => {
     setIsLoading(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -52,32 +63,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.access_token) {
         setToken(data.access_token);
         localStorage.setItem("gh_token", data.access_token);
+        if (data.user) {
+          const ghUser: GitHubUser = {
+            login: data.user.login,
+            avatar_url: data.user.avatar_url,
+            name: data.user.name,
+            bio: null,
+            public_repos: 0,
+          };
+          setUser(ghUser);
+          localStorage.setItem("gh_user", JSON.stringify(ghUser));
+        }
       }
     } catch (err) {
       console.error("Token exchange failed:", err);
     } finally {
       setIsLoading(false);
     }
-  }
-
-  const login = useCallback(() => {
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
-    const redirectUri = window.location.origin + "/auth/callback";
-    const scope = "repo,user,read:org";
-    window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
-  }, []);
-
-  const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("gh_token");
   }, []);
 
   return (
     <AuthContext.Provider value={{ token, user, isLoading, login, logout }}>
+      <AuthExchangeHandler onExchange={handleTokenExchange} />
       {children}
     </AuthContext.Provider>
   );
+}
+
+function AuthExchangeHandler({ onExchange }: { onExchange: (code: string) => Promise<void> }) {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) {
+      window.history.replaceState({}, "", window.location.pathname);
+      onExchange(code);
+    }
+  }, []);
+  return null;
 }
 
 export function useAuth() {
