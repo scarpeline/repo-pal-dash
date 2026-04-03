@@ -47,6 +47,16 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        editor: {
+          bg: "hsl(var(--editor-bg))",
+          line: "hsl(var(--editor-line))",
+          "active-line": "hsl(var(--editor-active-line))",
+          selection: "hsl(var(--editor-selection))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
+        github: "hsl(var(--github))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
