@@ -50,24 +50,27 @@ const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnecte
         return;
       }
 
-    const interval = setInterval(() => {
-      try {
-        if (popup.closed) {
-          clearInterval(interval);
-          setConnecting(false);
-          // Check if token was set by the callback page
-          const token = localStorage.getItem("gh_token");
-          const storedUser = localStorage.getItem("gh_user");
-          if (token && storedUser && onConnected) {
-            try {
-              onConnected(token, JSON.parse(storedUser));
-            } catch {}
+      const interval = setInterval(() => {
+        try {
+          if (popup.closed) {
+            clearInterval(interval);
+            setConnecting(false);
+            const token = localStorage.getItem("gh_token");
+            const storedUser = localStorage.getItem("gh_user");
+            if (token && storedUser && onConnected) {
+              try {
+                onConnected(token, JSON.parse(storedUser));
+              } catch {}
+            }
           }
+        } catch {
+          // Cross-origin, keep waiting
         }
-      } catch {
-        // Cross-origin, keep waiting
-      }
-    }, 500);
+      }, 500);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao conectar com GitHub");
+      setConnecting(false);
+    }
   };
 
   if (!isConnected) {
