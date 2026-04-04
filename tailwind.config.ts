@@ -57,6 +57,10 @@ export default {
         warning: "hsl(var(--warning))",
         info: "hsl(var(--info))",
         github: "hsl(var(--github))",
+        terminal: {
+          DEFAULT: "hsl(var(--terminal))",
+          green: "hsl(var(--terminal-green))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

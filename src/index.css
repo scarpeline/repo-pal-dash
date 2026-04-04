@@ -52,6 +52,9 @@
     --warning: 38 92% 55%;
     --info: 210 60% 50%;
 
+    --terminal: 220 18% 8%;
+    --terminal-green: 142 60% 55%;
+
     --github: 0 0% 100%;
   }
 }
