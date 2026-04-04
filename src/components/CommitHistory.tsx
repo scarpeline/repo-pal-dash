@@ -12,7 +12,7 @@ interface CommitHistoryProps {
 }
 
 export default function CommitHistory({ owner, repo, branch }: CommitHistoryProps) {
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
 
   const { data: commits, isLoading } = useQuery({
     queryKey: ["commits", owner, repo, branch],

@@ -1,9 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
-import LoginPage from "./LoginPage";
+import AuthPage from "./AuthPage";
 import Dashboard from "./Dashboard";
 
 export default function Index() {
-  const { token, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -13,6 +13,6 @@ export default function Index() {
     );
   }
 
-  if (!token) return <LoginPage />;
+  if (!user) return <AuthPage />;
   return <Dashboard />;
 }

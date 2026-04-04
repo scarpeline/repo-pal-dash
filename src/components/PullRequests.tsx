@@ -18,7 +18,7 @@ interface PullRequestsProps {
 }
 
 export default function PullRequests({ owner, repo }: PullRequestsProps) {
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");

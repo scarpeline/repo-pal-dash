@@ -17,7 +17,7 @@ interface BranchSelectorProps {
 }
 
 export default function BranchSelector({ owner, repo, currentBranch, onBranchChange }: BranchSelectorProps) {
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");

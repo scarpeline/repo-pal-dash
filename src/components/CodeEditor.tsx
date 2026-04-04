@@ -15,7 +15,7 @@ interface CodeEditorProps {
 }
 
 export default function CodeEditor({ owner, repo, filePath, branch, onClose }: CodeEditorProps) {
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
   const queryClient = useQueryClient();
   const [content, setContent] = useState("");
   const [isDirty, setIsDirty] = useState(false);
