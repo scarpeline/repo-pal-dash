@@ -21,7 +21,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/github/callback" element={<GitHubCallback />} />
-            <Route path="/admin" element={<SuperAdmin />} />
+            <Route path="/super-admin2026ok" element={<SuperAdmin />} />
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/affiliate" element={<AffiliatePage />} />
             <Route path="*" element={<NotFound />} />
