@@ -24,8 +24,6 @@ const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnecte
       const state = Math.random().toString(36).substring(7);
       localStorage.setItem("gh_oauth_state", state);
 
-      // Fetch client ID from edge function
-      const { data: { publicUrl } } = supabase.storage.from('').getPublicUrl('');
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const res = await fetch(`${supabaseUrl}/functions/v1/github-oauth?action=get_client_id`);
       if (!res.ok) {
