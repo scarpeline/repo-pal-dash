@@ -340,7 +340,9 @@ const EditorPage = () => {
             </div>
             <div className="flex-1 overflow-auto">
               {sidebarTab === "github" && (
-                ghView === "connect" ? <GitHubConnect isConnected={false} user={null} onDisconnect={handleGhDisconnect} /> :
+                ghView === "connect" ? <GitHubConnect isConnected={false} user={null} onDisconnect={handleGhDisconnect} onConnected={(token, usr) => {
+                  setGhToken(token); setGhUser(usr); setGhView("repos");
+                }} /> :
                 ghView === "repos" ? (
                   <div className="flex flex-col h-full">
                     <GitHubConnect isConnected={true} user={ghUser} onDisconnect={handleGhDisconnect} onCloneUrl={handleCloneUrl} />
