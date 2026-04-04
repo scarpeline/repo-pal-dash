@@ -5,8 +5,9 @@ import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import logoImg from "@/assets/logo-iaprogramador.png";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -64,9 +65,8 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Code2 className="w-8 h-8 text-primary" />
-            <span className="text-2xl font-bold text-foreground">IAProgramador</span>
+          <div className="flex items-center justify-center mb-2">
+            <img src={logoImg} alt="IAProgramador" className="w-24 h-24 object-contain" />
           </div>
           <CardTitle>{isLogin ? "Entrar" : "Criar conta"}</CardTitle>
           <CardDescription>

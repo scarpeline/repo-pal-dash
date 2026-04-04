@@ -1,36 +1,107 @@
-import { Github, LogOut, Link2, Loader2 } from "lucide-react";
+import { Github, LogOut, Link2, Loader2, CheckCircle, Zap, Edit3, ShieldCheck, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { exchangeCodeForToken, setToken, validateToken } from "@/lib/github";
+import { toast } from "sonner";
 
 interface GitHubConnectProps {
   isConnected: boolean;
   user: { login: string; avatar_url: string; name: string } | null;
   onDisconnect: () => void;
   onCloneUrl?: (url: string) => void;
+  onConnected?: (token: string, user: { login: string; avatar_url: string; name: string }) => void;
 }
 
-const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl }: GitHubConnectProps) => {
+const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnected }: GitHubConnectProps) => {
   const [cloneUrl, setCloneUrl] = useState("");
+  const [connecting, setConnecting] = useState(false);
 
   const handleOAuth = () => {
+    setConnecting(true);
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+    if (!clientId) {
+      toast.error("GitHub OAuth não configurado");
+      setConnecting(false);
+      return;
+    }
     const redirectUri = `${window.location.origin}/github/callback`;
     const state = Math.random().toString(36).substring(7);
     localStorage.setItem("gh_oauth_state", state);
-    window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
+
+    const width = 600, height = 700;
+    const left = window.screenX + (window.innerWidth - width) / 2;
+    const top = window.screenY + (window.innerHeight - height) / 2;
+
+    const popup = window.open(
+      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`,
+      "github-oauth",
+      `width=${width},height=${height},left=${left},top=${top},popup=yes`
+    );
+
+    if (!popup) {
+      // Fallback to redirect if popup blocked
+      window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
+      return;
+    }
+
+    const interval = setInterval(() => {
+      try {
+        if (popup.closed) {
+          clearInterval(interval);
+          setConnecting(false);
+          // Check if token was set by the callback page
+          const token = localStorage.getItem("gh_token");
+          const storedUser = localStorage.getItem("gh_user");
+          if (token && storedUser && onConnected) {
+            try {
+              onConnected(token, JSON.parse(storedUser));
+            } catch {}
+          }
+        }
+      } catch {
+        // Cross-origin, keep waiting
+      }
+    }, 500);
   };
 
   if (!isConnected) {
     return (
-      <div className="p-4 space-y-4">
-        <div className="text-center space-y-2">
-          <Github className="w-10 h-10 text-muted-foreground mx-auto" />
-          <p className="text-xs text-muted-foreground">Conecte seu GitHub para editar repositórios</p>
+      <div className="p-5 space-y-5">
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mx-auto">
+            <Github className="w-8 h-8 text-foreground" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground">Conectar ao GitHub</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Acesse repositórios, edite e faça commits direto do IAProgramador.
+          </p>
         </div>
-        <Button onClick={handleOAuth} className="w-full gap-2" size="sm">
-          <Github className="w-4 h-4" /> Conectar GitHub
+
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+            <ShieldCheck className="w-4 h-4 text-[hsl(var(--success))] shrink-0" />
+            <span>Login seguro via OAuth</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+            <Zap className="w-4 h-4 text-[hsl(var(--warning))] shrink-0" />
+            <span>Sem tokens manuais</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+            <Edit3 className="w-4 h-4 text-primary shrink-0" />
+            <span>Edite e faça commit sem sair</span>
+          </div>
+        </div>
+
+        <Button onClick={handleOAuth} className="w-full gap-2" size="default" disabled={connecting}>
+          {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Github className="w-4 h-4" />}
+          Entrar com GitHub →
         </Button>
+
+        <div className="flex items-start gap-2 text-[10px] text-muted-foreground/60 leading-tight">
+          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Você será redirecionado ao GitHub para autorizar o acesso. Certifique-se de permitir pop-ups.</span>
+        </div>
       </div>
     );
   }

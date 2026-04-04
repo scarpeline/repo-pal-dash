@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Shield, Gift, LogOut, Code2,
+  Wallet, Gift, LogOut, Code2,
 } from "lucide-react";
+import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
 import TerminalPanel from "@/components/TerminalPanel";
@@ -28,7 +29,7 @@ type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text
 type ChatMsg = { role: "user" | "ai" | "system"; content: string; timestamp: Date };
 
 const EditorPage = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"files" | "github" | "search">("github");
@@ -285,7 +286,7 @@ const EditorPage = () => {
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
           </button>
           <div className="flex items-center gap-1.5">
-            <Code2 className="w-4 h-4 text-primary" />
+            <img src={logoImg} alt="IAProgramador" className="w-6 h-6 object-contain" />
             <span className="text-xs font-bold text-foreground">IAProgramador</span>
           </div>
         </div>
@@ -306,11 +307,7 @@ const EditorPage = () => {
             <Eye className="w-3.5 h-3.5" /> Preview
           </button>
           <NotificationBell />
-          {isAdmin && (
-            <button onClick={() => navigate("/admin")} className="text-muted-foreground hover:text-foreground" title="Super Admin">
-              <Shield className="w-4 h-4" />
-            </button>
-          )}
+          
           <button onClick={() => navigate("/wallet")} className="text-muted-foreground hover:text-foreground" title="Carteira">
             <Wallet className="w-4 h-4" />
           </button>
@@ -343,7 +340,9 @@ const EditorPage = () => {
             </div>
             <div className="flex-1 overflow-auto">
               {sidebarTab === "github" && (
-                ghView === "connect" ? <GitHubConnect isConnected={false} user={null} onDisconnect={handleGhDisconnect} /> :
+                ghView === "connect" ? <GitHubConnect isConnected={false} user={null} onDisconnect={handleGhDisconnect} onConnected={(token, usr) => {
+                  setGhToken(token); setGhUser(usr); setGhView("repos");
+                }} /> :
                 ghView === "repos" ? (
                   <div className="flex flex-col h-full">
                     <GitHubConnect isConnected={true} user={ghUser} onDisconnect={handleGhDisconnect} onCloneUrl={handleCloneUrl} />
