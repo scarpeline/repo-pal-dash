@@ -20,18 +20,18 @@ export default function CodeEditor({ owner, repo, filePath, branch, onClose }: C
   const [content, setContent] = useState("");
   const [isDirty, setIsDirty] = useState(false);
 
-  const { data: fileContent, isLoading } = useQuery({
+  const { data: fileData, isLoading } = useQuery({
     queryKey: ["file", owner, repo, filePath, branch],
     queryFn: () => getFileContent(token!, owner, repo, filePath, branch),
     enabled: !!token,
   });
 
   useEffect(() => {
-    if (fileContent !== undefined) {
-      setContent(fileContent);
+    if (fileData !== undefined) {
+      setContent(fileData.content);
       setIsDirty(false);
     }
-  }, [fileContent]);
+  }, [fileData]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

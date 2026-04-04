@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import AuthPage from "./AuthPage";
-import Dashboard from "./Dashboard";
+import EditorPage from "./EditorPage";
 
 export default function Index() {
   const { user, isLoading } = useAuth();
@@ -14,5 +14,5 @@ export default function Index() {
   }
 
   if (!user) return <AuthPage />;
-  return <Dashboard />;
+  return <EditorPage />;
 }

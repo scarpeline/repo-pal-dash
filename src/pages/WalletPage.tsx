@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,9 @@ function formatBRL(cents: number) {
   return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-export default function WalletPage({ onBack }: { onBack: () => void }) {
+export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
+  const navigate = useNavigate();
+  const goBack = onBack || (() => navigate("/"));
   const { user, session } = useAuth();
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -96,7 +99,7 @@ export default function WalletPage({ onBack }: { onBack: () => void }) {
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
+          <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
