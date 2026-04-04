@@ -37,7 +37,7 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: fullName } },
+          options: { data: { full_name: fullName, referral_code: referralCode || undefined } },
         });
         if (error) throw error;
         toast.success("Conta criada com sucesso!");
