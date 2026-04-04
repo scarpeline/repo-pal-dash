@@ -73,7 +73,7 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName }: PreviewPanelPro
   const iframeSrc = url || previewSrc;
 
   return (
-    <div className="flex flex-col h-full bg-editor">
+    <div className="flex flex-col h-full bg-editor-bg">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 bg-muted border-b border-border">
         <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors" title="Recarregar">
@@ -131,7 +131,7 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName }: PreviewPanelPro
       {/* Preview content */}
       <div className="flex-1 relative overflow-auto flex justify-center">
         {mode === "source" && fileContent ? (
-          <pre className="w-full p-4 text-xs text-foreground font-mono whitespace-pre-wrap overflow-auto bg-editor">
+          <pre className="w-full p-4 text-xs text-foreground font-mono whitespace-pre-wrap overflow-auto bg-editor-bg">
             {fileContent}
           </pre>
         ) : iframeSrc ? (
