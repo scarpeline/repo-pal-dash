@@ -39,6 +39,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Check for GET action (withdrawals list)
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
+
+    if (action === "withdrawals") {
+      const { data: withdrawals } = await supabase
+        .from("withdrawal_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      return new Response(JSON.stringify({ withdrawals: withdrawals || [] }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { user_ids, title, message } = await req.json();
 
     if (!user_ids || !title || !message) {
