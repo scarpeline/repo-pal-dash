@@ -46,7 +46,7 @@ interface WithdrawalRequest {
 }
 
 const SuperAdmin = () => {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { isAdmin, loading: authLoading, user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
