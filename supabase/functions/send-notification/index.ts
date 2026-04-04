@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SUPER_ADMIN_EMAIL = "admin@codpilot.com";
+const SUPER_ADMIN_EMAIL = "escarpelineparticular@gmail.com";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -35,6 +35,23 @@ Deno.serve(async (req) => {
     if (!user || user.email !== SUPER_ADMIN_EMAIL) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check for GET action (withdrawals list)
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
+
+    if (action === "withdrawals") {
+      const { data: withdrawals } = await supabase
+        .from("withdrawal_requests")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      return new Response(JSON.stringify({ withdrawals: withdrawals || [] }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

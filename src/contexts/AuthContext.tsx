@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-const SUPER_ADMIN_EMAIL = "admin@codpilot.com";
+const SUPER_ADMIN_EMAIL = "escarpelineparticular@gmail.com";
 
 interface AuthContextType {
   user: User | null;

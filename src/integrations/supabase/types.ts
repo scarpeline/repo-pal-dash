@@ -108,6 +108,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          pix_key: string | null
           referral_code: string | null
           referred_by: string | null
           updated_at: string
@@ -118,6 +119,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          pix_key?: string | null
           referral_code?: string | null
           referred_by?: string | null
           updated_at?: string
@@ -128,6 +130,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          pix_key?: string | null
           referral_code?: string | null
           referred_by?: string | null
           updated_at?: string
@@ -180,6 +183,36 @@ export type Database = {
           payment_method?: string | null
           status?: string
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_requests: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          id: string
+          pix_key: string
+          processed_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          id?: string
+          pix_key: string
+          processed_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          pix_key?: string
+          processed_at?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: []

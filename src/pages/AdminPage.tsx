@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Users, Calculator, Bell, Send } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Users, Calculator, Bell, Send, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 const RECHARGE_VALUES = [700, 1000, 1500, 2000, 3000, 5000, 7000];
@@ -25,16 +26,35 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
   const [notifTitle, setNotifTitle] = useState("");
   const [notifMessage, setNotifMessage] = useState("");
   const [sendingNotif, setSendingNotif] = useState(false);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
 
   useEffect(() => {
     loadUsers();
+    loadWithdrawals();
   }, []);
 
   const loadUsers = async () => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, email, full_name, created_at");
+      .select("id, email, full_name, created_at, pix_key, referral_code");
     setUsers(data || []);
+  };
+
+  const loadWithdrawals = async () => {
+    // Admin reads via service role in edge function - for now show from client
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/send-notification?action=withdrawals`,
+        {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        }
+      );
+      const data = await res.json();
+      setWithdrawals(data.withdrawals || []);
+    } catch {
+      // fallback
+    }
   };
 
   const sendNotification = async () => {
@@ -92,18 +112,22 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
         </div>
 
         <Tabs defaultValue="calculator">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="calculator" className="gap-2">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="calculator" className="gap-1 text-xs">
               <Calculator className="h-4 w-4" /> Calculadora
             </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
+            <TabsTrigger value="users" className="gap-1 text-xs">
               <Users className="h-4 w-4" /> Usuários
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
+            <TabsTrigger value="withdrawals" className="gap-1 text-xs">
+              <DollarSign className="h-4 w-4" /> Saques
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-1 text-xs">
               <Bell className="h-4 w-4" /> Notificações
             </TabsTrigger>
           </TabsList>
 
+          {/* Calculator Tab */}
           <TabsContent value="calculator" className="space-y-4">
             <Card>
               <CardHeader>
@@ -131,7 +155,8 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                       <tr>
                         <th className="p-3 text-left text-foreground">Recarga</th>
                         <th className="p-3 text-right text-foreground">Custo API</th>
-                        <th className="p-3 text-right text-foreground">Lucro</th>
+                        <th className="p-3 text-right text-foreground">Comissão 30%</th>
+                        <th className="p-3 text-right text-foreground">Lucro Líq.</th>
                         <th className="p-3 text-right text-foreground">Margem</th>
                       </tr>
                     </thead>
@@ -139,16 +164,21 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                       {RECHARGE_VALUES.map((v) => {
                         const rechargeReal = v / 100;
                         const cost = rechargeReal * costFloat;
-                        const profit = rechargeReal - cost;
-                        const margin = rechargeReal > 0 ? (profit / rechargeReal) * 100 : 0;
+                        const grossProfit = rechargeReal - cost;
+                        const affiliateComm = grossProfit * 0.3;
+                        const netProfit = grossProfit - affiliateComm;
+                        const margin = rechargeReal > 0 ? (netProfit / rechargeReal) * 100 : 0;
                         return (
                           <tr key={v} className="border-t border-border">
                             <td className="p-3 font-medium text-foreground">{formatBRL(v)}</td>
                             <td className="p-3 text-right text-destructive">
                               R$ {cost.toFixed(2).replace(".", ",")}
                             </td>
+                            <td className="p-3 text-right text-yellow-500">
+                              R$ {affiliateComm.toFixed(2).replace(".", ",")}
+                            </td>
                             <td className="p-3 text-right text-green-500 font-semibold">
-                              R$ {profit.toFixed(2).replace(".", ",")}
+                              R$ {netProfit.toFixed(2).replace(".", ",")}
                             </td>
                             <td className="p-3 text-right text-muted-foreground">
                               {margin.toFixed(1)}%
@@ -162,26 +192,33 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
 
                 <Card className="bg-muted/50">
                   <CardContent className="pt-4">
-                    <p className="text-sm text-muted-foreground">
-                      <strong>Resumo:</strong> Se todos os pacotes forem vendidos 1x, você arrecada{" "}
-                      <strong className="text-foreground">
-                        {formatBRL(RECHARGE_VALUES.reduce((a, b) => a + b, 0))}
-                      </strong>{" "}
-                      com custo de{" "}
-                      <strong className="text-destructive">
-                        R$ {(RECHARGE_VALUES.reduce((a, b) => a + b, 0) / 100 * costFloat).toFixed(2).replace(".", ",")}
-                      </strong>{" "}
-                      e lucro de{" "}
-                      <strong className="text-green-500">
-                        R$ {(RECHARGE_VALUES.reduce((a, b) => a + b, 0) / 100 * (1 - costFloat)).toFixed(2).replace(".", ",")}
-                      </strong>
-                    </p>
+                    {(() => {
+                      const totalCents = RECHARGE_VALUES.reduce((a, b) => a + b, 0);
+                      const totalReal = totalCents / 100;
+                      const totalCost = totalReal * costFloat;
+                      const totalGross = totalReal - totalCost;
+                      const totalComm = totalGross * 0.3;
+                      const totalNet = totalGross - totalComm;
+                      return (
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Resumo (1x cada):</strong> Arrecada{" "}
+                          <strong className="text-foreground">{formatBRL(totalCents)}</strong>
+                          {" · "}Custo API{" "}
+                          <strong className="text-destructive">R$ {totalCost.toFixed(2).replace(".", ",")}</strong>
+                          {" · "}Comissão afiliado{" "}
+                          <strong className="text-yellow-500">R$ {totalComm.toFixed(2).replace(".", ",")}</strong>
+                          {" · "}Lucro líquido{" "}
+                          <strong className="text-green-500">R$ {totalNet.toFixed(2).replace(".", ",")}</strong>
+                        </p>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* Users Tab */}
           <TabsContent value="users" className="space-y-4">
             <Card>
               <CardHeader>
@@ -197,10 +234,18 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
                         <div>
                           <p className="text-sm font-medium text-foreground">{u.full_name || "Sem nome"}</p>
                           <p className="text-xs text-muted-foreground">{u.email}</p>
+                          {u.pix_key && (
+                            <p className="text-xs text-muted-foreground">PIX: {u.pix_key}</p>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(u.created_at).toLocaleDateString("pt-BR")}
-                        </p>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(u.created_at).toLocaleDateString("pt-BR")}
+                          </p>
+                          {u.referral_code && (
+                            <Badge variant="outline" className="text-xs">{u.referral_code}</Badge>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -209,6 +254,51 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
             </Card>
           </TabsContent>
 
+          {/* Withdrawals Tab */}
+          <TabsContent value="withdrawals" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Solicitações de Saque</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {withdrawals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma solicitação de saque.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {withdrawals.map((w: any) => {
+                      const userName = users.find(u => u.id === w.user_id)?.full_name || w.user_id;
+                      return (
+                        <div key={w.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                          <div className="flex items-center gap-2">
+                            {w.status === "paid" ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-yellow-500" />
+                            )}
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{userName}</p>
+                              <p className="text-xs text-muted-foreground">PIX: {w.pix_key}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(w.created_at).toLocaleDateString("pt-BR")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-foreground">{formatBRL(w.amount_cents)}</p>
+                            <Badge variant={w.status === "paid" ? "default" : "secondary"}>
+                              {w.status === "paid" ? "Pago" : "Pendente"}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Notifications Tab */}
           <TabsContent value="notifications" className="space-y-4">
             <Card>
               <CardHeader>
