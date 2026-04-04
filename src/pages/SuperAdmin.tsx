@@ -77,7 +77,7 @@ const SuperAdmin = () => {
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
   useEffect(() => {
-    if (!authLoading && isAdmin) fetchAll();
+    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
