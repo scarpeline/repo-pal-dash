@@ -52,6 +52,45 @@ export type Database = {
           },
         ]
       }
+      ai_model_pricing: {
+        Row: {
+          api_cost_input_per_million: number
+          api_cost_output_per_million: number
+          created_at: string
+          id: string
+          is_active: boolean
+          model_id: string
+          model_label: string
+          resale_price_input_per_million: number
+          resale_price_output_per_million: number
+          updated_at: string
+        }
+        Insert: {
+          api_cost_input_per_million?: number
+          api_cost_output_per_million?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          model_id: string
+          model_label: string
+          resale_price_input_per_million?: number
+          resale_price_output_per_million?: number
+          updated_at?: string
+        }
+        Update: {
+          api_cost_input_per_million?: number
+          api_cost_output_per_million?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          model_id?: string
+          model_label?: string
+          resale_price_input_per_million?: number
+          resale_price_output_per_million?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       balances: {
         Row: {
           balance_cents: number
