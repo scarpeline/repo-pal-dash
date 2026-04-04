@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Shield, Gift, LogOut, Code2,
+  Wallet, Gift, LogOut, Code2,
 } from "lucide-react";
+import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
 import TerminalPanel from "@/components/TerminalPanel";
