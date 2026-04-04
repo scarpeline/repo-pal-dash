@@ -226,7 +226,7 @@ const SuperAdmin = () => {
             <p className="text-sm text-muted-foreground">Painel de administração IAProgramador</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}><X className="w-4 h-4" /> Voltar</Button>
+            <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}><X className="w-4 h-4 mr-1" /> Voltar</Button>
             <Button variant="outline" size="sm" onClick={fetchAll}><RefreshCw className="w-4 h-4" /> Atualizar</Button>
           </div>
         </div>
