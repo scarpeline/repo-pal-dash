@@ -306,11 +306,7 @@ const EditorPage = () => {
             <Eye className="w-3.5 h-3.5" /> Preview
           </button>
           <NotificationBell />
-          {isAdmin && (
-            <button onClick={() => navigate("/admin")} className="text-muted-foreground hover:text-foreground" title="Super Admin">
-              <Shield className="w-4 h-4" />
-            </button>
-          )}
+          
           <button onClick={() => navigate("/wallet")} className="text-muted-foreground hover:text-foreground" title="Carteira">
             <Wallet className="w-4 h-4" />
           </button>
