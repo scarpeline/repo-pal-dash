@@ -211,8 +211,11 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
+  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
+  const hasAccess = isAdmin || ADMIN_EMAILS.includes(user?.email || "");
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  if (!isAdmin) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2></CardContent></Card></div>;
+  if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
 
   return (
     <div className="min-h-screen bg-background p-6">
