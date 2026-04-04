@@ -14,7 +14,9 @@ function formatBRL(cents: number) {
   return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-export default function WalletPage({ onBack }: { onBack: () => void }) {
+export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
+  const navigate = useNavigate();
+  const goBack = onBack || (() => navigate("/"));
   const { user, session } = useAuth();
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
