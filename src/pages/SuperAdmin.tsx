@@ -12,16 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
-  Plus, RefreshCw, Download, Mail, Phone, Package, Edit2, Trash2, Save, X
+  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp
 } from "lucide-react";
-
-const TOKEN_PRICES: Record<string, { input: number; output: number }> = {
-  "google/gemini-2.5-flash": { input: 1, output: 4 },
-  "google/gemini-2.5-pro": { input: 13, output: 50 },
-  "openai/gpt-5": { input: 50, output: 150 },
-  "openai/gpt-5-mini": { input: 8, output: 32 },
-  "openai/gpt-5-nano": { input: 1, output: 4 },
-};
 
 interface AdminUser {
   id: string; email: string; full_name: string | null;
@@ -45,18 +37,27 @@ interface WithdrawalRequest {
   pix_key: string; status: string; created_at: string;
 }
 
+interface ModelPricing {
+  id: string; model_id: string; model_label: string;
+  api_cost_input_per_million: number; api_cost_output_per_million: number;
+  resale_price_input_per_million: number; resale_price_output_per_million: number;
+  is_active: boolean;
+}
+
 const SuperAdmin = () => {
   const { isAdmin, loading: authLoading, user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [modelPricing, setModelPricing] = useState<ModelPricing[]>([]);
+  const [editingPricing, setEditingPricing] = useState<Record<string, Partial<ModelPricing>>>({});
   const [loading, setLoading] = useState(true);
   const [creditUserId, setCreditUserId] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
 
   // Calculator
-  const [calcModel, setCalcModel] = useState("google/gemini-2.5-flash");
+  const [calcModel, setCalcModel] = useState("");
   const [calcInputTokens, setCalcInputTokens] = useState("1000");
   const [calcOutputTokens, setCalcOutputTokens] = useState("1000");
 
@@ -82,13 +83,14 @@ const SuperAdmin = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [profilesRes, balancesRes, rolesRes, leadsRes, pkgsRes, withdrawalsRes] = await Promise.all([
+    const [profilesRes, balancesRes, rolesRes, leadsRes, pkgsRes, withdrawalsRes, pricingRes] = await Promise.all([
       supabase.from("profiles").select("id, email, full_name, affiliate_code"),
       supabase.from("balances").select("user_id, balance_cents, total_spent_cents, total_deposited_cents"),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("lead_captures").select("*").order("created_at", { ascending: false }),
       supabase.from("packages").select("*").order("price_brl"),
       supabase.from("withdrawal_requests").select("*").order("created_at", { ascending: false }),
+      supabase.from("ai_model_pricing").select("*").order("model_label"),
     ]);
 
     if (profilesRes.data && balancesRes.data) {
@@ -102,6 +104,10 @@ const SuperAdmin = () => {
     if (leadsRes.data) setLeads(leadsRes.data as any[]);
     if (pkgsRes.data) setPackages(pkgsRes.data as any[]);
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
+    if (pricingRes.data) {
+      setModelPricing(pricingRes.data as any[]);
+      if (!calcModel && (pricingRes.data as any[]).length > 0) setCalcModel((pricingRes.data as any[])[0].model_id);
+    }
     setLoading(false);
   };
 
@@ -141,20 +147,16 @@ const SuperAdmin = () => {
     } catch { toast.error("Erro ao enviar"); }
   };
 
-  // Remarketing download
   const downloadLeads = (filter: string) => {
     let filtered = leads;
     if (filter === "active") filtered = leads.filter(l => l.has_paid);
     else if (filter === "inactive") filtered = leads.filter(l => l.has_paid && l.status === "inactive");
     else if (filter === "never_paid") filtered = leads.filter(l => !l.has_paid);
-
     const csv = "Email,WhatsApp,Status,Pagou,Total Pago,Primeiro Login,Último Login\n" +
       filtered.map(l => `${l.email},${l.whatsapp || ""},${l.status},${l.has_paid ? "Sim" : "Não"},${(l.total_paid_cents / 100).toFixed(2)},${l.first_login_at},${l.last_login_at}`).join("\n");
-
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `leads_${filter}_${Date.now()}.csv`; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `leads_${filter}_${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -171,35 +173,49 @@ const SuperAdmin = () => {
     resetPkgForm(); fetchAll();
   };
 
-  const deletePkg = async (id: string) => {
-    if (!confirm("Excluir pacote?")) return;
-    await supabase.from("packages").delete().eq("id", id);
-    fetchAll();
-  };
+  const deletePkg = async (id: string) => { if (!confirm("Excluir pacote?")) return; await supabase.from("packages").delete().eq("id", id); fetchAll(); };
+  const editPkg = (pkg: AdminPackage) => { setEditingPkg(pkg); setPkgName(pkg.name); setPkgDesc(pkg.description || ""); setPkgCredits(pkg.credits_amount.toString()); setPkgPrice((pkg.price_brl / 100).toString()); setShowPkgForm(true); };
+  const resetPkgForm = () => { setEditingPkg(null); setPkgName(""); setPkgDesc(""); setPkgCredits(""); setPkgPrice(""); setShowPkgForm(false); };
 
-  const editPkg = (pkg: AdminPackage) => {
-    setEditingPkg(pkg); setPkgName(pkg.name); setPkgDesc(pkg.description || "");
-    setPkgCredits(pkg.credits_amount.toString()); setPkgPrice((pkg.price_brl / 100).toString());
-    setShowPkgForm(true);
-  };
-
-  const resetPkgForm = () => {
-    setEditingPkg(null); setPkgName(""); setPkgDesc(""); setPkgCredits(""); setPkgPrice(""); setShowPkgForm(false);
-  };
-
-  // Withdrawal processing
   const processWithdrawal = async (id: string, action: "approved" | "rejected") => {
     await supabase.from("withdrawal_requests").update({ status: action, processed_at: new Date().toISOString() } as any).eq("id", id);
-    toast.success(`Saque ${action === "approved" ? "aprovado" : "rejeitado"}`);
+    toast.success(`Saque ${action === "approved" ? "aprovado" : "rejeitado"}`); fetchAll();
+  };
+
+  // Pricing management
+  const updatePricingField = (id: string, field: string, value: string) => {
+    setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseInt(value) || 0 } }));
+  };
+
+  const savePricing = async (mp: ModelPricing) => {
+    const edits = editingPricing[mp.id];
+    if (!edits) return;
+    const updated = { ...mp, ...edits, updated_at: new Date().toISOString() };
+    await supabase.from("ai_model_pricing").update({
+      api_cost_input_per_million: updated.api_cost_input_per_million,
+      api_cost_output_per_million: updated.api_cost_output_per_million,
+      resale_price_input_per_million: updated.resale_price_input_per_million,
+      resale_price_output_per_million: updated.resale_price_output_per_million,
+      is_active: updated.is_active,
+    } as any).eq("id", mp.id);
+    setEditingPricing(prev => { const n = { ...prev }; delete n[mp.id]; return n; });
+    toast.success(`Preços de ${mp.model_label} atualizados!`);
     fetchAll();
   };
 
-  // Calculator
+  // Calculator using real pricing
   const calcCost = () => {
-    const prices = TOKEN_PRICES[calcModel] || { input: 1, output: 4 };
-    const inputCost = (parseInt(calcInputTokens) / 1000) * prices.input;
-    const outputCost = (parseInt(calcOutputTokens) / 1000) * prices.output;
-    return { inputCost, outputCost, total: inputCost + outputCost };
+    const mp = modelPricing.find(m => m.model_id === calcModel);
+    if (!mp) return { apiInput: 0, apiOutput: 0, resaleInput: 0, resaleOutput: 0, totalApi: 0, totalResale: 0, profit: 0 };
+    const inTk = parseInt(calcInputTokens) || 0;
+    const outTk = parseInt(calcOutputTokens) || 0;
+    const apiInput = (inTk / 1_000_000) * mp.api_cost_input_per_million;
+    const apiOutput = (outTk / 1_000_000) * mp.api_cost_output_per_million;
+    const resaleInput = (inTk / 1_000_000) * mp.resale_price_input_per_million;
+    const resaleOutput = (outTk / 1_000_000) * mp.resale_price_output_per_million;
+    const totalApi = apiInput + apiOutput;
+    const totalResale = resaleInput + resaleOutput;
+    return { apiInput, apiOutput, resaleInput, resaleOutput, totalApi, totalResale, profit: totalResale - totalApi };
   };
 
   const totalRevenue = users.reduce((s, u) => s + u.total_deposited_cents, 0);
@@ -216,6 +232,11 @@ const SuperAdmin = () => {
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
+
+  const getVal = (mp: ModelPricing, field: keyof ModelPricing): string | number => {
+    const v = editingPricing[mp.id]?.[field] !== undefined ? editingPricing[mp.id][field] : mp[field];
+    return typeof v === "boolean" ? (v ? 1 : 0) : (v as string | number);
+  };
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -242,6 +263,7 @@ const SuperAdmin = () => {
         <Tabs defaultValue="users">
           <TabsList className="flex-wrap">
             <TabsTrigger value="users">Usuários</TabsTrigger>
+            <TabsTrigger value="pricing">💰 Preços IA</TabsTrigger>
             <TabsTrigger value="remarketing">Remarketing</TabsTrigger>
             <TabsTrigger value="packages">Pacotes</TabsTrigger>
             <TabsTrigger value="withdrawals">Saques</TabsTrigger>
@@ -281,6 +303,108 @@ const SuperAdmin = () => {
             </Card>
           </TabsContent>
 
+          {/* Pricing */}
+          <TabsContent value="pricing">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
+                  <CardDescription>Configure o custo real da API e o preço de revenda (por milhão de tokens, em centavos R$). A margem é calculada automaticamente.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Modelo</TableHead>
+                          <TableHead className="text-center">Custo API<br/><span className="text-[10px] text-muted-foreground">Input / 1M</span></TableHead>
+                          <TableHead className="text-center">Custo API<br/><span className="text-[10px] text-muted-foreground">Output / 1M</span></TableHead>
+                          <TableHead className="text-center">Preço Revenda<br/><span className="text-[10px] text-muted-foreground">Input / 1M</span></TableHead>
+                          <TableHead className="text-center">Preço Revenda<br/><span className="text-[10px] text-muted-foreground">Output / 1M</span></TableHead>
+                          <TableHead className="text-center">Margem</TableHead>
+                          <TableHead className="text-center">Ativo</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {modelPricing.map(mp => {
+                          const apiIn = Number(getVal(mp, "api_cost_input_per_million"));
+                          const apiOut = Number(getVal(mp, "api_cost_output_per_million"));
+                          const resIn = Number(getVal(mp, "resale_price_input_per_million"));
+                          const resOut = Number(getVal(mp, "resale_price_output_per_million"));
+                          const totalApi = apiIn + apiOut;
+                          const totalResale = resIn + resOut;
+                          const marginPct = totalApi > 0 ? ((totalResale - totalApi) / totalApi * 100).toFixed(0) : "∞";
+                          const hasEdits = !!editingPricing[mp.id];
+
+                          return (
+                            <TableRow key={mp.id}>
+                              <TableCell>
+                                <div className="font-medium text-sm">{mp.model_label}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono">{mp.model_id}</div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Input type="number" className="w-20 h-7 text-xs text-center mx-auto"
+                                  value={getVal(mp, "api_cost_input_per_million")}
+                                  onChange={e => updatePricingField(mp.id, "api_cost_input_per_million", e.target.value)} />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Input type="number" className="w-20 h-7 text-xs text-center mx-auto"
+                                  value={getVal(mp, "api_cost_output_per_million")}
+                                  onChange={e => updatePricingField(mp.id, "api_cost_output_per_million", e.target.value)} />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Input type="number" className="w-20 h-7 text-xs text-center mx-auto bg-primary/5 border-primary/30"
+                                  value={getVal(mp, "resale_price_input_per_million")}
+                                  onChange={e => updatePricingField(mp.id, "resale_price_input_per_million", e.target.value)} />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Input type="number" className="w-20 h-7 text-xs text-center mx-auto bg-primary/5 border-primary/30"
+                                  value={getVal(mp, "resale_price_output_per_million")}
+                                  onChange={e => updatePricingField(mp.id, "resale_price_output_per_million", e.target.value)} />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant={Number(marginPct) > 100 ? "default" : "secondary"} className="text-xs">
+                                  <TrendingUp className="w-3 h-3 mr-1" />{marginPct}%
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <button
+                                  onClick={() => updatePricingField(mp.id, "is_active", mp.is_active ? "0" : "1")}
+                                  className={`w-8 h-4 rounded-full transition-colors ${mp.is_active ? "bg-[hsl(var(--success))]" : "bg-muted"}`}
+                                >
+                                  <div className={`w-3 h-3 bg-background rounded-full transition-transform ${mp.is_active ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </button>
+                              </TableCell>
+                              <TableCell>
+                                {hasEdits && (
+                                  <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => savePricing(mp)}>
+                                    <Save className="w-3 h-3 mr-1" /> Salvar
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Summary card */}
+              <Card className="border-primary/30">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Como funciona:</strong> O custo API é o que você paga para o provedor. O preço de revenda é o que o usuário paga.
+                    Antes de cada chamada, o sistema verifica o saldo do usuário. Se insuficiente, bloqueia e avisa.
+                    Após a resposta, deduz o custo real (baseado em tokens consumidos × preço de revenda) do saldo.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           {/* Remarketing */}
           <TabsContent value="remarketing">
             <Card>
@@ -290,11 +414,7 @@ const SuperAdmin = () => {
                     <CardTitle className="flex items-center gap-2"><Mail className="w-5 h-5" /> Remarketing & Leads</CardTitle>
                     <CardDescription>Captura de emails e WhatsApp para automação</CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => downloadLeads(leadFilter)}>
-                      <Download className="w-4 h-4" /> Baixar CSV
-                    </Button>
-                  </div>
+                  <Button variant="outline" size="sm" onClick={() => downloadLeads(leadFilter)}><Download className="w-4 h-4" /> Baixar CSV</Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -421,22 +541,42 @@ const SuperAdmin = () => {
           {/* Calculator */}
           <TabsContent value="calculator">
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Calculator className="w-5 h-5" /> Calculadora de Tokens</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Calculator className="w-5 h-5" /> Calculadora de Rentabilidade</CardTitle>
+                <CardDescription>Simule custos e receita com base nos preços configurados</CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label>Modelo</Label>
                     <select value={calcModel} onChange={e => setCalcModel(e.target.value)} className="w-full bg-input border border-border rounded-md px-3 py-2 text-sm text-foreground">
-                      {Object.keys(TOKEN_PRICES).map(m => <option key={m} value={m}>{m}</option>)}
+                      {modelPricing.map(m => <option key={m.model_id} value={m.model_id}>{m.model_label}</option>)}
                     </select>
                   </div>
                   <div><Label>Tokens entrada</Label><Input type="number" value={calcInputTokens} onChange={e => setCalcInputTokens(e.target.value)} /></div>
                   <div><Label>Tokens saída</Label><Input type="number" value={calcOutputTokens} onChange={e => setCalcOutputTokens(e.target.value)} /></div>
                 </div>
                 <div className="bg-muted rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custo entrada:</span><span>R$ {(calcCost().inputCost / 100).toFixed(4)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custo saída:</span><span>R$ {(calcCost().outputCost / 100).toFixed(4)}</span></div>
-                  <div className="flex justify-between text-sm font-bold border-t border-border pt-2"><span>Total:</span><span className="text-primary">R$ {(calcCost().total / 100).toFixed(4)}</span></div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">CUSTO API (SEU CUSTO)</p>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Input:</span><span>R$ {(calcCost().apiInput / 100).toFixed(6)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Output:</span><span>R$ {(calcCost().apiOutput / 100).toFixed(6)}</span></div>
+                  <div className="flex justify-between text-sm font-bold border-t border-border pt-2"><span>Total API:</span><span className="text-destructive">R$ {(calcCost().totalApi / 100).toFixed(6)}</span></div>
+                </div>
+                <div className="bg-primary/5 rounded-lg p-4 space-y-2 border border-primary/20">
+                  <p className="text-xs font-semibold text-primary mb-2">PREÇO REVENDA (COBRA DO USUÁRIO)</p>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Input:</span><span>R$ {(calcCost().resaleInput / 100).toFixed(6)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Output:</span><span>R$ {(calcCost().resaleOutput / 100).toFixed(6)}</span></div>
+                  <div className="flex justify-between text-sm font-bold border-t border-primary/20 pt-2"><span>Total Revenda:</span><span className="text-primary">R$ {(calcCost().totalResale / 100).toFixed(6)}</span></div>
+                </div>
+                <div className="bg-[hsl(var(--success))]/10 rounded-lg p-4 border border-[hsl(var(--success))]/30">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[hsl(var(--success))]" /> Lucro por req:</span>
+                    <span className="text-[hsl(var(--success))]">R$ {(calcCost().profit / 100).toFixed(6)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Margem: {calcCost().totalApi > 0 ? ((calcCost().profit / calcCost().totalApi) * 100).toFixed(0) : "∞"}%
+                    {" | "}Para 1.000 reqs = R$ {(calcCost().profit * 1000 / 100).toFixed(2)} de lucro
+                  </p>
                 </div>
               </CardContent>
             </Card>

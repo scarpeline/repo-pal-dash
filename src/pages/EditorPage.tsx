@@ -183,6 +183,8 @@ const EditorPage = () => {
     setIsThinking(true);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { supabase } = await import("@/integrations/supabase/client");
+      const session = (await supabase.auth.getSession()).data.session;
       const messages = chatMessages
         .filter(m => m.role !== "system")
         .map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
@@ -190,7 +192,10 @@ const EditorPage = () => {
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           messages,
           fileContent: activeFile?.content,
@@ -208,46 +213,12 @@ const EditorPage = () => {
         return;
       }
 
-      // Stream SSE response
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No reader");
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let aiContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIdx);
-          buffer = buffer.slice(newlineIdx + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              aiContent += delta;
-              setChatMessages(p => {
-                const last = p[p.length - 1];
-                if (last?.role === "ai") {
-                  return p.map((m, i) => i === p.length - 1 ? { ...m, content: aiContent } : m);
-                }
-                return [...p, { role: "ai", content: aiContent, timestamp: new Date() }];
-              });
-            }
-          } catch {}
-        }
-      }
-
-      if (!aiContent) {
-        setChatMessages(p => [...p, { role: "ai", content: "Sem resposta do modelo.", timestamp: new Date() }]);
-      }
+      const data = await res.json();
+      const aiContent = data.content || "Sem resposta do modelo.";
+      const usageInfo = data.usage
+        ? `\n\n_Tokens: ${data.usage.input_tokens} in / ${data.usage.output_tokens} out | Custo: R$ ${(data.usage.cost_cents / 100).toFixed(4)}_`
+        : "";
+      setChatMessages(p => [...p, { role: "ai", content: aiContent + usageInfo, timestamp: new Date() }]);
     } catch (err: any) {
       setChatMessages(p => [...p, { role: "ai", content: `Erro: ${err.message}`, timestamp: new Date() }]);
     }
