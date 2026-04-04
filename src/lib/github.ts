@@ -23,11 +23,15 @@ export interface GitHubRepo {
   owner: { login: string; avatar_url: string };
 }
 
+export type GHRepo = GitHubRepo;
+
 export interface GitHubBranch {
   name: string;
   commit: { sha: string };
   protected: boolean;
 }
+
+export type GHBranch = GitHubBranch;
 
 export interface GitHubContent {
   name: string;
@@ -79,6 +83,63 @@ async function ghFetch<T>(url: string, token: string, options?: RequestInit): Pr
   return res.json();
 }
 
+// Token management
+export function getToken(): string | null {
+  return localStorage.getItem("gh_token");
+}
+
+export function setToken(token: string) {
+  localStorage.setItem("gh_token", token);
+}
+
+export function clearToken() {
+  localStorage.removeItem("gh_token");
+  localStorage.removeItem("gh_user");
+}
+
+export function getStoredUser(): { login: string; avatar_url: string; name: string } | null {
+  try {
+    const stored = localStorage.getItem("gh_user");
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function validateToken(token: string): Promise<{ valid: boolean; user?: any; error?: string }> {
+  try {
+    const user = await getUser(token);
+    return { valid: true, user: { login: user.login, avatar_url: user.avatar_url, name: user.name || user.login } };
+  } catch (err: any) {
+    return { valid: false, error: err.message };
+  }
+}
+
+export async function exchangeCodeForToken(code: string, state?: string): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const res = await fetch(`https://${projectId}.supabase.co/functions/v1/github-oauth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, state }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    return { error: data.error || "Failed to exchange code" };
+  }
+  return data;
+}
+
+export function parseRepoUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
+}
+
+export async function getRepoByUrl(token: string, owner: string, repo: string): Promise<GHRepo> {
+  return ghFetch(`${GITHUB_API}/repos/${owner}/${repo}`, token);
+}
+
+// API functions
 export async function getUser(token: string): Promise<GitHubUser> {
   return ghFetch(`${GITHUB_API}/user`, token);
 }
@@ -95,19 +156,66 @@ export async function getBranches(token: string, owner: string, repo: string): P
   return ghFetch(`${GITHUB_API}/repos/${owner}/${repo}/branches`, token);
 }
 
+export async function listBranches(token: string, owner: string, repo: string): Promise<GHBranch[]> {
+  return getBranches(token, owner, repo);
+}
+
 export async function getContents(token: string, owner: string, repo: string, path: string, ref?: string): Promise<GitHubContent[]> {
   const q = ref ? `?ref=${ref}` : "";
   const data = await ghFetch<GitHubContent | GitHubContent[]>(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}${q}`, token);
   return Array.isArray(data) ? data : [data];
 }
 
-export async function getFileContent(token: string, owner: string, repo: string, path: string, ref?: string): Promise<string> {
+export interface FileNode {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+  children?: FileNode[];
+}
+
+export async function getRepoTree(token: string, owner: string, repo: string, branch: string): Promise<FileNode[]> {
+  const res = await ghFetch<{ tree: { path: string; type: string }[] }>(
+    `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, token
+  );
+  
+  const root: FileNode[] = [];
+  const dirs: Record<string, FileNode> = {};
+
+  for (const item of res.tree) {
+    const parts = item.path.split("/");
+    const name = parts[parts.length - 1];
+    const type = item.type === "tree" ? "dir" : "file";
+    const node: FileNode = { name, path: item.path, type, ...(type === "dir" ? { children: [] } : {}) };
+
+    if (type === "dir") dirs[item.path] = node;
+
+    if (parts.length === 1) {
+      root.push(node);
+    } else {
+      const parentPath = parts.slice(0, -1).join("/");
+      dirs[parentPath]?.children?.push(node);
+    }
+  }
+
+  // Sort: dirs first, then files
+  const sortNodes = (nodes: FileNode[]): FileNode[] => {
+    return nodes.sort((a, b) => {
+      if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    }).map(n => n.children ? { ...n, children: sortNodes(n.children) } : n);
+  };
+
+  return sortNodes(root);
+}
+
+export async function getFileContent(token: string, owner: string, repo: string, path: string, ref?: string): Promise<{ content: string; sha: string }> {
   const q = ref ? `?ref=${ref}` : "";
   const data = await ghFetch<GitHubContent>(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}${q}`, token);
+  let content = "";
   if (data.content && data.encoding === "base64") {
-    return atob(data.content.replace(/\n/g, ""));
+    content = atob(data.content.replace(/\n/g, ""));
   }
-  return "";
+  return { content, sha: data.sha };
 }
 
 export async function getFileSha(token: string, owner: string, repo: string, path: string, ref?: string): Promise<string> {
@@ -119,13 +227,14 @@ export async function getFileSha(token: string, owner: string, repo: string, pat
 export async function updateFile(
   token: string, owner: string, repo: string, path: string,
   content: string, message: string, sha: string, branch?: string
-): Promise<void> {
-  const body: Record<string, string> = { message, content: btoa(content), sha };
+): Promise<{ sha: string; commitUrl: string }> {
+  const body: Record<string, string> = { message, content: btoa(unescape(encodeURIComponent(content))), sha };
   if (branch) body.branch = branch;
-  await ghFetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, token, {
+  const res = await ghFetch<any>(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, token, {
     method: "PUT",
     body: JSON.stringify(body),
   });
+  return { sha: res.content?.sha || sha, commitUrl: res.commit?.html_url || "" };
 }
 
 export async function createFile(
