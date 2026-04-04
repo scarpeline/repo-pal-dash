@@ -5,7 +5,7 @@ import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileCode, Loader2 } from "lucide-react";
+import { Code2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const Auth = () => {
@@ -65,12 +65,12 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <FileCode className="w-8 h-8 text-primary" />
-            <span className="text-2xl font-bold text-foreground">CodPilot</span>
+            <Code2 className="w-8 h-8 text-primary" />
+            <span className="text-2xl font-bold text-foreground">IAProgramador</span>
           </div>
           <CardTitle>{isLogin ? "Entrar" : "Criar conta"}</CardTitle>
           <CardDescription>
-            {isLogin ? "Acesse sua conta CodPilot" : "Crie sua conta e comece a programar"}
+            {isLogin ? "Acesse sua conta IAProgramador" : "Crie sua conta e comece a programar com IA"}
           </CardDescription>
           {refCode && !isLogin && (
             <p className="text-xs text-primary mt-1">🎁 Indicado por: {refCode}</p>

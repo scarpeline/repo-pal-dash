@@ -1,16 +1,27 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Settings2 } from "lucide-react";
+
+const AI_MODELS = [
+  { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", desc: "Rápido e eficiente" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "Equilibrado" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", desc: "Mais preciso" },
+  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", desc: "OpenAI rápido" },
+  { id: "openai/gpt-5", label: "GPT-5", desc: "OpenAI avançado" },
+  { id: "openai/gpt-5-nano", label: "GPT-5 Nano", desc: "Mais econômico" },
+];
 
 type ChatMsg = { role: "user" | "ai" | "system"; content: string; timestamp: Date };
 
 interface AIChatProps {
   messages: ChatMsg[];
-  onSend: (message: string, provider?: string) => void;
+  onSend: (message: string, model?: string) => void;
   isThinking: boolean;
 }
 
 const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
   const [input, setInput] = useState("");
+  const [selectedModel, setSelectedModel] = useState(AI_MODELS[0].id);
+  const [showModelSelect, setShowModelSelect] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -20,9 +31,11 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isThinking) return;
-    onSend(input.trim());
+    onSend(input.trim(), selectedModel);
     setInput("");
   };
+
+  const currentModel = AI_MODELS.find(m => m.id === selectedModel) || AI_MODELS[0];
 
   return (
     <div className="flex flex-col h-full bg-[hsl(var(--editor-bg))]">
@@ -48,7 +61,33 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Model selector */}
+      {showModelSelect && (
+        <div className="border-t border-border bg-card p-2 space-y-1">
+          {AI_MODELS.map(m => (
+            <button
+              key={m.id}
+              onClick={() => { setSelectedModel(m.id); setShowModelSelect(false); }}
+              className={`w-full text-left px-2 py-1.5 rounded text-xs flex justify-between items-center hover:bg-muted ${selectedModel === m.id ? "bg-primary/10 text-primary" : "text-foreground"}`}
+            >
+              <span className="font-medium">{m.label}</span>
+              <span className="text-muted-foreground text-[10px]">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="border-t border-border flex items-center px-3 py-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setShowModelSelect(!showModelSelect)}
+          className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1"
+          title={`Modelo: ${currentModel.label}`}
+        >
+          <Settings2 className="w-3.5 h-3.5" />
+          <span className="text-[10px] hidden sm:inline">{currentModel.label}</span>
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
