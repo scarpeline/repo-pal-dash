@@ -223,7 +223,7 @@ const SuperAdmin = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"><Shield className="w-6 h-6 text-primary" /> Super Admin</h1>
-            <p className="text-sm text-muted-foreground">Painel de administração CodPilot</p>
+            <p className="text-sm text-muted-foreground">Painel de administração IAProgramador</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}><X className="w-4 h-4" /> Voltar</Button>
