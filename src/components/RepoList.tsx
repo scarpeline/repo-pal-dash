@@ -10,7 +10,7 @@ interface RepoListProps {
 }
 
 export default function RepoList({ onSelectRepo }: RepoListProps) {
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
   const [search, setSearch] = useState("");
 
   const { data: repos, isLoading } = useQuery({

@@ -36,7 +36,7 @@ function TreeNode({
   depth: number; onSelectFile: (path: string) => void; selectedFile?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
 
   const { data: children } = useQuery({
     queryKey: ["contents", owner, repo, item.path, branch],
@@ -95,7 +95,7 @@ function TreeNode({
 }
 
 export default function FileTree({ owner, repo, branch, onSelectFile, selectedFile }: FileTreeProps) {
-  const { token } = useAuth();
+  const { ghToken: token } = useAuth();
 
   const { data: contents, isLoading } = useQuery({
     queryKey: ["contents", owner, repo, "", branch],
