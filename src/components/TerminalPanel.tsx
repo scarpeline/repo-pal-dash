@@ -1,54 +1,98 @@
 import { useState, useRef, useEffect } from "react";
+import { TerminalSquare } from "lucide-react";
 
-type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text: string; timestamp: Date };
+interface TerminalMessage {
+  type: "input" | "output" | "error" | "system" | "success";
+  text: string;
+  timestamp: Date;
+}
 
 interface TerminalPanelProps {
-  messages: TermMsg[];
+  messages: TerminalMessage[];
   onCommand: (cmd: string) => void;
 }
 
 const TerminalPanel = ({ messages, onCommand }: TerminalPanelProps) => {
   const [input, setInput] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!input.trim()) return;
+    setHistory((prev) => [input, ...prev]);
+    setHistoryIndex(-1);
     onCommand(input.trim());
     setInput("");
   };
 
-  const colorMap: Record<string, string> = {
-    input: "text-foreground",
-    output: "text-muted-foreground",
-    error: "text-destructive",
-    system: "text-[hsl(var(--info))]",
-    success: "text-[hsl(var(--success))]",
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (historyIndex < history.length - 1) {
+        const newIdx = historyIndex + 1;
+        setHistoryIndex(newIdx);
+        setInput(history[newIdx]);
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIdx = historyIndex - 1;
+        setHistoryIndex(newIdx);
+        setInput(history[newIdx]);
+      } else {
+        setHistoryIndex(-1);
+        setInput("");
+      }
+    }
+  };
+
+  const getColor = (type: TerminalMessage["type"]) => {
+    switch (type) {
+      case "input": return "text-secondary";
+      case "output": return "text-foreground";
+      case "error": return "text-destructive";
+      case "system": return "text-muted-foreground";
+      case "success": return "text-terminal-green";
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(var(--editor-bg))]">
-      <div className="flex-1 overflow-auto p-3 space-y-0.5 font-mono text-xs">
-        {messages.map((m, i) => (
-          <div key={i} className={colorMap[m.type] || "text-foreground"}>
-            {m.type === "input" ? `$ ${m.text}` : m.text}
+    <div className="flex flex-col h-full bg-terminal font-mono text-xs">
+      {/* Terminal output */}
+      <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-0.5">
+        {messages.map((msg, i) => (
+          <div key={i} className={`${getColor(msg.type)} animate-slide-in`}>
+            {msg.type === "input" ? (
+              <span><span className="text-terminal-green">❯</span> {msg.text}</span>
+            ) : (
+              <span>{msg.text}</span>
+            )}
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
-      <form onSubmit={handleSubmit} className="border-t border-border flex items-center px-3 py-2">
-        <span className="text-[hsl(var(--success))] text-xs font-mono mr-2">$</span>
+
+      {/* Input line */}
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
+        <span className="text-terminal-green">❯</span>
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          className="flex-1 bg-transparent text-foreground text-xs font-mono outline-none"
+          onKeyDown={handleKeyDown}
           placeholder="Digite um comando..."
+          className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
         />
-      </form>
+      </div>
     </div>
   );
 };
