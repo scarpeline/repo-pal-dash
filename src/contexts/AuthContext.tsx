@@ -2,7 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-const SUPER_ADMIN_EMAIL = "escarpelineparticular@gmail.com";
+const SUPER_ADMIN_EMAILS = [
+  "escarpelineparticular@gmail.com",
+  "empresasescarpeline@gmail.com",
+];
 
 interface AuthContextType {
   user: User | null;
@@ -45,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("gh_user");
   }, []);
 
-  const isAdmin = user?.email === SUPER_ADMIN_EMAIL;
+  const isAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || "");
 
   return (
     <AuthContext.Provider value={{ user, session, isLoading, isAdmin, ghToken, setGhToken, logout }}>
@@ -60,4 +63,4 @@ export function useAuth() {
   return ctx;
 }
 
-export const SUPER_ADMIN_EMAIL_CONST = SUPER_ADMIN_EMAIL;
+export const SUPER_ADMIN_EMAILS_CONST = SUPER_ADMIN_EMAILS;

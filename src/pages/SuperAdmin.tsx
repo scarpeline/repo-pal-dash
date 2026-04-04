@@ -46,7 +46,7 @@ interface WithdrawalRequest {
 }
 
 const SuperAdmin = () => {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { isAdmin, loading: authLoading, user } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
@@ -77,7 +77,7 @@ const SuperAdmin = () => {
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
   useEffect(() => {
-    if (!authLoading && isAdmin) fetchAll();
+    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -211,8 +211,11 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
+  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
+  const hasAccess = isAdmin || ADMIN_EMAILS.includes(user?.email || "");
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  if (!isAdmin) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2></CardContent></Card></div>;
+  if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -220,7 +223,7 @@ const SuperAdmin = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"><Shield className="w-6 h-6 text-primary" /> Super Admin</h1>
-            <p className="text-sm text-muted-foreground">Painel de administração CodPilot</p>
+            <p className="text-sm text-muted-foreground">Painel de administração IAProgramador</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}><X className="w-4 h-4" /> Voltar</Button>

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Shield, Gift, LogOut,
+  Wallet, Shield, Gift, LogOut, Code2,
 } from "lucide-react";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
@@ -50,10 +50,10 @@ const EditorPage = () => {
   const [loadingFile, setLoadingFile] = useState(false);
 
   const [termMessages, setTermMessages] = useState<TermMsg[]>([
-    { type: "system", text: "CodPilot Terminal v2.0 — Conecte seu GitHub para começar.", timestamp: new Date() },
+    { type: "system", text: "IAProgramador Terminal v2.0 — Conecte seu GitHub para começar.", timestamp: new Date() },
   ]);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "system", content: "Bem-vindo ao CodPilot! Conecte seu GitHub pelo painel lateral.", timestamp: new Date() },
+    { role: "system", content: "Bem-vindo ao IAProgramador! Conecte seu GitHub pelo painel lateral.", timestamp: new Date() },
   ]);
   const [isThinking, setIsThinking] = useState(false);
   const [searchParams] = useSearchParams();
@@ -170,29 +170,88 @@ const EditorPage = () => {
       if (cmd === "clear") setTermMessages([{ type: "system", text: "Terminal limpo.", timestamp: new Date() }]);
       else if (cmd === "help") setTermMessages(p => [...p, { type: "output", text: "Comandos: help, clear, status, whoami", timestamp: new Date() }]);
       else if (cmd === "whoami") setTermMessages(p => [...p, { type: "output", text: ghUser ? `@${ghUser.login}` : "Não conectado", timestamp: new Date() }]);
+      else if (cmd === "status") setTermMessages(p => [...p, { type: "output", text: selectedRepo ? `Repo: ${selectedRepo.full_name} | Branch: ${branch}` : "Nenhum repo selecionado", timestamp: new Date() }]);
       else setTermMessages(p => [...p, { type: "output", text: `Comando não reconhecido. Digite "help"`, timestamp: new Date() }]);
     }, 200);
-  }, [ghUser]);
+  }, [ghUser, selectedRepo, branch]);
 
   const activeFile = openTabs.find(t => t.path === activeTab);
 
-  const handleChatSend = useCallback(async (message: string) => {
+  const handleChatSend = useCallback(async (message: string, model?: string) => {
     setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
     setIsThinking(true);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const messages = chatMessages
+        .filter(m => m.role !== "system")
+        .map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
+      messages.push({ role: "user", content: message });
+
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, fileContent: activeFile?.content, fileName: activeFile?.name, repoName: selectedRepo?.full_name, branch }),
+        body: JSON.stringify({
+          messages,
+          fileContent: activeFile?.content,
+          fileName: activeFile?.name,
+          repoName: selectedRepo?.full_name,
+          branch,
+          model: model || "google/gemini-3-flash-preview",
+        }),
       });
-      const data = await res.json();
-      setChatMessages(p => [...p, { role: "ai", content: data.reply || data.error || "Erro", timestamp: new Date() }]);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setChatMessages(p => [...p, { role: "ai", content: errData.error || `Erro: ${res.status}`, timestamp: new Date() }]);
+        setIsThinking(false);
+        return;
+      }
+
+      // Stream SSE response
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No reader");
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let aiContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIdx: number;
+        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              aiContent += delta;
+              setChatMessages(p => {
+                const last = p[p.length - 1];
+                if (last?.role === "ai") {
+                  return p.map((m, i) => i === p.length - 1 ? { ...m, content: aiContent } : m);
+                }
+                return [...p, { role: "ai", content: aiContent, timestamp: new Date() }];
+              });
+            }
+          } catch {}
+        }
+      }
+
+      if (!aiContent) {
+        setChatMessages(p => [...p, { role: "ai", content: "Sem resposta do modelo.", timestamp: new Date() }]);
+      }
     } catch (err: any) {
       setChatMessages(p => [...p, { role: "ai", content: `Erro: ${err.message}`, timestamp: new Date() }]);
     }
     setIsThinking(false);
-  }, [selectedRepo, branch, activeFile]);
+  }, [selectedRepo, branch, activeFile, chatMessages]);
 
   const renderFileTree = (nodes: FileNode[]) => (
     <div className="text-xs">
@@ -226,8 +285,8 @@ const EditorPage = () => {
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
           </button>
           <div className="flex items-center gap-1.5">
-            <FileCode className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold text-foreground">CodPilot</span>
+            <Code2 className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold text-foreground">IAProgramador</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -347,7 +406,7 @@ const EditorPage = () => {
                       {selectedRepo ? (
                         <><FolderGit2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" /><p className="text-sm text-muted-foreground">Selecione um arquivo</p></>
                       ) : (
-                        <><Github className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" /><p className="text-sm text-muted-foreground">Conecte seu GitHub</p></>
+                        <><Code2 className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" /><p className="text-sm font-semibold text-muted-foreground">IAProgramador</p><p className="text-xs text-muted-foreground/60 mt-1">Conecte seu GitHub para começar</p></>
                       )}
                     </div>
                   </div>

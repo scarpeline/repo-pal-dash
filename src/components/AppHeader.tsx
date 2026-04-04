@@ -17,7 +17,7 @@ export default function AppHeader({ repoName, onBack, onWallet, onAdmin }: AppHe
     <header className="h-12 border-b border-border bg-card flex items-center px-4 gap-3 shrink-0">
       <button onClick={onBack} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
         <Code2 className="h-5 w-5 text-primary" />
-        <span className="font-semibold text-sm text-foreground">CodPilot</span>
+        <span className="font-semibold text-sm text-foreground">IAProgramador</span>
       </button>
 
       {repoName && (
