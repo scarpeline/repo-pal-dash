@@ -286,7 +286,7 @@ const EditorPage = () => {
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
           </button>
           <div className="flex items-center gap-1.5">
-            <Code2 className="w-4 h-4 text-primary" />
+            <img src={logoImg} alt="IAProgramador" className="w-6 h-6 object-contain" />
             <span className="text-xs font-bold text-foreground">IAProgramador</span>
           </div>
         </div>
