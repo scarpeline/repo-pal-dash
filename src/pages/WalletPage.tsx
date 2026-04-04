@@ -5,13 +5,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
-const RECHARGE_VALUES = [700, 1000, 1500, 2000, 3000, 5000, 7000];
 
 function formatBRL(cents: number) {
   return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
+interface PackageItem {
+  id: string; name: string; description: string | null;
+  credits_amount: number; price_brl: number;
 }
 
 export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
@@ -20,17 +23,23 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const { user, session } = useAuth();
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [packages, setPackages] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pixData, setPixData] = useState<{ qr: string; copy: string } | null>(null);
 
   useEffect(() => {
     loadData();
+    loadPackages();
   }, []);
+
+  const loadPackages = async () => {
+    const { data } = await supabase.from("packages").select("*").eq("is_active", true).order("price_brl");
+    if (data) setPackages(data as any[]);
+  };
 
   const loadData = async () => {
     if (!session) return;
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
     const [balRes, txRes] = await Promise.all([
       fetch(`https://${projectId}.supabase.co/functions/v1/asaas-payment?action=balance`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -39,7 +48,6 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         headers: { Authorization: `Bearer ${session.access_token}` },
       }),
     ]);
-
     const balData = await balRes.json();
     const txData = await txRes.json();
     setBalance(balData.balance);
@@ -90,8 +98,8 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   };
 
   const statusIcon = (status: string) => {
-    if (status === "confirmed") return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (status === "pending") return <Clock className="h-4 w-4 text-yellow-500" />;
+    if (status === "confirmed") return <CheckCircle className="h-4 w-4 text-[hsl(var(--success))]" />;
+    if (status === "pending") return <Clock className="h-4 w-4 text-[hsl(var(--warning))]" />;
     return <XCircle className="h-4 w-4 text-destructive" />;
   };
 
@@ -108,9 +116,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Saldo</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Saldo</CardTitle></CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-primary">
               {balance ? formatBRL(balance.balance_cents) : "R$ 0,00"}
@@ -118,20 +124,38 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </CardContent>
         </Card>
 
+        {/* Packages from Admin */}
+        {packages.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5" /> Pacotes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {packages.map(pkg => (
+                  <button
+                    key={pkg.id}
+                    disabled={loading}
+                    onClick={() => handleRecharge(pkg.price_brl)}
+                    className="border border-border rounded-lg p-3 hover:border-primary hover:bg-primary/5 transition-colors text-left disabled:opacity-50"
+                  >
+                    <p className="text-sm font-bold text-foreground">{pkg.name}</p>
+                    {pkg.description && <p className="text-xs text-muted-foreground mt-0.5">{pkg.description}</p>}
+                    <p className="text-lg font-bold text-primary mt-1">{formatBRL(pkg.price_brl)}</p>
+                    <p className="text-xs text-muted-foreground">{pkg.credits_amount.toLocaleString()} créditos</p>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recarregar via PIX</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Recarga rápida via PIX</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {RECHARGE_VALUES.map((v) => (
-                <Button
-                  key={v}
-                  variant="outline"
-                  disabled={loading}
-                  onClick={() => handleRecharge(v)}
-                  className="text-sm font-semibold"
-                >
+              {[700, 1000, 1500, 2000, 3000, 5000, 7000].map(v => (
+                <Button key={v} variant="outline" disabled={loading} onClick={() => handleRecharge(v)} className="text-sm font-semibold">
                   {formatBRL(v)}
                 </Button>
               ))}
@@ -139,50 +163,37 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
 
             {pixData && (
               <div className="space-y-3 pt-4 border-t border-border">
-                <div className="flex justify-center">
-                  <QrCode className="h-6 w-6 text-muted-foreground" />
-                </div>
+                <div className="flex justify-center"><QrCode className="h-6 w-6 text-muted-foreground" /></div>
                 {pixData.qr && (
                   <div className="flex justify-center">
-                    <img
-                      src={`data:image/png;base64,${pixData.qr}`}
-                      alt="QR Code PIX"
-                      className="w-48 h-48 rounded-lg border border-border"
-                    />
+                    <img src={`data:image/png;base64,${pixData.qr}`} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
                   </div>
                 )}
-                <Button variant="secondary" className="w-full" onClick={copyPix}>
-                  Copiar código PIX
-                </Button>
+                <Button variant="secondary" className="w-full" onClick={copyPix}>Copiar código PIX</Button>
               </div>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Histórico</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Histórico</CardTitle></CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma transação ainda.</p>
             ) : (
               <div className="space-y-3">
-                {transactions.map((tx) => (
+                {transactions.map(tx => (
                   <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div className="flex items-center gap-2">
                       {statusIcon(tx.status)}
                       <div>
                         <p className="text-sm font-medium text-foreground">{tx.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(tx.created_at).toLocaleDateString("pt-BR")}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleDateString("pt-BR")}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${tx.type === "deposit" || tx.type === "commission" ? "text-green-500" : "text-destructive"}`}>
-                        {tx.type === "deposit" || tx.type === "commission" ? "+" : "-"}
-                        {formatBRL(tx.amount_cents)}
+                      <p className={`text-sm font-semibold ${tx.type === "deposit" || tx.type === "commission" ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
+                        {tx.type === "deposit" || tx.type === "commission" ? "+" : "-"}{formatBRL(tx.amount_cents)}
                       </p>
                       <Badge variant="outline" className="text-xs">{tx.status}</Badge>
                     </div>
