@@ -29,7 +29,7 @@ type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text
 type ChatMsg = { role: "user" | "ai" | "system"; content: string; timestamp: Date };
 
 const EditorPage = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"files" | "github" | "search">("github");
