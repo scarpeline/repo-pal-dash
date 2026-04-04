@@ -351,6 +351,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_ai_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          expires_at: string
+          id: string
+          key_hint: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          key_hint?: string
+          provider: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          key_hint?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
