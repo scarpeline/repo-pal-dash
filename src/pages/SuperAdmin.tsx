@@ -233,8 +233,9 @@ const SuperAdmin = () => {
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
 
-  const getVal = (mp: ModelPricing, field: keyof ModelPricing) => {
-    return editingPricing[mp.id]?.[field] !== undefined ? editingPricing[mp.id][field] : mp[field];
+  const getVal = (mp: ModelPricing, field: keyof ModelPricing): string | number => {
+    const v = editingPricing[mp.id]?.[field] !== undefined ? editingPricing[mp.id][field] : mp[field];
+    return typeof v === "boolean" ? (v ? 1 : 0) : (v as string | number);
   };
 
   return (
