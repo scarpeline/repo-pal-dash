@@ -17,33 +17,38 @@ const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnecte
   const [cloneUrl, setCloneUrl] = useState("");
   const [connecting, setConnecting] = useState(false);
 
-  const handleOAuth = () => {
+  const handleOAuth = async () => {
     setConnecting(true);
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
-    if (!clientId) {
-      toast.error("GitHub OAuth não configurado");
-      setConnecting(false);
-      return;
-    }
-    const redirectUri = `${window.location.origin}/github/callback`;
-    const state = Math.random().toString(36).substring(7);
-    localStorage.setItem("gh_oauth_state", state);
+    try {
+      const redirectUri = `${window.location.origin}/github/callback`;
+      const state = Math.random().toString(36).substring(7);
+      localStorage.setItem("gh_oauth_state", state);
 
-    const width = 600, height = 700;
-    const left = window.screenX + (window.innerWidth - width) / 2;
-    const top = window.screenY + (window.innerHeight - height) / 2;
+      // Fetch client ID from edge function
+      const { data: { publicUrl } } = supabase.storage.from('').getPublicUrl('');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/github-oauth?action=get_client_id`);
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Falha ao obter configuração OAuth");
+      }
+      const { client_id: clientId } = await res.json();
+      if (!clientId) throw new Error("GitHub OAuth não configurado no servidor");
 
-    const popup = window.open(
-      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`,
-      "github-oauth",
-      `width=${width},height=${height},left=${left},top=${top},popup=yes`
-    );
+      const width = 600, height = 700;
+      const left = window.screenX + (window.innerWidth - width) / 2;
+      const top = window.screenY + (window.innerHeight - height) / 2;
 
-    if (!popup) {
-      // Fallback to redirect if popup blocked
-      window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
-      return;
-    }
+      const popup = window.open(
+        `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`,
+        "github-oauth",
+        `width=${width},height=${height},left=${left},top=${top},popup=yes`
+      );
+
+      if (!popup) {
+        window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
+        return;
+      }
 
     const interval = setInterval(() => {
       try {

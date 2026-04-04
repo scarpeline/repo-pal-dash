@@ -10,6 +10,21 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
 
+  // GET /github-oauth?action=get_client_id → return client ID
+  if (req.method === "GET" && url.searchParams.get("action") === "get_client_id") {
+    const clientId = Deno.env.get("GITHUB_CLIENT_ID");
+    if (!clientId) {
+      return new Response(JSON.stringify({ error: "OAuth not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ client_id: clientId }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   // GET /github-oauth?action=login → redirect to GitHub
   if (req.method === "GET" && url.searchParams.get("action") === "login") {
     const clientId = Deno.env.get("GITHUB_CLIENT_ID");
