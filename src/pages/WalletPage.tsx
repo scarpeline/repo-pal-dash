@@ -55,7 +55,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     setTransactions(txData.transactions || []);
   };
 
-  const handleRecharge = async (amountCents: number) => {
+  const handleRecharge = async (amountCents: number, packageId?: string) => {
     if (!session || !user) return;
     setLoading(true);
     setPixData(null);
@@ -73,6 +73,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             amount_cents: amountCents,
             customer_email: user.email,
             customer_name: user.user_metadata?.full_name || user.email,
+            package_id: packageId
           }),
         }
       );
@@ -149,7 +150,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                   <button
                     key={pkg.id}
                     disabled={loading}
-                    onClick={() => handleRecharge(pkg.price_brl)}
+                    onClick={() => handleRecharge(pkg.price_brl, pkg.id)}
                     className="border border-border rounded-lg p-3 hover:border-primary hover:bg-primary/5 transition-colors text-left disabled:opacity-50"
                   >
                     <p className="text-sm font-bold text-foreground">{pkg.name}</p>

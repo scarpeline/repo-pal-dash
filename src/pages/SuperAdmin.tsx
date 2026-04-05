@@ -378,6 +378,28 @@ const SuperAdmin = () => {
     };
   };
 
+  const syncAsaasProducts = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("asaas-payment", {
+        body: { action: "sync-products" },
+      });
+      if (error) throw error;
+      
+      const results = data.sync_results || [];
+      const created = results.filter((r: any) => r.status === "created").length;
+      const errors = results.filter((r: any) => r.status === "error").length;
+      
+      if (errors > 0) {
+        toast.warning(`${created} pacotes sincronizados, ${errors} falharam.`);
+      } else {
+        toast.success(`${created || results.length} pacotes sincronizados com sucesso!`);
+      }
+      fetchPackages();
+    } catch (err: any) {
+      toast.error("Erro na sincronização: " + err.message);
+    }
+  };
+
   // Auto-fill package values when calculator changes
   const applyCalculatedValues = () => {
     const calc = calculatePackageValues();
@@ -784,14 +806,19 @@ const SuperAdmin = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>{editingPkg ? "Editar Pacote" : "Gerenciar Pacotes"}</CardTitle>
-                    {!showPkgForm && (
-                      <div className="flex gap-2">
-                        {packages.length === 0 && (
-                          <Button size="sm" variant="outline" onClick={createDefaultPackages}><RefreshCw className="w-4 h-4 mr-2" /> Gerar Pacotes Padrão</Button>
-                        )}
-                        <Button size="sm" onClick={() => setShowPkgForm(true)}><Plus className="w-4 h-4 mr-1" /> Novo</Button>
-                      </div>
-                    )}
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={syncAsaasProducts} className="gap-2">
+                        <RefreshCw className="w-4 h-4" /> Sincronizar Asaas
+                      </Button>
+                      {!showPkgForm && (
+                        <>
+                          {packages.length === 0 && (
+                            <Button size="sm" variant="outline" onClick={createDefaultPackages}><RefreshCw className="w-4 h-4 mr-2" /> Gerar Pacotes Padrão</Button>
+                          )}
+                          <Button size="sm" onClick={() => setShowPkgForm(true)}><Plus className="w-4 h-4 mr-1" /> Novo</Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 {showPkgForm && (

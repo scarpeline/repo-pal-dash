@@ -19,10 +19,12 @@ function getAsaasConfig() {
 }
 
 function getSupabase() {
-  return createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) {
+    throw new Error("Missing Supabase URL or Service Role Key");
+  }
+  return createClient(url, key);
 }
 
 async function asaasFetch(
@@ -218,26 +220,63 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Get Asaas tokenization config ──
-    if (action === "tokenize-config") {
-      return new Response(
-        JSON.stringify({
-          sandbox: isSandbox,
-          asaas_js_url: isSandbox
-            ? "https://sandbox.asaas.com/checkout/asaas.js"
-            : "https://www.asaas.com/checkout/asaas.js",
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // ── Sync packages to Asaas Products ──
+    if (action === "sync-products") {
+      const { data: pkgs, error: pkgErr } = await supabase
+        .from("packages")
+        .select("*")
+        .eq("is_active", true);
+
+      if (pkgErr) throw pkgErr;
+
+      const results = [];
+      for (const pkg of pkgs || []) {
+        if (!pkg.asaas_product_id) {
+          const productRes = await asaasFetch(baseUrl, "/products", apiKey, {
+            method: "POST",
+            body: JSON.stringify({
+              name: pkg.name,
+              value: pkg.price_brl / 100, // Preço em Reais
+              billingType: "PIX",
+              description: pkg.description || `Pacote ${pkg.name}`,
+            }),
+          });
+
+          if (productRes.id) {
+            await supabase
+              .from("packages")
+              .update({ asaas_product_id: productRes.id })
+              .eq("id", pkg.id);
+            results.push({ name: pkg.name, status: "created", id: productRes.id });
+          } else {
+            results.push({ name: pkg.name, status: "error", error: productRes.error });
+          }
+        } else {
+          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_product_id });
         }
-      );
+      }
+
+      return new Response(JSON.stringify({ sync_results: results }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ── Create PIX payment ──
     if (action === "create-pix") {
-      const { amount_cents, customer_name, customer_cpf, customer_email } =
+      const { amount_cents, customer_name, customer_cpf, customer_email, package_id } =
         await req.json();
+
+      // Check if we have a specific package product ID
+      let asaasProductId = null;
+      if (package_id) {
+        const { data: pkg } = await supabase
+          .from("packages")
+          .select("asaas_product_id")
+          .eq("id", package_id)
+          .single();
+        asaasProductId = pkg?.asaas_product_id || null;
+      }
 
       if (!amount_cents || amount_cents < 500) {
         return new Response(
@@ -291,18 +330,24 @@ Deno.serve(async (req) => {
       }
 
       const amountBrl = amount_cents / 100;
+      const paymentBody: any = {
+        customer: customerId,
+        billingType: "PIX",
+        value: amountBrl,
+        dueDate: new Date(Date.now() + 86400000)
+          .toISOString()
+          .split("T")[0],
+        description: `CodPilot - Crédito R$ ${amountBrl.toFixed(2)}`,
+        externalReference: `${user.id}:${amount_cents}`,
+      };
+
+      if (asaasProductId) {
+        paymentBody.product = asaasProductId;
+      }
+
       const paymentData = await asaasFetch(baseUrl, "/payments", apiKey, {
         method: "POST",
-        body: JSON.stringify({
-          customer: customerId,
-          billingType: "PIX",
-          value: amountBrl,
-          dueDate: new Date(Date.now() + 86400000)
-            .toISOString()
-            .split("T")[0],
-          description: `CodPilot - Crédito R$ ${amountBrl.toFixed(2)}`,
-          externalReference: `${user.id}:${amount_cents}`,
-        }),
+        body: JSON.stringify(paymentBody),
       });
 
       if (paymentData.error) {
