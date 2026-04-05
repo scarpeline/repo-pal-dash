@@ -247,12 +247,12 @@ Deno.serve(async (req) => {
 
       const results = [];
       for (const pkg of pkgs || []) {
-        if (!pkg.asaas_product_id) {
+        if (!pkg.asaas_plan_id) {
           const productRes = await asaasFetch(baseUrl, "/products", apiKey, {
             method: "POST",
             body: JSON.stringify({
               name: pkg.name,
-              value: pkg.price_brl / 100, // Preço em Reais
+              value: pkg.price_brl / 100,
               billingType: "PIX",
               description: pkg.description || `Pacote ${pkg.name}`,
             }),
@@ -261,14 +261,14 @@ Deno.serve(async (req) => {
           if (productRes.id) {
             await supabase
               .from("packages")
-              .update({ asaas_product_id: productRes.id })
+              .update({ asaas_plan_id: productRes.id })
               .eq("id", pkg.id);
             results.push({ name: pkg.name, status: "created", id: productRes.id });
           } else {
-            results.push({ name: pkg.name, status: "error", error: productRes.error });
+            results.push({ name: pkg.name, status: "error", error: productRes.error || productRes });
           }
         } else {
-          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_product_id });
+          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_plan_id });
         }
       }
 
