@@ -68,6 +68,11 @@ const SuperAdmin = () => {
   const [pkgDesc, setPkgDesc] = useState("");
   const [pkgCredits, setPkgCredits] = useState("");
   const [pkgPrice, setPkgPrice] = useState("");
+  // Package calculator auto-calculation
+  const [pkgModelId, setPkgModelId] = useState("");
+  const [pkgInputTokens, setPkgInputTokens] = useState("1000");
+  const [pkgOutputTokens, setPkgOutputTokens] = useState("1000");
+  const [pkgMarginPercent, setPkgMarginPercent] = useState("50");
 
   // Notification
   const [notifUserId, setNotifUserId] = useState("all");
@@ -107,6 +112,7 @@ const SuperAdmin = () => {
     if (pricingRes.data) {
       setModelPricing(pricingRes.data as any[]);
       if (!calcModel && (pricingRes.data as any[]).length > 0) setCalcModel((pricingRes.data as any[])[0].model_id);
+      if (!pkgModelId && (pricingRes.data as any[]).length > 0) setPkgModelId((pricingRes.data as any[])[0].model_id);
     }
     setLoading(false);
   };
@@ -174,8 +180,27 @@ const SuperAdmin = () => {
   };
 
   const deletePkg = async (id: string) => { if (!confirm("Excluir pacote?")) return; await supabase.from("packages").delete().eq("id", id); fetchAll(); };
-  const editPkg = (pkg: AdminPackage) => { setEditingPkg(pkg); setPkgName(pkg.name); setPkgDesc(pkg.description || ""); setPkgCredits(pkg.credits_amount.toString()); setPkgPrice((pkg.price_brl / 100).toString()); setShowPkgForm(true); };
-  const resetPkgForm = () => { setEditingPkg(null); setPkgName(""); setPkgDesc(""); setPkgCredits(""); setPkgPrice(""); setShowPkgForm(false); };
+  const editPkg = (pkg: AdminPackage) => {
+    setEditingPkg(pkg);
+    setPkgName(pkg.name);
+    setPkgDesc(pkg.description || "");
+    setPkgCredits(pkg.credits_amount.toString());
+    setPkgPrice((pkg.price_brl / 100).toString());
+    setShowPkgForm(true);
+  };
+
+  const resetPkgForm = () => {
+    setEditingPkg(null);
+    setPkgName("");
+    setPkgDesc("");
+    setPkgCredits("");
+    setPkgPrice("");
+    setPkgModelId(modelPricing[0]?.model_id || "");
+    setPkgInputTokens("1000");
+    setPkgOutputTokens("1000");
+    setPkgMarginPercent("50");
+    setShowPkgForm(false);
+  };
 
   const processWithdrawal = async (id: string, action: "approved" | "rejected") => {
     await supabase.from("withdrawal_requests").update({ status: action, processed_at: new Date().toISOString() } as any).eq("id", id);
@@ -216,6 +241,51 @@ const SuperAdmin = () => {
     const totalApi = apiInput + apiOutput;
     const totalResale = resaleInput + resaleOutput;
     return { apiInput, apiOutput, resaleInput, resaleOutput, totalApi, totalResale, profit: totalResale - totalApi };
+  };
+
+  // Package calculator auto-calculation
+  const calculatePackageValues = () => {
+    const mp = modelPricing.find(m => m.model_id === pkgModelId);
+    if (!mp) return { credits: 0, costPrice: 0, salePrice: 0, profit: 0, margin: 0 };
+    
+    const inTokens = parseInt(pkgInputTokens) || 0;
+    const outTokens = parseInt(pkgOutputTokens) || 0;
+    const marginPct = parseFloat(pkgMarginPercent) || 50;
+    
+    // Custo real da API (em centavos)
+    const apiInputCost = (inTokens / 1_000_000) * mp.api_cost_input_per_million;
+    const apiOutputCost = (outTokens / 1_000_000) * mp.api_cost_output_per_million;
+    const totalApiCost = apiInputCost + apiOutputCost;
+    
+    // Preço de revenda base (em centavos)
+    const resaleInput = (inTokens / 1_000_000) * mp.resale_price_input_per_million;
+    const resaleOutput = (outTokens / 1_000_000) * mp.resale_price_output_per_million;
+    const baseResalePrice = resaleInput + resaleOutput;
+    
+    // Aplicar margem de lucro desejada sobre o preço de revenda
+    const marginMultiplier = 1 + (marginPct / 100);
+    const finalPrice = Math.round(baseResalePrice * marginMultiplier);
+    
+    // Créditos = quantidade total de tokens (input + output)
+    const totalCredits = inTokens + outTokens;
+    
+    const profit = finalPrice - totalApiCost;
+    const actualMargin = totalApiCost > 0 ? ((finalPrice - totalApiCost) / totalApiCost) * 100 : 0;
+    
+    return {
+      credits: totalCredits,
+      costPrice: totalApiCost,
+      salePrice: finalPrice,
+      profit: profit,
+      margin: actualMargin
+    };
+  };
+
+  // Auto-fill package values when calculator changes
+  const applyCalculatedValues = () => {
+    const calc = calculatePackageValues();
+    setPkgCredits(calc.credits.toString());
+    setPkgPrice((calc.salePrice / 100).toFixed(2));
   };
 
   const totalRevenue = users.reduce((s, u) => s + u.total_deposited_cents, 0);
@@ -463,13 +533,57 @@ const SuperAdmin = () => {
                   </div>
                 </CardHeader>
                 {showPkgForm && (
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
+                    {/* Calculator Section */}
+                    <div className="bg-muted/50 rounded-lg p-4 space-y-3 border border-border">
+                      <p className="text-sm font-semibold flex items-center gap-2">
+                        <Calculator className="w-4 h-4 text-primary" />
+                        Calculadora Automática de Pacotes
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <Label className="text-xs">Modelo IA</Label>
+                          <select 
+                            value={pkgModelId} 
+                            onChange={e => setPkgModelId(e.target.value)} 
+                            className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm text-foreground"
+                          >
+                            {modelPricing.map(m => <option key={m.model_id} value={m.model_id}>{m.model_label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Tokens Entrada</Label>
+                          <Input type="number" value={pkgInputTokens} onChange={e => setPkgInputTokens(e.target.value)} className="h-8" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Tokens Saída</Label>
+                          <Input type="number" value={pkgOutputTokens} onChange={e => setPkgOutputTokens(e.target.value)} className="h-8" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Margem Lucro (%)</Label>
+                          <Input type="number" value={pkgMarginPercent} onChange={e => setPkgMarginPercent(e.target.value)} className="h-8" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between bg-background rounded p-2 text-xs">
+                        <div className="space-x-4">
+                          <span className="text-muted-foreground">Custo API: <strong className="text-destructive">R$ {(calculatePackageValues().costPrice / 100).toFixed(2)}</strong></span>
+                          <span className="text-muted-foreground">Preço Final: <strong className="text-primary">R$ {(calculatePackageValues().salePrice / 100).toFixed(2)}</strong></span>
+                          <span className="text-muted-foreground">Lucro: <strong className="text-[hsl(var(--success))]">R$ {(calculatePackageValues().profit / 100).toFixed(2)}</strong></span>
+                          <span className="text-muted-foreground">Margem: <strong>{calculatePackageValues().margin.toFixed(0)}%</strong></span>
+                        </div>
+                        <Button size="sm" variant="secondary" onClick={applyCalculatedValues} className="h-7 text-xs">
+                          <TrendingUp className="w-3 h-3 mr-1" /> Aplicar Valores
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Manual Fields */}
                     <div className="grid grid-cols-2 gap-3">
                       <div><Label>Nome</Label><Input value={pkgName} onChange={e => setPkgName(e.target.value)} placeholder="Pacote Starter" /></div>
-                      <div><Label>Créditos</Label><Input type="number" value={pkgCredits} onChange={e => setPkgCredits(e.target.value)} placeholder="1000" /></div>
+                      <div><Label>Créditos</Label><Input type="number" value={pkgCredits} onChange={e => setPkgCredits(e.target.value)} placeholder="2000" /></div>
                     </div>
-                    <div><Label>Descrição</Label><Textarea value={pkgDesc} onChange={e => setPkgDesc(e.target.value)} /></div>
-                    <div><Label>Preço (R$)</Label><Input type="number" step="0.01" value={pkgPrice} onChange={e => setPkgPrice(e.target.value)} placeholder="19.90" /></div>
+                    <div><Label>Descrição</Label><Textarea value={pkgDesc} onChange={e => setPkgDesc(e.target.value)} placeholder="Pacote com 2000 tokens para uso nos modelos IA..." /></div>
+                    <div><Label>Preço (R$)</Label><Input type="number" step="0.01" value={pkgPrice} onChange={e => setPkgPrice(e.target.value)} placeholder="29.90" /></div>
                     <div className="flex gap-2">
                       <Button onClick={savePkg}><Save className="w-4 h-4" /> {editingPkg ? "Atualizar" : "Criar"}</Button>
                       <Button variant="outline" onClick={resetPkgForm}>Cancelar</Button>

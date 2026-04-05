@@ -11,7 +11,7 @@ const GitHubCallback = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const isPopup = !!window.opener;
+  const isPopup = window.name === "github-oauth" || !!window.opener;
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -57,6 +57,19 @@ const GitHubCallback = () => {
         localStorage.setItem("gh_user", JSON.stringify(result.user));
         setStatus("Conectado!");
         setSuccess(true);
+
+        // Notificar janela principal via BroadcastChannel ou postMessage
+        try {
+          if ("BroadcastChannel" in window) {
+            const channel = new BroadcastChannel("github-oauth");
+            channel.postMessage({ type: "github-connected", token: result.access_token, user: result.user });
+            channel.close();
+          } else if (window.opener) {
+            window.opener.postMessage({ type: "github-connected", token: result.access_token, user: result.user }, "*");
+          }
+        } catch {
+          // Fallback para localStorage
+        }
 
         if (isPopup) {
           setTimeout(() => window.close(), 800);
