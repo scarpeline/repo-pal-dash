@@ -67,7 +67,7 @@ const TerminalPanel = ({ messages, onCommand }: TerminalPanelProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-terminal font-mono text-xs">
+    <div className="flex flex-col h-full bg-terminal font-mono text-sm">
       {/* Terminal output */}
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-0.5">
         {messages.map((msg, i) => (

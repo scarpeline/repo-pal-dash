@@ -39,7 +39,7 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
 
   return (
     <div className="flex flex-col h-full bg-[hsl(var(--editor-bg))]">
-      <div className="flex-1 overflow-auto p-3 space-y-3 text-xs">
+      <div className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
@@ -47,7 +47,7 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
               m.role === "system" ? "bg-muted text-muted-foreground italic" :
               "bg-card text-foreground border border-border"
             }`}>
-              <pre className="whitespace-pre-wrap font-mono text-xs">{m.content}</pre>
+              <pre className="whitespace-pre-wrap font-mono text-sm">{m.content}</pre>
             </div>
           </div>
         ))}
@@ -55,7 +55,7 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
           <div className="flex justify-start">
             <div className="bg-card border border-border rounded-lg px-3 py-2 flex items-center gap-2">
               <Loader2 className="w-3 h-3 animate-spin text-primary" />
-              <span className="text-xs text-muted-foreground">Pensando...</span>
+              <span className="text-sm text-muted-foreground">Pensando...</span>
             </div>
           </div>
         )}
@@ -69,7 +69,7 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
             <button
               key={m.id}
               onClick={() => { setSelectedModel(m.id); setShowModelSelect(false); }}
-              className={`w-full text-left px-2 py-1.5 rounded text-xs flex justify-between items-center hover:bg-muted ${selectedModel === m.id ? "bg-primary/10 text-primary" : "text-foreground"}`}
+              className={`w-full text-left px-2 py-1.5 rounded text-sm flex justify-between items-center hover:bg-muted ${selectedModel === m.id ? "bg-primary/10 text-primary" : "text-foreground"}`}
             >
               <span className="font-medium">{m.label}</span>
               <span className="text-muted-foreground text-[10px]">{m.desc}</span>
@@ -91,7 +91,7 @@ const AIChat = ({ messages, onSend, isThinking }: AIChatProps) => {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          className="flex-1 bg-transparent text-foreground text-xs outline-none"
+          className="flex-1 bg-transparent text-foreground text-sm outline-none"
           placeholder="Pergunte ao AI..."
           disabled={isThinking}
         />

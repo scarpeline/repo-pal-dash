@@ -87,10 +87,10 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
             placeholder="Cole aqui a URL live da sua aplicação (Ex: seu-site.vercel.app)"
-            className="flex-1 bg-input/50 focus:bg-input border border-border rounded px-2.5 py-1 text-xs text-foreground font-mono outline-none focus:border-primary placeholder:text-muted-foreground/50 transition-colors"
+            className="flex-1 bg-input/50 focus:bg-input border border-border rounded px-2.5 py-1 text-sm text-foreground font-mono outline-none focus:border-primary placeholder:text-muted-foreground/50 transition-colors"
           />
         ) : (
-          <div className="flex-1 bg-input border border-border rounded px-2.5 py-1 text-xs text-muted-foreground font-mono truncate">
+          <div className="flex-1 bg-input border border-border rounded px-2.5 py-1 text-sm text-muted-foreground font-mono truncate">
             {url || fileName || "preview"}
           </div>
         )}
@@ -142,7 +142,7 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
       {/* Preview content */}
       <div className="flex-1 relative overflow-auto flex justify-center">
         {mode === "source" && fileContent ? (
-          <pre className="w-full p-4 text-xs text-foreground font-mono whitespace-pre-wrap overflow-auto bg-editor-bg">
+          <pre className="w-full p-4 text-sm text-foreground font-mono whitespace-pre-wrap overflow-auto bg-editor-bg">
             {fileContent}
           </pre>
         ) : iframeSrc ? (
@@ -156,7 +156,7 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
             />
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             <div className="text-center space-y-3">
               <div className="w-16 h-16 bg-muted/30 rounded-2xl flex items-center justify-center mx-auto">
                 <Eye className="w-8 h-8 text-muted-foreground/30" />

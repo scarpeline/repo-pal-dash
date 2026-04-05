@@ -31,7 +31,7 @@ const RepoBrowser = ({ token, onSelectRepo, onBack }: RepoBrowserProps) => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar repositório..."
-          className="w-full bg-input border border-border rounded px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+          className="w-full bg-input border border-border rounded px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
       </div>
       <div className="flex-1 overflow-auto">
@@ -43,9 +43,9 @@ const RepoBrowser = ({ token, onSelectRepo, onBack }: RepoBrowserProps) => {
           >
             <div className="flex items-center gap-2">
               {repo.private ? <Lock className="w-3 h-3 text-muted-foreground" /> : <Globe className="w-3 h-3 text-muted-foreground" />}
-              <span className="text-xs font-medium text-foreground truncate">{repo.name}</span>
+              <span className="text-sm font-medium text-foreground truncate">{repo.name}</span>
             </div>
-            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
               {repo.language && (
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full" style={{ background: getLanguageColor(repo.language) }} />
