@@ -400,7 +400,7 @@ const SuperAdmin = () => {
       } else {
         toast.success(`${created || results.length} pacotes sincronizados com sucesso!`);
       }
-      fetchPackages();
+      fetchAll();
     } catch (err: any) {
       toast.error("Erro na sincronização: " + err.message);
     }
