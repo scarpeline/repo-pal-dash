@@ -1,7 +1,7 @@
 import { Github, LogOut, Link2, Loader2, CheckCircle, Zap, Edit3, ShieldCheck, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { exchangeCodeForToken, setToken, validateToken } from "@/lib/github";
 import { toast } from "sonner";
 
@@ -16,6 +16,24 @@ interface GitHubConnectProps {
 const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnected }: GitHubConnectProps) => {
   const [cloneUrl, setCloneUrl] = useState("");
   const [connecting, setConnecting] = useState(false);
+
+  // Escutar mensagens do popup via BroadcastChannel
+  useEffect(() => {
+    if (!connecting || !("BroadcastChannel" in window)) return;
+
+    const channel = new BroadcastChannel("github-oauth");
+    channel.onmessage = (event) => {
+      if (event.data?.type === "github-connected") {
+        setConnecting(false);
+        if (onConnected && event.data.token && event.data.user) {
+          onConnected(event.data.token, event.data.user);
+        }
+        channel.close();
+      }
+    };
+
+    return () => channel.close();
+  }, [connecting, onConnected]);
 
   const handleOAuth = async () => {
     setConnecting(true);
