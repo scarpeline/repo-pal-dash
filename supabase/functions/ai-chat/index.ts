@@ -29,6 +29,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Check if user is blocked
+    const { data: rolesData } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "blocked");
+    
+    if (rolesData && rolesData.length > 0) {
+      return new Response(JSON.stringify({ error: "Sua conta foi temporariamente bloqueada por violação das regras. O acesso à Inteligência Artificial está restrito no momento." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { messages, fileContent, fileName, repoName, branch, model } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -57,8 +71,8 @@ Deno.serve(async (req) => {
       (estimatedInputTokens / 1_000_000) * resaleInput +
       (estimatedOutputTokens / 1_000_000) * resaleOutput
     );
-    // Minimum charge: 1 centavo
-    const minCharge = Math.max(estimatedCostCents, 1);
+    // Minimum charge: 20 centavos (0,20 BRL)
+    const minCharge = Math.max(estimatedCostCents, 20);
 
     // Check user balance
     const { data: balance } = await supabaseAdmin
@@ -150,10 +164,10 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     // Calculate actual cost based on real usage
     const actualCostCents = Math.max(
       Math.ceil(
-        (inputTokens / 1_000_000) * resaleOutput +
+        (inputTokens / 1_000_000) * resaleInput +
         (outputTokens / 1_000_000) * resaleOutput
       ),
-      1
+      20
     );
 
     // Deduct from balance and log usage (fire-and-forget)

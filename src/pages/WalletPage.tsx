@@ -143,7 +143,6 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                     <p className="text-sm font-bold text-foreground">{pkg.name}</p>
                     {pkg.description && <p className="text-xs text-muted-foreground mt-0.5">{pkg.description}</p>}
                     <p className="text-lg font-bold text-primary mt-1">{formatBRL(pkg.price_brl)}</p>
-                    <p className="text-xs text-muted-foreground">{formatCredits(pkg.credits_amount)} créditos</p>
                   </button>
                 ))}
               </div>
@@ -154,8 +153,8 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         <Card>
           <CardHeader><CardTitle className="text-lg">Recarga rápida via PIX</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {[700, 1000, 1500, 2000, 3000, 5000, 7000].map(v => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+              {[1000, 1500, 2000, 2500, 3000, 5000, 7000, 10000, 15000, 20000].map(v => (
                 <Button key={v} variant="outline" disabled={loading} onClick={() => handleRecharge(v)} className="text-sm font-semibold">
                   {formatBRL(v)}
                 </Button>

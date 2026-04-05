@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
-  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp
+  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle
 } from "lucide-react";
 
 interface AdminUser {
@@ -136,6 +136,48 @@ const SuperAdmin = () => {
     toast.success(`R$ ${creditAmount} adicionado!`);
     setCreditAmount(""); setCreditUserId("");
     fetchAll();
+  };
+
+  const toggleUserBlock = async (userId: string, roles: string[]) => {
+    const isBlocked = roles.includes("blocked");
+    if (isBlocked) {
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked");
+      toast.success("Usuário desbloqueado com sucesso!");
+    } else {
+      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" });
+      toast.success("Usuário bloqueado do acesso à IA!");
+    }
+    fetchAll();
+  };
+
+  const quickDonate = async (userId: string) => {
+    const amtStr = prompt("Quantos Reais (R$) adicionar ao saldo deste usuário?");
+    if (!amtStr) return;
+    const cents = Math.round(parseFloat(amtStr) * 100);
+    if (isNaN(cents) || cents <= 0) return toast.error("Valor inválido");
+    
+    const { data: bal } = await supabase.from("balances").select("balance_cents, total_deposited_cents").eq("user_id", userId).single();
+    if (bal) {
+      const current = bal as any;
+      await supabase.from("balances").update({
+        balance_cents: current.balance_cents + cents,
+        total_deposited_cents: current.total_deposited_cents + cents,
+        updated_at: new Date().toISOString(),
+      } as any).eq("user_id", userId);
+      await supabase.from("transactions").insert({
+        user_id: userId, type: "deposit", amount_cents: cents,
+        description: "Bônus manual (Super Admin)", payment_method: "admin_credit", status: "confirmed",
+      } as any);
+      toast.success(`R$ ${amtStr} doados com sucesso!`);
+      fetchAll();
+    }
+  };
+
+  const quickMessage = (userId: string) => {
+    setNotifUserId(userId);
+    const notifTab = document.querySelector<HTMLElement>("[data-state='inactive'][value='notifications']");
+    if (notifTab) notifTab.click();
+    toast.info("Aba de mensagens aberta para o usuário selecionado. Desça a tela para enviar.");
   };
 
   const sendNotification = async () => {
@@ -451,20 +493,40 @@ const SuperAdmin = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Email</TableHead><TableHead>Nome</TableHead><TableHead>Saldo</TableHead>
-                        <TableHead>Gasto</TableHead><TableHead>Depositado</TableHead><TableHead>Roles</TableHead>
+                        <TableHead>Desc. API</TableHead><TableHead>Depositado</TableHead><TableHead>Lucro Aprox.</TableHead>
+                        <TableHead>Roles</TableHead><TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.map((u) => (
-                        <TableRow key={u.id}>
+                      {users.map((u) => {
+                        const isBlocked = u.roles.includes("blocked");
+                        // Lucro aproximado de 50% em cima do que ele consumiu (total_spent_cents reflete custo de revenda)
+                        const profitCents = u.total_spent_cents * 0.5;
+                        return (
+                        <TableRow key={u.id} className={isBlocked ? "bg-destructive/5" : ""}>
                           <TableCell className="font-mono text-xs">{u.email}</TableCell>
                           <TableCell>{u.full_name || "—"}</TableCell>
-                          <TableCell className="text-[hsl(var(--success))]">R$ {(u.balance_cents / 100).toFixed(2)}</TableCell>
+                          <TableCell className="text-[hsl(var(--success))] font-bold py-3">R$ {(u.balance_cents / 100).toFixed(2)}</TableCell>
                           <TableCell className="text-destructive">R$ {(u.total_spent_cents / 100).toFixed(2)}</TableCell>
-                          <TableCell>R$ {(u.total_deposited_cents / 100).toFixed(2)}</TableCell>
-                          <TableCell>{u.roles.map(r => <Badge key={r} variant="secondary" className="mr-1">{r}</Badge>)}</TableCell>
+                          <TableCell className="font-medium">R$ {(u.total_deposited_cents / 100).toFixed(2)}</TableCell>
+                          <TableCell className="text-primary font-bold">R$ {(profitCents / 100).toFixed(2)}</TableCell>
+                          <TableCell>{u.roles.map(r => <Badge key={r} variant={r === "blocked" ? "destructive" : "secondary"} className="mr-1">{r}</Badge>)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-100" onClick={() => quickMessage(u.id)} title="Enviar Mensagem">
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-100" onClick={() => quickDonate(u.id)} title="Doar Crédito">
+                                <HandCoins className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className={`h-8 w-8 ${isBlocked ? 'text-green-600 hover:bg-green-100' : 'text-red-500 hover:bg-red-100'}`} onClick={() => toggleUserBlock(u.id, u.roles)} title={isBlocked ? "Desbloquear" : "Bloquear IA"}>
+                                {isBlocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 )}
