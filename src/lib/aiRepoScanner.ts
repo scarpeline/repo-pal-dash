@@ -66,15 +66,24 @@ export class AIRepoScanner {
 
     for (const mod of modifications) {
       try {
-        if (mod.operation === 'update') {
-          const { getFileSha } = await import("@/lib/github");
-          const sha = await getFileSha(this.token, this.owner, this.repo, mod.path, this.branch);
-          await updateFile(this.token, this.owner, this.repo, mod.path, mod.content, mod.message, sha, this.branch);
-        } else if (mod.operation === 'create') {
+        const { getFileSha } = await import("@/lib/github");
+        
+        let currentSha: string | undefined;
+        try {
+          // Sempre tentamos pegar o SHA atual do arquivo, independente do que a IA disse.
+          // Se o arquivo já existe no Github, ele VAI precisar do SHA para ser alterado.
+          currentSha = await getFileSha(this.token, this.owner, this.repo, mod.path, this.branch);
+        } catch (e) {
+          // Se falhou (404 Not Found), significa que o arquivo não existe, então currentSha será undefined e podemos prosseguir criando.
+        }
+
+        if (currentSha) {
+          await updateFile(this.token, this.owner, this.repo, mod.path, mod.content, mod.message, currentSha, this.branch);
+        } else {
           await createFile(this.token, this.owner, this.repo, mod.path, mod.content, mod.message, this.branch);
         }
         
-        results.success.push(`✅ ${mod.path}: ${mod.message}`);
+        results.success.push(`✅ ${mod.path}: Salvo com sucesso no GitHub.`);
       } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error);
         results.errors.push(`❌ ${mod.path}: ${errMsg}`);

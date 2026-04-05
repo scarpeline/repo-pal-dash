@@ -32,11 +32,11 @@ export class AIFileModifier {
 
       onProgress?.(`📄 ${files.length} arquivos analisados. Processando seu comando...`);
 
-      // Build a compact file map for the AI (limit to ~50KB to avoid token overflow)
+      // Build a compact file map for the AI
       let totalSize = 0;
       const fileMap: { path: string; content: string }[] = [];
       for (const f of files) {
-        if (totalSize + f.content.length > 50000) {
+        if (totalSize + f.content.length > 150000) {
           fileMap.push({ path: f.path, content: `[arquivo omitido ou truncado - limite de contexto]` });
         } else {
           fileMap.push({ path: f.path, content: f.content });
