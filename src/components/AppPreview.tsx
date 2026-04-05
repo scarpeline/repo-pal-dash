@@ -24,19 +24,20 @@ interface PreviewProps {
 export default function AppPreview({ repoUrl, isLive = false }: PreviewProps) {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // URLs base para preview
   const previewUrls = {
     development: "http://localhost:5173",
-    staging: "https://staging.iaprogramador.online",
+    staging: "https://staging.iaprogramador.online", 
     production: "https://iaprogramador.online"
   };
 
   useEffect(() => {
     // Determinar URL de preview baseada no ambiente
-    const url = isLive ? previewUrls.production : previewUrls.development;
+    const url = isLive ? previewUrls.production : previewUrls.production;
     setPreviewUrl(url);
   }, [isLive]);
 
@@ -51,6 +52,7 @@ export default function AppPreview({ repoUrl, isLive = false }: PreviewProps) {
     setRefreshKey(prev => prev + 1);
     setTimeout(() => {
       setIsLoading(false);
+      setIsInitialLoad(false);
       toast.success("Preview atualizado!");
     }, 1000);
   };
@@ -58,6 +60,16 @@ export default function AppPreview({ repoUrl, isLive = false }: PreviewProps) {
   const openInNewTab = () => {
     window.open(previewUrl, "_blank");
   };
+
+  // Inicializar preview
+  useEffect(() => {
+    if (previewUrl) {
+      setTimeout(() => {
+        setIsLoading(false);
+        setIsInitialLoad(false);
+      }, 2000);
+    }
+  }, [previewUrl]);
 
   const DeviceIcon = device === "desktop" ? Monitor : device === "tablet" ? Tablet : Smartphone;
 
@@ -147,11 +159,27 @@ export default function AppPreview({ repoUrl, isLive = false }: PreviewProps) {
                 maxWidth: "100%"
               }}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center space-y-2">
-                    <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-                    <p className="text-sm text-muted-foreground">Carregando preview...</p>
+              {isLoading || isInitialLoad ? (
+                <div className="flex items-center justify-center h-full bg-gray-50">
+                  <div className="text-center space-y-3">
+                    <RefreshCw className="w-12 h-12 animate-spin text-primary mx-auto" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {isInitialLoad ? "Carregando preview..." : "Atualizando preview..."}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {previewUrl}
+                      </p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={openInNewTab}
+                      className="mt-2"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Abrir em nova aba
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -160,8 +188,12 @@ export default function AppPreview({ repoUrl, isLive = false }: PreviewProps) {
                   src={previewUrl}
                   className="w-full h-full border-0"
                   title="IAProgramador Preview"
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                  allowFullScreen
                   onLoad={() => setIsLoading(false)}
+                  onError={() => {
+                    setIsLoading(false);
+                    toast.error("Erro ao carregar preview. Tente abrir em nova aba.");
+                  }}
                 />
               )}
             </div>
