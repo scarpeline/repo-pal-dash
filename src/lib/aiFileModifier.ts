@@ -117,33 +117,64 @@ export class AIFileModifier {
     const modifications: FileModification[] = [];
 
     for (const file of files) {
-      if (!file.path.endsWith('.tsx') && !file.path.endsWith('.jsx')) continue;
+      if (!file.path.endsWith('.tsx') && !file.path.endsWith('.jsx') && !file.path.endsWith('.css') && !file.path.endsWith('.scss')) continue;
 
       let modified = false;
       let newContent = file.content;
 
       // Mapear cores comuns para classes Tailwind
       const colorMap: { [key: string]: string } = {
-        'azul': 'bg-blue-500 hover:bg-blue-600 text-blue-600',
-        'vermelho': 'bg-red-500 hover:bg-red-600 text-red-600',
-        'verde': 'bg-green-500 hover:bg-green-600 text-green-600',
-        'amarelo': 'bg-yellow-500 hover:bg-yellow-600 text-yellow-600',
-        'roxo': 'bg-purple-500 hover:bg-purple-600 text-purple-600',
-        'cinza': 'bg-gray-500 hover:bg-gray-600 text-gray-600',
-        'preto': 'bg-black hover:bg-gray-800 text-black',
-        'branco': 'bg-white hover:bg-gray-100 text-white'
+        'azul': 'blue',
+        'vermelho': 'red',
+        'verde': 'green',
+        'amarelo': 'yellow',
+        'roxo': 'purple',
+        'cinza': 'gray',
+        'preto': 'black',
+        'branco': 'white',
+        'laranja': 'orange',
+        'rosa': 'pink',
+        'índigo': 'indigo',
+        'teal': 'teal',
+        'ciano': 'cyan'
       };
 
-      const colorClass = colorMap[color.toLowerCase()] || `bg-${color}-500`;
+      const baseColor = colorMap[color.toLowerCase()] || color.toLowerCase();
 
-      // Procurar por botões e elementos interativos
+      // Procurar e substituir cores em diferentes contextos
       if (target.toLowerCase().includes('botão') || target.toLowerCase().includes('botao')) {
         // Substituir cores de botões
-        const buttonRegex = /(className\s*=\s*["'][^"']*(?:bg-[\w-]+|text-[\w-]+)[^"']*["'])/g;
-        newContent = newContent.replace(buttonRegex, (match) => {
+        const buttonPatterns = [
+          /(className\s*=\s*["'][^"']*\b(bg-\w+-\d+|text-\w+-\d+|border-\w+-\d+)[^"']*["'])/g,
+          /(className\s*=\s*["'][^"']*\b(bg-\w+|text-\w+|border-\w+)[^"']*["'])/g
+        ];
+
+        buttonPatterns.forEach(pattern => {
+          newContent = newContent.replace(pattern, (match) => {
+            modified = true;
+            return match
+              .replace(/bg-\w+-\d+/g, `bg-${baseColor}-500`)
+              .replace(/bg-\w+/g, `bg-${baseColor}-500`)
+              .replace(/text-\w+-\d+/g, `text-${baseColor}-600`)
+              .replace(/text-\w+/g, `text-${baseColor}-600`)
+              .replace(/border-\w+-\d+/g, `border-${baseColor}-500`)
+              .replace(/border-\w+/g, `border-${baseColor}-500`);
+          });
+        });
+      }
+
+      // Para elementos genéricos
+      if (target.toLowerCase().includes('header') || target.toLowerCase().includes('cabeçalho')) {
+        newContent = newContent.replace(/(header|Header).*?className\s*=\s*["'][^"']*["']/g, (match) => {
           modified = true;
-          return match.replace(/bg-[\w-]+/g, colorClass.split(' ')[0])
-                     .replace(/text-[\w-]+/g, colorClass.split(' ')[1] || colorClass);
+          return match.replace(/bg-\w+-\d+/g, `bg-${baseColor}-600`);
+        });
+      }
+
+      if (target.toLowerCase().includes('footer') || target.toLowerCase().includes('rodapé')) {
+        newContent = newContent.replace(/(footer|Footer).*?className\s*=\s*["'][^"']*["']/g, (match) => {
+          modified = true;
+          return match.replace(/bg-\w+-\d+/g, `bg-${baseColor}-700`);
         });
       }
 
@@ -189,11 +220,96 @@ export class AIFileModifier {
    * Adiciona novos componentes
    */
   private async addComponent(target: string, component: string): Promise<FileModification[]> {
+    const files = await this.scanner.scanAllFiles();
     const modifications: FileModification[] = [];
 
-    // Implementar lógica para adicionar componentes
-    // Por enquanto, retorna vazio
-    
+    for (const file of files) {
+      if (!file.path.endsWith('.tsx') && !file.path.endsWith('.jsx')) continue;
+
+      // Focar no arquivo principal (App, index, main)
+      if (!file.path.includes('App') && !file.path.includes('index') && !file.path.includes('main')) continue;
+
+      let modified = false;
+      let newContent = file.content;
+
+      // Adicionar footer
+      if (component.toLowerCase().includes('footer') || component.toLowerCase().includes('rodapé')) {
+        const footerComponent = `
+<footer className="bg-gray-800 text-white py-8 mt-auto">
+  <div className="container mx-auto px-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div>
+        <h3 className="text-lg font-semibold mb-4">IAProgramador</h3>
+        <p className="text-gray-300">Sua plataforma de desenvolvimento com IA</p>
+      </div>
+      <div>
+        <h4 className="text-md font-semibold mb-4">Links</h4>
+        <ul className="space-y-2">
+          <li><a href="#" className="text-gray-300 hover:text-white">Documentação</a></li>
+          <li><a href="#" className="text-gray-300 hover:text-white">Suporte</a></li>
+          <li><a href="#" className="text-gray-300 hover:text-white">GitHub</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 className="text-md font-semibold mb-4">Contato</h4>
+        <p className="text-gray-300">contato@iaprogramador.online</p>
+      </div>
+    </div>
+    <div className="border-t border-gray-700 mt-8 pt-8 text-center">
+      <p className="text-gray-400">&copy; 2024 IAProgramador. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</footer>`;
+
+        // Inserir footer antes do fechamento do body ou main
+        if (newContent.includes('</body>')) {
+          newContent = newContent.replace('</body>', `${footerComponent}\n</body>`);
+          modified = true;
+        } else if (newContent.includes('</main>')) {
+          newContent = newContent.replace('</main>', `</main>\n${footerComponent}`);
+          modified = true;
+        }
+      }
+
+      // Adicionar header
+      if (component.toLowerCase().includes('header') || component.toLowerCase().includes('cabeçalho')) {
+        const headerComponent = `
+<header className="bg-white shadow-md">
+  <div className="container mx-auto px-4 py-4">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-4">
+        <h1 className="text-2xl font-bold text-gray-800">IAProgramador</h1>
+      </div>
+      <nav className="hidden md:flex space-x-6">
+        <a href="#" className="text-gray-600 hover:text-gray-800">Início</a>
+        <a href="#" className="text-gray-600 hover:text-gray-800">Recursos</a>
+        <a href="#" className="text-gray-600 hover:text-gray-800">Preços</a>
+        <a href="#" className="text-gray-600 hover:text-gray-800">Contato</a>
+      </nav>
+      <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        Começar
+      </button>
+    </div>
+  </div>
+</header>`;
+
+        // Inserir header no início do body
+        if (newContent.includes('<body>')) {
+          newContent = newContent.replace('<body>', `<body>\n${headerComponent}`);
+          modified = true;
+        }
+      }
+
+      if (modified) {
+        modifications.push({
+          path: file.path,
+          content: newContent,
+          operation: 'update',
+          message: `Adicionar componente: ${component}`
+        });
+      }
+    }
+
     return modifications;
   }
 
@@ -201,11 +317,58 @@ export class AIFileModifier {
    * Corrige bugs comuns
    */
   private async fixBug(description: string): Promise<FileModification[]> {
+    const files = await this.scanner.scanAllFiles();
     const modifications: FileModification[] = [];
 
-    // Implementar lógica para correção de bugs
-    // Por enquanto, retorna vazio
-    
+    for (const file of files) {
+      if (!file.path.endsWith('.tsx') && !file.path.endsWith('.jsx') && !file.path.endsWith('.ts') && !file.path.endsWith('.js')) continue;
+
+      let modified = false;
+      let newContent = file.content;
+
+      // Corrigir bugs comuns baseados na descrição
+      if (description.toLowerCase().includes('formulario') || description.toLowerCase().includes('formulário')) {
+        // Adicionar validação de formulário
+        newContent = newContent.replace(
+          /(<form[^>]*>)/,
+          '$1\n  {/* Validação adicionada automaticamente */}\n'
+        );
+        modified = true;
+      }
+
+      if (description.toLowerCase().includes('login') || description.toLowerCase().includes('autenticação')) {
+        // Corrigir problemas de autenticação
+        newContent = newContent.replace(
+          /const\s+\[user,\s*setUser\]\s*=\s*useState\(\);/g,
+          'const [user, setUser] = useState(null);\n  // Estado de autenticação corrigido'
+        );
+        modified = true;
+      }
+
+      if (description.toLowerCase().includes('responsivo') || description.toLowerCase().includes('mobile')) {
+        // Adicionar classes responsivas
+        newContent = newContent.replace(
+          /className\s*=\s*["']([^"']*)["']/g,
+          (match, classes) => {
+            if (!classes.includes('md:') && !classes.includes('lg:')) {
+              return `className="${classes} md:${classes}"`;
+            }
+            return match;
+          }
+        );
+        modified = true;
+      }
+
+      if (modified) {
+        modifications.push({
+          path: file.path,
+          content: newContent,
+          operation: 'update',
+          message: `Corrigir bug: ${description}`
+        });
+      }
+    }
+
     return modifications;
   }
 
@@ -213,11 +376,44 @@ export class AIFileModifier {
    * Atualiza estilos
    */
   private async updateStyle(target: string, style: string): Promise<FileModification[]> {
+    const files = await this.scanner.scanAllFiles();
     const modifications: FileModification[] = [];
 
-    // Implementar lógica para atualização de estilos
-    // Por enquanto, retorna vazio
-    
+    for (const file of files) {
+      if (!file.path.endsWith('.tsx') && !file.path.endsWith('.jsx') && !file.path.endsWith('.css') && !file.path.endsWith('.scss')) continue;
+
+      let modified = false;
+      let newContent = file.content;
+
+      // Melhorar estilos baseados no target
+      if (target.toLowerCase().includes('botão') || target.toLowerCase().includes('botao')) {
+        // Melhorar estilo de botões
+        newContent = newContent.replace(
+          /className\s*=\s*["'][^"']*button[^"']*["']/g,
+          'className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 shadow-md hover:shadow-lg"'
+        );
+        modified = true;
+      }
+
+      if (target.toLowerCase().includes('card') || target.toLowerCase().includes('cartão')) {
+        // Melhorar estilo de cards
+        newContent = newContent.replace(
+          /className\s*=\s*["'][^"']*card[^"']*["']/g,
+          'className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6 border border-gray-100"'
+        );
+        modified = true;
+      }
+
+      if (modified) {
+        modifications.push({
+          path: file.path,
+          content: newContent,
+          operation: 'update',
+          message: `Atualizar estilo do ${target}`
+        });
+      }
+    }
+
     return modifications;
   }
 

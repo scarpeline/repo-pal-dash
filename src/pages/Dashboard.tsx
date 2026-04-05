@@ -8,7 +8,7 @@ import WalletPage from "@/pages/WalletPage";
 import AdminPage from "@/pages/AdminPage";
 import AffiliateSection from "@/components/AffiliateSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code2, Gift } from "lucide-react";
+import { Code2, Gift, ExternalLink, Eye } from "lucide-react";
 
 type View = "repos" | "wallet" | "admin";
 
@@ -58,9 +58,35 @@ export default function Dashboard() {
                   <h2 className="text-xl font-bold text-foreground mb-2">
                     👋 Bem-vindo(a), {user?.user_metadata?.full_name || user?.email || 'Desenvolvedor'}!
                   </h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     Ready to code? Seus repositórios estão prontos para edição. 🚀
                   </p>
+                  
+                  {/* Acesso Total ao IAProgramador */}
+                  <div className="bg-white/80 rounded-lg p-3 border border-blue-300">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+                          <Eye className="w-4 h-4" />
+                          Acesso Total ao IAProgramador
+                        </h3>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Visualize o app publicado e explore o repositório completo
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open("/repo-access?owner=scarpeline&repo=repo-pal-dash&live=true", "_blank")}
+                          className="bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          Acessar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <h2 className="text-xl font-bold text-foreground mb-6">Seus Repositórios</h2>
                 <RepoList onSelectRepo={setSelectedRepo} />

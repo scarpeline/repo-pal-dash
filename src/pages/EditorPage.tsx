@@ -174,12 +174,21 @@ const EditorPage = () => {
       if (cmd === "clear") setTermMessages([{ type: "system", text: "Terminal limpo.", timestamp: new Date() }]);
       else if (cmd === "help") setTermMessages(p => [...p, { 
         type: "output", 
-        text: `Comandos: help, clear, status, whoami\n\n🤖 **Comandos IA no Chat:**
+        text: `Comandos: help, clear, status, whoami\n\n🤖 **Comandos IA no Chat (Controle Total):**
 • "muda a cor do botão para azul"
-• "altera o texto Bem-vindo para Olá"
-• "adiciona um footer"
+• "altera a cor da header para vermelho" 
+• "troca o texto Bem-vindo para Olá"
+• "adiciona um footer no site"
+• "cria um header com navegação"
 • "corrige o bug do formulário"
-• "atualiza o estilo da header"`, 
+• "arruma o erro de login"
+• "atualiza o estilo dos cards"
+• "melhora o design dos botões"
+
+🔧 **O IAProgramador tem controle total sobre qualquer repositório conectado!**
+📁 Varre todos os arquivos automaticamente
+⚡ Modifica e salva direto no GitHub
+🎯 Funciona com React, TypeScript, CSS, JavaScript`, 
         timestamp: new Date() 
       }]);
       else if (cmd === "whoami") setTermMessages(p => [...p, { type: "output", text: ghUser ? `@${ghUser.login}` : "Não conectado", timestamp: new Date() }]);
@@ -207,10 +216,19 @@ const EditorPage = () => {
 
   // Manipula modificações de arquivos
   const handleFileModification = async (message: string) => {
+    if (!selectedRepo) {
+      setChatMessages(p => [...p, { 
+        role: "ai", 
+        content: "❌ Nenhum repositório selecionado. Por favor, selecione um repositório primeiro.", 
+        timestamp: new Date() 
+      }]);
+      return;
+    }
+
     try {
       setChatMessages(p => [...p, { 
         role: "system", 
-        content: "🔍 **Analisando repositório para modificar arquivos...**", 
+        content: `🔍 **Analisando repositório ${selectedRepo.full_name} para modificar arquivos...**`, 
         timestamp: new Date() 
       }]);
 
@@ -254,7 +272,7 @@ const EditorPage = () => {
         setFiles(tree);
         setTermMessages(p => [...p, { 
           type: "success", 
-          text: `✅ Arquivos modificados e salvos no GitHub!`, 
+          text: `✅ Arquivos modificados e salvos no repositório ${selectedRepo.full_name}!`, 
           timestamp: new Date() 
         }]);
       } catch (error) {

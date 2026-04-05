@@ -9,6 +9,7 @@ import GitHubCallback from "./pages/GitHubCallback";
 import SuperAdmin from "./pages/SuperAdmin";
 import WalletPage from "./pages/WalletPage";
 import AffiliatePage from "./pages/AffiliatePage";
+import RepoFullAccess from "./pages/RepoFullAccess";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/super-admin2026ok" element={<SuperAdmin />} />
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/affiliate" element={<AffiliatePage />} />
+            <Route path="/repo-access" element={<RepoFullAccess />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
