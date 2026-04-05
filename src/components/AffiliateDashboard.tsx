@@ -66,6 +66,15 @@ const AffiliateDashboard = () => {
     setActivatingAffiliate(false);
   };
 
+  const handleWithdraw = () => {
+    const activeCount = new Set(commissions.filter(c => c.status !== 'failed').map(c => c.referred_email)).size;
+    if (activeCount < 3) {
+      toast.error(`Você possui apenas ${activeCount} indicações ativas. São necessários no mínimo 3 para realizar saques.`);
+      return;
+    }
+    toast.info("Solicitação de saque enviada para análise administrativa. Entraremos em contato via email.");
+  };
+
   const copyLink = () => {
     if (!profile?.affiliate_code) return;
     const link = `${window.location.origin}/?ref=${profile.affiliate_code}`;
@@ -88,8 +97,10 @@ const AffiliateDashboard = () => {
           <CardTitle>Programa de Afiliados</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Ganhe <span className="text-primary font-bold">30% de comissão</span> sobre o lucro dos depósitos dos seus indicados!
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Ganhe <span className="text-primary font-bold">30% de comissão</span> sobre o lucro total da plataforma em cada indicação!
+            <br />
+            <span className="text-[10px] opacity-70">Ex: A cada R$ 100,00 você ganha R$ 30,00.</span>
           </p>
           <Button onClick={activateAffiliate} disabled={activatingAffiliate}>
             {activatingAffiliate && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -134,13 +145,32 @@ const AffiliateDashboard = () => {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4 flex flex-col justify-between h-full">
             <Users className="w-8 h-8 text-primary" />
-            <p className="text-2xl font-bold text-foreground mt-2">{commissions.length}</p>
-            <p className="text-xs text-muted-foreground">Indicações</p>
+            <div className="mt-2">
+              <p className="text-2xl font-bold text-foreground">{new Set(commissions.map(c => c.referred_email)).size}</p>
+              <p className="text-xs text-muted-foreground">Indicações Ativas</p>
+            </div>
+            <Button className="mt-4 w-full" variant="outline" size="sm" onClick={handleWithdraw}>
+              Realizar Saque
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="p-4 flex gap-3 items-start">
+          <Shield className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-destructive">Regras Antiburla</p>
+            <p className="text-xs text-muted-foreground">
+              É terminantemente <strong>proibido</strong> utilizar seu próprio link de indicação para realizar compras. 
+              A detecção de autoreferência resultará em <strong>bloqueio imediato da conta</strong> e perda de todas as comissões.
+              Saques são liberados apenas após 3 indicações ativas diferentes.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Histórico de Comissões</CardTitle></CardHeader>

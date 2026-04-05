@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
               .eq("id", userId)
               .single();
 
-            if (profile?.referred_by) {
+            if (profile?.referred_by && profile.referred_by !== userId) {
               const commissionCents = Math.floor(amountCents * 0.3);
 
               await supabase.from("affiliate_commissions").insert({

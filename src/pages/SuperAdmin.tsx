@@ -517,8 +517,8 @@ const SuperAdmin = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Email</TableHead><TableHead>Nome</TableHead><TableHead>Saldo</TableHead>
-                        <TableHead>Desc. API</TableHead><TableHead>Depositado</TableHead><TableHead>Lucro Aprox.</TableHead>
+                        <TableHead>Email</TableHead><TableHead>Saldo</TableHead>
+                        <TableHead>Consumo</TableHead><TableHead>Depositado</TableHead><TableHead>Lucro Aprox.</TableHead>
                         <TableHead>Roles</TableHead><TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -530,7 +530,6 @@ const SuperAdmin = () => {
                         return (
                         <TableRow key={u.id} className={isBlocked ? "bg-destructive/5" : ""}>
                           <TableCell className="font-mono text-xs">{u.email}</TableCell>
-                          <TableCell>{u.full_name || "—"}</TableCell>
                           <TableCell className="text-[hsl(var(--success))] font-bold py-3">R$ {(u.balance_cents / 100).toFixed(2)}</TableCell>
                           <TableCell className="text-destructive">R$ {(u.total_spent_cents / 100).toFixed(2)}</TableCell>
                           <TableCell className="font-medium">R$ {(u.total_deposited_cents / 100).toFixed(2)}</TableCell>
