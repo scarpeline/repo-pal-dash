@@ -25,6 +25,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUsageText } from "@/utils/credits";
 import { toast } from "sonner";
+import { AIFileModifier } from "@/lib/aiFileModifier";
 
 type Tab = { path: string; name: string; content: string; sha?: string; dirty?: boolean };
 type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text: string; timestamp: Date };
@@ -171,7 +172,16 @@ const EditorPage = () => {
     setTermMessages(p => [...p, { type: "input", text: cmd, timestamp: new Date() }]);
     setTimeout(() => {
       if (cmd === "clear") setTermMessages([{ type: "system", text: "Terminal limpo.", timestamp: new Date() }]);
-      else if (cmd === "help") setTermMessages(p => [...p, { type: "output", text: "Comandos: help, clear, status, whoami", timestamp: new Date() }]);
+      else if (cmd === "help") setTermMessages(p => [...p, { 
+        type: "output", 
+        text: `Comandos: help, clear, status, whoami\n\n🤖 **Comandos IA no Chat:**
+• "muda a cor do botão para azul"
+• "altera o texto Bem-vindo para Olá"
+• "adiciona um footer"
+• "corrige o bug do formulário"
+• "atualiza o estilo da header"`, 
+        timestamp: new Date() 
+      }]);
       else if (cmd === "whoami") setTermMessages(p => [...p, { type: "output", text: ghUser ? `@${ghUser.login}` : "Não conectado", timestamp: new Date() }]);
       else if (cmd === "status") setTermMessages(p => [...p, { type: "output", text: selectedRepo ? `Repo: ${selectedRepo.full_name} | Branch: ${branch}` : "Nenhum repo selecionado", timestamp: new Date() }]);
       else setTermMessages(p => [...p, { type: "output", text: `Comando não reconhecido. Digite "help"`, timestamp: new Date() }]);
@@ -180,10 +190,100 @@ const EditorPage = () => {
 
   const activeFile = openTabs.find(t => t.path === activeTab);
 
+  // Verifica se a mensagem é um comando de modificação
+  const isModificationCommand = (message: string): boolean => {
+    const modificationKeywords = [
+      'muda a cor', 'altera a cor', 'troca a cor', 'mudar cor', 'alterar cor',
+      'muda o texto', 'altera o texto', 'troca o texto',
+      'adiciona', 'cria', 'inclui', 'adicionar', 'criar',
+      'corrige', 'conserta', 'arruma', 'fix', 'corrigir',
+      'atualiza', 'melhora', 'estiliza', 'atualizar', 'melhorar'
+    ];
+    
+    return modificationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword.toLowerCase())
+    );
+  };
+
+  // Manipula modificações de arquivos
+  const handleFileModification = async (message: string) => {
+    try {
+      setChatMessages(p => [...p, { 
+        role: "system", 
+        content: "🔍 **Analisando repositório para modificar arquivos...**", 
+        timestamp: new Date() 
+      }]);
+
+      const modifier = new AIFileModifier(ghToken, selectedRepo, branch);
+      
+      setChatMessages(p => [...p, { 
+        role: "system", 
+        content: "📁 **Varrendo todos os arquivos do repositório...**", 
+        timestamp: new Date() 
+      }]);
+
+      const result = await modifier.processCommand(message);
+      
+      if (result.modifications.length === 0) {
+        setChatMessages(p => [...p, { 
+          role: "ai", 
+          content: result.message, 
+          timestamp: new Date() 
+        }]);
+        return;
+      }
+
+      setChatMessages(p => [...p, { 
+        role: "system", 
+        content: result.message + "\n\n⚡ **Aplicando alterações no GitHub...**", 
+        timestamp: new Date() 
+      }]);
+
+      const executionResult = await modifier.executeModifications(result.modifications);
+      
+      setChatMessages(p => [...p, { 
+        role: "ai", 
+        content: executionResult, 
+        timestamp: new Date() 
+      }]);
+
+      // Atualizar a árvore de arquivos
+      setLoadingTree(true);
+      try {
+        const tree = await getRepoTree(ghToken, selectedRepo.owner.login, selectedRepo.name, branch);
+        setFiles(tree);
+        setTermMessages(p => [...p, { 
+          type: "success", 
+          text: `✅ Arquivos modificados e salvos no GitHub!`, 
+          timestamp: new Date() 
+        }]);
+      } catch (error) {
+        console.error('Error refreshing file tree:', error);
+      }
+      setLoadingTree(false);
+
+    } catch (error: any) {
+      setChatMessages(p => [...p, { 
+        role: "ai", 
+        content: `❌ Erro ao modificar arquivos: ${error.message}`, 
+        timestamp: new Date() 
+      }]);
+    }
+  };
+
   const handleChatSend = useCallback(async (message: string, model?: string) => {
     setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
     setIsThinking(true);
+    
     try {
+      // Verificar se é um comando de modificação de arquivos
+      if (ghToken && selectedRepo && isModificationCommand(message)) {
+        await handleFileModification(message);
+        setIsThinking(false);
+        return;
+      }
+
+      // Fluxo normal do chat IA
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
