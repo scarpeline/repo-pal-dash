@@ -64,8 +64,8 @@ const GitHubCallback = () => {
             const channel = new BroadcastChannel("github-oauth");
             channel.postMessage({ type: "github-connected", token: result.access_token, user: result.user });
             channel.close();
-          } else if (window.opener) {
-            window.opener.postMessage({ type: "github-connected", token: result.access_token, user: result.user }, "*");
+          } else if ((window as any).opener) {
+            (window as any).opener.postMessage({ type: "github-connected", token: result.access_token, user: result.user }, "*");
           }
         } catch {
           // Fallback para localStorage

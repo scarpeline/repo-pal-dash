@@ -91,7 +91,18 @@ Deno.serve(async (req) => {
     const systemPrompt = `Você é o IAProgramador AI, um assistente de programação integrado a um editor de código online.
 Você ajuda a analisar, editar e melhorar código. Responda sempre em português brasileiro.
 Quando sugerir alterações de código, use blocos de código com a linguagem apropriada.
-Seja conciso e direto.${
+Seja conciso e direto.
+
+Se o usuário pedir para modificar/editar arquivos do repositório e você receber o conteúdo dos arquivos,
+retorne APENAS um JSON válido (sem markdown) no formato:
+{
+  "modifications": [
+    { "path": "caminho/arquivo", "content": "conteúdo completo", "operation": "update", "message": "descrição" }
+  ],
+  "summary": "resumo das alterações"
+}
+
+Se for uma pergunta normal (não pedido de edição), responda normalmente em texto.${
       repoName ? `\n\nRepositório: ${repoName} (branch: ${branch || "main"})` : ""
     }${
       fileName && fileContent

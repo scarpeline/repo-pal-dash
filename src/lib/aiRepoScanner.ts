@@ -20,9 +20,6 @@ export class AIRepoScanner {
     this.branch = branch;
   }
 
-  /**
-   * Varre todos os arquivos do repositório
-   */
   async scanAllFiles(): Promise<{ path: string; content: string; type: 'file' | 'dir' }[]> {
     try {
       const tree = await getRepoTree(this.token, this.owner, this.repo, this.branch);
@@ -33,12 +30,8 @@ export class AIRepoScanner {
         
         if (node.type === 'file' && this.shouldProcessFile(fullPath)) {
           try {
-            const content = await getFileContent(this.token, this.owner, this.repo, fullPath, this.branch);
-            files.push({
-              path: fullPath,
-              content,
-              type: 'file'
-            });
+            const { content } = await getFileContent(this.token, this.owner, this.repo, fullPath, this.branch);
+            files.push({ path: fullPath, content, type: 'file' });
           } catch (error) {
             console.warn(`Could not read file: ${fullPath}`, error);
           }
@@ -60,27 +53,20 @@ export class AIRepoScanner {
     }
   }
 
-  /**
-   * Verifica se o arquivo deve ser processado
-   */
   private shouldProcessFile(path: string): boolean {
-    const extensions = ['.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.json', '.md'];
-    const excludePatterns = ['node_modules', '.git', 'dist', 'build', '.next'];
+    const extensions = ['.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.json', '.md', '.html'];
+    const excludePatterns = ['node_modules', '.git', 'dist', 'build', '.next', 'package-lock', 'bun.lock'];
     
     return extensions.some(ext => path.endsWith(ext)) && 
            !excludePatterns.some(pattern => path.includes(pattern));
   }
 
-  /**
-   * Aplica modificações no repositório
-   */
   async applyModifications(modifications: FileModification[]): Promise<{ success: string[]; errors: string[] }> {
-    const results = { success: [], errors: [] };
+    const results: { success: string[]; errors: string[] } = { success: [], errors: [] };
 
     for (const mod of modifications) {
       try {
         if (mod.operation === 'update') {
-          // Para update, precisamos do SHA atual
           const { getFileSha } = await import("@/lib/github");
           const sha = await getFileSha(this.token, this.owner, this.repo, mod.path, this.branch);
           await updateFile(this.token, this.owner, this.repo, mod.path, mod.content, mod.message, sha, this.branch);
@@ -89,32 +75,24 @@ export class AIRepoScanner {
         }
         
         results.success.push(`✅ ${mod.path}: ${mod.message}`);
-      } catch (error) {
-        results.errors.push(`❌ ${mod.path}: ${error.message}`);
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        results.errors.push(`❌ ${mod.path}: ${errMsg}`);
       }
     }
 
     return results;
   }
 
-  /**
-   * Busca por padrões de código nos arquivos
-   */
   async searchPattern(pattern: RegExp, fileExtensions?: string[]): Promise<{ path: string; matches: string[] }[]> {
     const files = await this.scanAllFiles();
     const results: { path: string; matches: string[] }[] = [];
 
     for (const file of files) {
-      if (fileExtensions && !fileExtensions.some(ext => file.path.endsWith(ext))) {
-        continue;
-      }
-
+      if (fileExtensions && !fileExtensions.some(ext => file.path.endsWith(ext))) continue;
       const matches = file.content.match(pattern);
       if (matches) {
-        results.push({
-          path: file.path,
-          matches: matches.slice(0, 5) // Limitar a 5 matches por arquivo
-        });
+        results.push({ path: file.path, matches: matches.slice(0, 5) });
       }
     }
 

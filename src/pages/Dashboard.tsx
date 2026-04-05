@@ -9,6 +9,7 @@ import AdminPage from "@/pages/AdminPage";
 import AffiliateSection from "@/components/AffiliateSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code2, Gift, ExternalLink, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type View = "repos" | "wallet" | "admin";
 
