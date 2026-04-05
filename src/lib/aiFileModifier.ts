@@ -32,11 +32,18 @@ export class AIFileModifier {
 
       onProgress?.(`📄 ${files.length} arquivos analisados. Processando seu comando...`);
 
-      // Build a compact file map for the AI
+      // Sorting files by importance (source code first, then configs) to ensure if it truncates, it drops less important files.
+      files.sort((a, b) => {
+        const isCoreA = a.path.startsWith('src/') || a.path.includes('components') || a.path.includes('pages');
+        const isCoreB = b.path.startsWith('src/') || b.path.includes('components') || b.path.includes('pages');
+        return (isCoreB ? 1 : 0) - (isCoreA ? 1 : 0);
+      });
+
+      // Build a compact file map for the AI (limit to ~2.000.000 chars to avoid memory crash, but large enough for big repos)
       let totalSize = 0;
       const fileMap: { path: string; content: string }[] = [];
       for (const f of files) {
-        if (totalSize + f.content.length > 150000) {
+        if (totalSize + f.content.length > 2000000) {
           fileMap.push({ path: f.path, content: `[arquivo omitido ou truncado - limite de contexto]` });
         } else {
           fileMap.push({ path: f.path, content: f.content });

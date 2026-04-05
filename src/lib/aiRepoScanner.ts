@@ -25,8 +25,8 @@ export class AIRepoScanner {
       const tree = await getRepoTree(this.token, this.owner, this.repo, this.branch);
       const files: { path: string; content: string; type: 'file' | 'dir' }[] = [];
 
-      const processNode = async (node: any, basePath: string = '') => {
-        const fullPath = basePath ? `${basePath}/${node.path}` : node.path;
+      const processNode = async (node: any) => {
+        const fullPath = node.path;
         
         if (node.type === 'file' && this.shouldProcessFile(fullPath)) {
           try {
@@ -36,8 +36,10 @@ export class AIRepoScanner {
             console.warn(`Could not read file: ${fullPath}`, error);
           }
         } else if (node.type === 'dir' && node.children) {
-          for (const child of node.children) {
-            await processNode(child, fullPath);
+          // Vamos varrer os diretórios em pequenos blocos paralelos para ser mais rápido (chunks de 5)
+          for (let i = 0; i < node.children.length; i += 5) {
+            const chunk = node.children.slice(i, i + 5);
+            await Promise.all(chunk.map((child: any) => processNode(child)));
           }
         }
       };
