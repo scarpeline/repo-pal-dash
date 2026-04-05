@@ -141,10 +141,10 @@ const SuperAdmin = () => {
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
     if (isBlocked) {
-      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked");
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "user" as any);
       toast.success("Usuário desbloqueado com sucesso!");
     } else {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" });
+      await supabase.from("user_roles").insert({ user_id: userId, role: "user" } as any);
       toast.success("Usuário bloqueado do acesso à IA!");
     }
     fetchAll();
@@ -380,10 +380,16 @@ const SuperAdmin = () => {
 
   const syncAsaasProducts = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("asaas-payment", {
-        body: { action: "sync-products" },
-      });
-      if (error) throw error;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=sync-products`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro na sincronização");
+      
       
       const results = data.sync_results || [];
       const created = results.filter((r: any) => r.status === "created").length;
@@ -394,7 +400,7 @@ const SuperAdmin = () => {
       } else {
         toast.success(`${created || results.length} pacotes sincronizados com sucesso!`);
       }
-      fetchPackages();
+      fetchAll();
     } catch (err: any) {
       toast.error("Erro na sincronização: " + err.message);
     }
@@ -627,7 +633,7 @@ const SuperAdmin = () => {
                               <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{w.pix_key}</code>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={w.status === "paid" ? "success" : w.status === "pending" ? "warning" : "destructive"}>
+                              <Badge variant={w.status === "paid" ? "default" : w.status === "pending" ? "secondary" : "destructive"}>
                                 {w.status === "paid" ? "Pago" : w.status === "pending" ? "Pendente" : "Rejeitado"}
                               </Badge>
                             </TableCell>
