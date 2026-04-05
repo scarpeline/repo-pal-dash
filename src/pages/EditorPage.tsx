@@ -199,108 +199,56 @@ const EditorPage = () => {
 
   const activeFile = openTabs.find(t => t.path === activeTab);
 
-  // Verifica se a mensagem é um comando de modificação
-  const isModificationCommand = (message: string): boolean => {
-    const modificationKeywords = [
-      'muda a cor', 'altera a cor', 'troca a cor', 'mudar cor', 'alterar cor',
-      'muda o texto', 'altera o texto', 'troca o texto',
-      'adiciona', 'cria', 'inclui', 'adicionar', 'criar',
-      'corrige', 'conserta', 'arruma', 'fix', 'corrigir',
-      'atualiza', 'melhora', 'estiliza', 'atualizar', 'melhorar'
-    ];
-    
-    return modificationKeywords.some(keyword => 
-      message.toLowerCase().includes(keyword.toLowerCase())
-    );
-  };
-
-  // Manipula modificações de arquivos
-  const handleFileModification = async (message: string) => {
+  // Manipula modificações de arquivos via IA
+  const handleFileModification = async (message: string, model?: string) => {
     if (!selectedRepo) {
-      setChatMessages(p => [...p, { 
-        role: "ai", 
-        content: "❌ Nenhum repositório selecionado. Por favor, selecione um repositório primeiro.", 
-        timestamp: new Date() 
-      }]);
+      setChatMessages(p => [...p, { role: "ai", content: "❌ Nenhum repositório selecionado.", timestamp: new Date() }]);
       return;
     }
 
     try {
-      setChatMessages(p => [...p, { 
-        role: "system", 
-        content: `🔍 **Analisando repositório ${selectedRepo.full_name} para modificar arquivos...**`, 
-        timestamp: new Date() 
-      }]);
-
-      const modifier = new AIFileModifier(ghToken, selectedRepo, branch);
+      const modifier = new AIFileModifier(ghToken!, selectedRepo, branch);
       
-      setChatMessages(p => [...p, { 
-        role: "system", 
-        content: "📁 **Varrendo todos os arquivos do repositório...**", 
-        timestamp: new Date() 
-      }]);
+      const addProgress = (msg: string) => {
+        setChatMessages(p => [...p, { role: "system", content: msg, timestamp: new Date() }]);
+      };
 
-      const result = await modifier.processCommand(message);
+      const result = await modifier.processCommand(message, model || "google/gemini-2.5-flash", addProgress);
       
       if (result.modifications.length === 0) {
-        setChatMessages(p => [...p, { 
-          role: "ai", 
-          content: result.message, 
-          timestamp: new Date() 
-        }]);
+        setChatMessages(p => [...p, { role: "ai", content: result.message, timestamp: new Date() }]);
         return;
       }
 
-      setChatMessages(p => [...p, { 
-        role: "system", 
-        content: result.message + "\n\n⚡ **Aplicando alterações no GitHub...**", 
-        timestamp: new Date() 
-      }]);
+      addProgress(result.message + "\n\n⚡ **Aplicando alterações no GitHub...**");
 
       const executionResult = await modifier.executeModifications(result.modifications);
-      
-      setChatMessages(p => [...p, { 
-        role: "ai", 
-        content: executionResult, 
-        timestamp: new Date() 
-      }]);
+      setChatMessages(p => [...p, { role: "ai", content: executionResult, timestamp: new Date() }]);
 
-      // Atualizar a árvore de arquivos
+      // Refresh file tree
       setLoadingTree(true);
       try {
-        const tree = await getRepoTree(ghToken, selectedRepo.owner.login, selectedRepo.name, branch);
+        const tree = await getRepoTree(ghToken!, selectedRepo.owner.login, selectedRepo.name, branch);
         setFiles(tree);
-        setTermMessages(p => [...p, { 
-          type: "success", 
-          text: `✅ Arquivos modificados e salvos no repositório ${selectedRepo.full_name}!`, 
-          timestamp: new Date() 
-        }]);
+        
+        // Refresh any open tabs that were modified
+        const modifiedPaths = new Set(result.modifications.map(m => m.path));
+        for (const tab of openTabs) {
+          if (modifiedPaths.has(tab.path)) {
+            const { content, sha } = await getFileContent(ghToken!, selectedRepo.owner.login, selectedRepo.name, tab.path, branch);
+            setOpenTabs(prev => prev.map(t => t.path === tab.path ? { ...t, content, sha, dirty: false } : t));
+          }
+        }
       } catch (error) {
         console.error('Error refreshing file tree:', error);
       }
       setLoadingTree(false);
 
-    } catch (error: any) {
-      setChatMessages(p => [...p, { 
-        role: "ai", 
-        content: `❌ Erro ao modificar arquivos: ${error.message}`, 
-        timestamp: new Date() 
-      }]);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date() }]);
     }
   };
-
-  const handleChatSend = useCallback(async (message: string, model?: string) => {
-    setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
-    setIsThinking(true);
-    
-    try {
-      // Verificar se é um comando de modificação de arquivos
-      if (ghToken && selectedRepo && isModificationCommand(message)) {
-        await handleFileModification(message);
-        setIsThinking(false);
-        return;
-      }
-
       // Fluxo normal do chat IA
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
