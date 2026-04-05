@@ -288,6 +288,48 @@ const SuperAdmin = () => {
     setPkgPrice((calc.salePrice / 100).toFixed(2));
   };
 
+  // Calculate tokens based on price (reverse calculation)
+  const calculateTokensFromPrice = (price: number, modelId: string, marginPercent: number = 50) => {
+    const mp = modelPricing.find(m => m.model_id === modelId);
+    if (!mp || price <= 0) return { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+
+    // Converter preço para centavos
+    const priceInCents = Math.round(price * 100);
+    
+    // Calcular preço base sem margem
+    const marginMultiplier = 1 + (marginPercent / 100);
+    const basePrice = priceInCents / marginMultiplier;
+    
+    // Preço por milhão de tokens (média de input e output)
+    const resalePricePerMillion = (mp.resale_price_input_per_million + mp.resale_price_output_per_million) / 2;
+    
+    // Calcular quantidade total de tokens
+    const totalTokens = Math.round((basePrice / resalePricePerMillion) * 1_000_000);
+    
+    // Dividir em 70% input e 30% output (proporção comum)
+    const inputTokens = Math.round(totalTokens * 0.7);
+    const outputTokens = Math.round(totalTokens * 0.3);
+    
+    return {
+      inputTokens: Math.max(1000, inputTokens), // mínimo 1000 tokens
+      outputTokens: Math.max(1000, outputTokens), // mínimo 1000 tokens
+      totalTokens: inputTokens + outputTokens
+    };
+  };
+
+  // Auto-fill tokens when price changes
+  const handlePriceChange = (price: string) => {
+    setPkgPrice(price);
+    
+    const priceNum = parseFloat(price);
+    if (!isNaN(priceNum) && priceNum > 0 && pkgModelId) {
+      const tokens = calculateTokensFromPrice(priceNum, pkgModelId, parseFloat(pkgMarginPercent) || 50);
+      setPkgInputTokens(tokens.inputTokens.toString());
+      setPkgOutputTokens(tokens.outputTokens.toString());
+      setPkgCredits(tokens.totalTokens.toString());
+    }
+  };
+
   const totalRevenue = users.reduce((s, u) => s + u.total_deposited_cents, 0);
   const totalSpent = users.reduce((s, u) => s + u.total_spent_cents, 0);
   const totalBalance = users.reduce((s, u) => s + u.balance_cents, 0);
@@ -583,7 +625,7 @@ const SuperAdmin = () => {
                       <div><Label>Créditos</Label><Input type="number" value={pkgCredits} onChange={e => setPkgCredits(e.target.value)} placeholder="2000" /></div>
                     </div>
                     <div><Label>Descrição</Label><Textarea value={pkgDesc} onChange={e => setPkgDesc(e.target.value)} placeholder="Pacote com 2000 tokens para uso nos modelos IA..." /></div>
-                    <div><Label>Preço (R$)</Label><Input type="number" step="0.01" value={pkgPrice} onChange={e => setPkgPrice(e.target.value)} placeholder="29.90" /></div>
+                    <div><Label>Preço (R$) <span className="text-xs text-muted-foreground ml-1">(auto-calcula tokens)</span></Label><Input type="number" step="0.01" value={pkgPrice} onChange={e => handlePriceChange(e.target.value)} placeholder="29.90" /></div>
                     <div className="flex gap-2">
                       <Button onClick={savePkg}><Save className="w-4 h-4" /> {editingPkg ? "Atualizar" : "Criar"}</Button>
                       <Button variant="outline" onClick={resetPkgForm}>Cancelar</Button>
