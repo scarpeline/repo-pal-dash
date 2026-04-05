@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +13,6 @@ serve(async (req) => {
   try {
     const { command } = await req.json()
     
-    // Lista de comandos permitidos por segurança
     const allowedCommands = [
       'git status --porcelain',
       'git add .',
@@ -22,7 +20,6 @@ serve(async (req) => {
       'git rev-parse HEAD'
     ]
     
-    // Verificar se o comando é permitido
     const isAllowed = allowedCommands.some(allowed => 
       command.includes(allowed) || 
       (command.startsWith('git commit -m "') && command.endsWith('"')) ||
@@ -33,7 +30,6 @@ serve(async (req) => {
       throw new Error('Comando não permitido por segurança')
     }
 
-    // Executar comando usando Deno
     const cmd = new Deno.Command(Deno.execPath(), {
       args: ["task", "run-git", command],
       stdout: "piped",
@@ -49,26 +45,14 @@ serve(async (req) => {
     const output = new TextDecoder().decode(stdout)
     
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        output: output.trim(),
-        command: command 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      JSON.stringify({ success: true, output: output.trim(), command }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
-  } catch (error) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
-      }
+      JSON.stringify({ success: false, error: message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })
