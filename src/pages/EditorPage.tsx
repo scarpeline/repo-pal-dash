@@ -460,86 +460,99 @@ const EditorPage = () => {
           </div>
         )}
 
-        {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-hidden gap-2">
-          <div className="flex-1 flex overflow-hidden gap-2">
-            <div className={`flex-1 flex flex-col overflow-hidden bg-card border border-border rounded-xl shadow-sm ${showPreview ? "w-1/2" : ""}`}>
-              <div className="h-10 bg-muted/30 border-b border-border flex items-center overflow-x-auto shrink-0 px-1">
-                {loadingFile && <Loader2 className="w-3 h-3 text-primary animate-spin ml-2" />}
-                {openTabs.map(tab => (
-                  <div key={tab.path} onClick={() => setActiveTab(tab.path)}
-                    className={`flex items-center gap-1.5 px-3 h-full text-xs cursor-pointer border-r border-border shrink-0 ${
-                      activeTab === tab.path ? "bg-background text-foreground border-t-2 border-t-primary" : "text-muted-foreground hover:text-foreground"
-                    }`}>
-                    <FileCode className="w-3 h-3 text-primary" /><span>{tab.name}</span>
-                    {tab.dirty && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                    <button onClick={e => { e.stopPropagation(); handleCloseTab(tab.path); }} className="ml-1 hover:text-destructive"><X className="w-3 h-3" /></button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {activeTab && activeFile ? (
-                  <CodeEditorPanel content={activeFile.content} fileName={activeFile.name} onChange={handleEditorChange} />
-                ) : (
-                  <div className="flex items-center justify-center h-full bg-[hsl(var(--editor-bg))]">
-                    <div className="text-center">
-                      {selectedRepo ? (
-                        <><FolderGit2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" /><p className="text-sm text-muted-foreground">Selecione um arquivo</p></>
-                      ) : (
-                        <><Code2 className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" /><p className="text-sm font-semibold text-muted-foreground">IAProgramador</p><p className="text-xs text-muted-foreground/60 mt-1">Conecte seu GitHub para começar</p></>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {activeFile?.dirty && selectedRepo && ghToken && (
-                <CommitBar token={ghToken} owner={selectedRepo.owner.login} repo={selectedRepo.name} branch={branch}
-                  filePath={activeFile.path} content={activeFile.content} fileSha={activeFile.sha} onCommitSuccess={handleCommitSuccess} />
-              )}
-            </div>
-            {showPreview && (
-              <div className="w-1/2 bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
-                <PreviewPanel 
-                  url={selectedRepo ? (repoUrls[selectedRepo.full_name] || "") : ""} 
-                  onUrlChange={handleUrlChange}
-                  onRefresh={() => {}} 
-                  fileContent={activeFile?.content} 
-                  fileName={activeFile?.name} 
-                />
-              </div>
-            )}
-          </div>
+        {/* Main content wrapper with flex-row for vertical Chat */}
+        <div className="flex-1 flex overflow-hidden gap-2">
+          
+          {/* Vertical Panel: Chat & Terminal */}
           {bottomOpen && (
-            <div className="h-64 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden">
-              <div className="h-9 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
+            <div className="w-80 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden">
+              <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
                 <div className="flex items-center gap-1">
-                  {([{ id: "terminal" as const, icon: Terminal, label: "Terminal" }, { id: "chat" as const, icon: MessageSquare, label: "Chat IA" }]).map(tab => (
-                    <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1 px-3 py-1 text-xs ${bottomTab === tab.id ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}>
-                      <tab.icon className="w-3 h-3" /> {tab.label}
+                  {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
+                    <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${bottomTab === tab.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+                      <tab.icon className="w-3.5 h-3.5" /> {tab.label}
                     </button>
                   ))}
                 </div>
-                <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
               </div>
               <div className="flex-1 overflow-hidden">
                 {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : <AIChat messages={chatMessages} onSend={handleChatSend} isThinking={isThinking} />}
               </div>
             </div>
           )}
-          <div className="h-8 bg-card border border-border rounded-lg shadow-sm flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0 mt-auto">
-            <div className="flex items-center gap-4">
-              {!bottomOpen && (
-                <>
-                  <button onClick={() => { setBottomOpen(true); setBottomTab("terminal"); }} className="hover:text-foreground flex items-center gap-1"><Terminal className="w-3 h-3" /> Terminal</button>
-                  <button onClick={() => { setBottomOpen(true); setBottomTab("chat"); }} className="hover:text-foreground flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Chat</button>
-                </>
+
+          {/* Editor & Preview Area */}
+          <div className="flex-1 flex flex-col overflow-hidden gap-2">
+            <div className="flex-1 flex overflow-hidden gap-2">
+              
+              {/* Editor Panel - Only visible if there are open tabs */}
+              {openTabs.length > 0 && (
+                <div className={`flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden ${showPreview ? "w-1/2" : "flex-1"}`}>
+                  <div className="h-10 bg-muted/30 border-b border-border flex items-center overflow-x-auto shrink-0 px-1">
+                    {loadingFile && <Loader2 className="w-3 h-3 text-primary animate-spin ml-2" />}
+                    {openTabs.map(tab => (
+                      <div key={tab.path} onClick={() => setActiveTab(tab.path)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 mx-1 rounded-md text-xs cursor-pointer shrink-0 transition-colors ${
+                          activeTab === tab.path ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                        }`}>
+                        <FileCode className="w-3.5 h-3.5" /><span>{tab.name}</span>
+                        {tab.dirty && <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />}
+                        <button onClick={e => { e.stopPropagation(); handleCloseTab(tab.path); }} className={`ml-1 ${activeTab === tab.path ? "text-primary-foreground/70 hover:text-white" : "hover:text-destructive"}`}><X className="w-3 h-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {activeTab && activeFile ? (
+                      <CodeEditorPanel content={activeFile.content} fileName={activeFile.name} onChange={handleEditorChange} />
+                    ) : null}
+                  </div>
+                  {activeFile?.dirty && selectedRepo && ghToken && (
+                    <CommitBar token={ghToken} owner={selectedRepo.owner.login} repo={selectedRepo.name} branch={branch}
+                      filePath={activeFile.path} content={activeFile.content} fileSha={activeFile.sha} onCommitSuccess={handleCommitSuccess} />
+                  )}
+                </div>
               )}
-              {ghUser && <span className="text-[hsl(var(--success))]">● @{ghUser.login}</span>}
+
+              {/* Preview Panel - Takes full remaining space if no editor */}
+              {showPreview && (
+                <div className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col ${openTabs.length > 0 ? "w-1/2" : "flex-1"}`}>
+                  <PreviewPanel 
+                    url={selectedRepo ? (repoUrls[selectedRepo.full_name] || "") : ""} 
+                    onUrlChange={handleUrlChange}
+                    onRefresh={() => {}} 
+                    fileContent={activeFile?.content} 
+                    fileName={activeFile?.name} 
+                  />
+                </div>
+              )}
+
+              {/* Empty State when both are hidden */}
+              {!showPreview && openTabs.length === 0 && (
+                <div className="flex-1 bg-card border border-border rounded-xl shadow-sm flex flex-col items-center justify-center">
+                  <Globe className="w-12 h-12 text-muted-foreground/20 mb-3" />
+                  <p className="text-muted-foreground font-medium">Você fechou todas as abas e o preview.</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Navegue pelos arquivos ou abra o painel de preview no menu superior.</p>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-3">
-              {activeFile?.dirty && <span className="flex items-center gap-1"><Save className="w-3 h-3" /> Modificado</span>}
-              {activeFile?.name && <span>{activeFile.name}</span>}
-              <span>UTF-8</span>
+
+            {/* Status Bar */}
+            <div className="h-8 bg-card border border-border rounded-lg shadow-sm flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0 mt-auto">
+              <div className="flex items-center gap-4">
+                {!bottomOpen && (
+                  <>
+                    <button onClick={() => { setBottomOpen(true); setBottomTab("chat"); }} className="hover:text-primary transition-colors flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Abrir Chat</button>
+                    <button onClick={() => { setBottomOpen(true); setBottomTab("terminal"); }} className="hover:text-primary transition-colors flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5" /> Abrir Terminal</button>
+                  </>
+                )}
+                {ghUser && <span className="text-[hsl(var(--success))] font-medium">● @{ghUser.login}</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                {activeFile?.dirty && <span className="flex items-center gap-1 text-[hsl(var(--warning))] font-medium"><Save className="w-3 h-3" /> Modificado não salvo</span>}
+                {activeFile?.name && <span className="px-2 py-0.5 bg-muted/40 rounded">{activeFile.name}</span>}
+                <span>UTF-8</span>
+              </div>
             </div>
           </div>
         </div>
