@@ -355,7 +355,10 @@ const EditorPage = () => {
           </button>
           <div className="flex items-center gap-1.5">
             <img src={logoImg} alt="IAProgramador" className="w-6 h-6 object-contain" />
-            <span className="text-sm font-bold text-foreground">IAProgramador</span>
+            <div className="flex flex-col justify-center">
+              <span className="text-sm font-bold text-foreground leading-tight">IAProgramador</span>
+              <span className="text-[9px] text-primary font-bold uppercase tracking-wider leading-none">Feito por: O.Scarpeline</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
