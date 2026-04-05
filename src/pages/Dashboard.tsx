@@ -13,7 +13,7 @@ import { Code2, Gift } from "lucide-react";
 type View = "repos" | "wallet" | "admin";
 
 export default function Dashboard() {
-  const { ghToken } = useAuth();
+  const { ghToken, user } = useAuth();
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
   const [view, setView] = useState<View>("repos");
 
@@ -54,6 +54,14 @@ export default function Dashboard() {
           <TabsContent value="repos">
             {ghToken ? (
               <>
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                  <h2 className="text-xl font-bold text-foreground mb-2">
+                    👋 Bem-vindo(a), {user?.user_metadata?.full_name || user?.email || 'Desenvolvedor'}!
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Ready to code? Seus repositórios estão prontos para edição. 🚀
+                  </p>
+                </div>
                 <h2 className="text-xl font-bold text-foreground mb-6">Seus Repositórios</h2>
                 <RepoList onSelectRepo={setSelectedRepo} />
               </>
