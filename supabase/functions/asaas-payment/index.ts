@@ -59,22 +59,21 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const { apiKey, baseUrl, isSandbox } = getAsaasConfig();
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({
-        error: `Asaas ${isSandbox ? "sandbox" : "production"} API key not configured`,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
-
-  const supabase = getSupabase();
-
   try {
+    const { apiKey, baseUrl, isSandbox } = getAsaasConfig();
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({
+          error: `Asaas ${isSandbox ? "sandbox" : "production"} API key not configured`,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const supabase = getSupabase();
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
@@ -340,8 +339,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           payment_id: paymentData.id,
-          pix_qr_code: pixData.encodedImage,
-          pix_copy_paste: pixData.payload,
+          pix_qr_code: pixData?.encodedImage || null,
+          pix_copy_paste: pixData?.payload || null,
           invoice_url: paymentData.invoiceUrl,
         }),
         {

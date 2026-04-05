@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
+import { Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle, Package, Loader2, ExternalLink } from "lucide-react";
 import { formatCredits } from "@/utils/credits";
 import { toast } from "sonner";
 
@@ -26,7 +26,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [pixData, setPixData] = useState<{ qr: string; copy: string } | null>(null);
+  const [pixData, setPixData] = useState<{ qr: string | null; copy: string | null; url: string | null } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -88,8 +88,12 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
       if (data.error) {
         toast.error(data.error);
       } else {
-        setPixData({ qr: data.pix_qr_code, copy: data.pix_copy_paste });
-        toast.success("PIX gerado! Escaneie o QR Code ou copie o código.");
+        setPixData({ 
+          qr: data.pix_qr_code, 
+          copy: data.pix_copy_paste,
+          url: data.invoice_url 
+        });
+        toast.success("Pagamento gerado!");
         loadData();
       }
     } catch (err: any) {
@@ -173,11 +177,20 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex justify-center"><QrCode className="h-6 w-6 text-muted-foreground" /></div>
                 {pixData.qr && (
-                  <div className="flex justify-center">
+                  <div className="flex justify-center flex-col items-center gap-3">
                     <img src={`data:image/png;base64,${pixData.qr}`} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
+                    <Button variant="secondary" className="w-full" onClick={copyPix}>Copiar código PIX</Button>
                   </div>
                 )}
-                <Button variant="secondary" className="w-full" onClick={copyPix}>Copiar código PIX</Button>
+                
+                {pixData.url && (
+                  <div className="pt-2">
+                    <p className="text-xs text-center text-muted-foreground mb-2">Problemas com o QR Code?</p>
+                    <Button variant="outline" className="w-full gap-2" onClick={() => window.open(pixData.url!, "_blank")}>
+                      <ExternalLink className="w-4 h-4" /> Pagar no Checkout Asaas
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
