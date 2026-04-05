@@ -529,7 +529,7 @@ const SuperAdmin = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Email</TableHead><TableHead>Saldo</TableHead>
-                        <TableHead>Consumo</TableHead><TableHead>Depositado</TableHead><TableHead>Lucro Aprox.</TableHead>
+                        <TableHead>Consumo</TableHead><TableHead>Custo API</TableHead><TableHead>Depositado</TableHead><TableHead>Lucro Aprox.</TableHead>
                         <TableHead>Roles</TableHead><TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -542,7 +542,8 @@ const SuperAdmin = () => {
                         <TableRow key={u.id} className={isBlocked ? "bg-destructive/5" : ""}>
                           <TableCell className="font-mono text-xs">{u.email}</TableCell>
                           <TableCell className="text-[hsl(var(--success))] font-bold py-3">R$ {(u.balance_cents / 100).toFixed(2)}</TableCell>
-                          <TableCell className="text-destructive">R$ {(u.total_spent_cents / 100).toFixed(2)}</TableCell>
+                          <TableCell className="font-medium">R$ {(u.total_spent_cents / 100).toFixed(2)}</TableCell>
+                          <TableCell className="text-destructive">R$ {(u.total_spent_cents * 0.5 / 100).toFixed(2)}</TableCell>
                           <TableCell className="font-medium">R$ {(u.total_deposited_cents / 100).toFixed(2)}</TableCell>
                           <TableCell className="text-primary font-bold">R$ {(profitCents / 100).toFixed(2)}</TableCell>
                           <TableCell>{u.roles.map(r => <Badge key={r} variant={r === "blocked" ? "destructive" : "secondary"} className="mr-1">{r}</Badge>)}</TableCell>
