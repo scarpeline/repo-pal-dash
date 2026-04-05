@@ -80,11 +80,15 @@ Deno.serve(async (req) => {
     let action = url.searchParams.get("action");
 
     if (!action && req.method !== "GET" && req.method !== "HEAD") {
-      const contentType = req.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        const body = await req.clone().json().catch(() => null);
-        if (typeof body?.action === "string" && body.action) {
-          action = body.action;
+      const rawBody = await req.clone().text().catch(() => "");
+      if (rawBody) {
+        try {
+          const body = JSON.parse(rawBody);
+          if (typeof body?.action === "string" && body.action) {
+            action = body.action;
+          }
+        } catch {
+          // Ignore non-JSON bodies here; specific handlers can parse them later if needed.
         }
       }
     }
