@@ -141,10 +141,10 @@ const SuperAdmin = () => {
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
     if (isBlocked) {
-      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked");
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "user" as any);
       toast.success("Usuário desbloqueado com sucesso!");
     } else {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" });
+      await supabase.from("user_roles").insert({ user_id: userId, role: "user" } as any);
       toast.success("Usuário bloqueado do acesso à IA!");
     }
     fetchAll();
