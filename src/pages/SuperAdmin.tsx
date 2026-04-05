@@ -209,6 +209,31 @@ const SuperAdmin = () => {
   };
 
   // Package CRUD
+  const createDefaultPackages = async () => {
+    setLoading(true);
+    const defaultPrices = [10, 15, 20, 25, 30, 50, 70, 100, 150, 200];
+    const newPackages = defaultPrices.map(price => {
+      const tokens = calculateTokensFromPrice(price, pkgModelId || "google/gemini-3-flash-preview", 50);
+      return {
+        name: price <= 30 ? "Pacote Professional" : price <= 70 ? "Pacote Business" : "Pacote Enterprise",
+        description: `Pacote com ${tokens.totalTokens.toLocaleString('pt-BR')} tokens para acelerar seus projetos IA.`,
+        price_brl: price * 100,
+        credits_amount: tokens.totalTokens,
+        is_active: true
+      };
+    });
+
+    try {
+      await supabase.from("packages").insert(newPackages as any[]);
+      toast.success("Todos os 10 Pacotes Padrão foram gerados com sucesso!");
+      fetchAll();
+    } catch (e) {
+      toast.error("Erro ao gerar pacotes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const savePkg = async () => {
     if (!validatePackage()) return;
     
@@ -690,7 +715,14 @@ const SuperAdmin = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>{editingPkg ? "Editar Pacote" : "Gerenciar Pacotes"}</CardTitle>
-                    {!showPkgForm && <Button size="sm" onClick={() => setShowPkgForm(true)}><Plus className="w-4 h-4" /> Novo</Button>}
+                    {!showPkgForm && (
+                      <div className="flex gap-2">
+                        {packages.length === 0 && (
+                          <Button size="sm" variant="outline" onClick={createDefaultPackages}><RefreshCw className="w-4 h-4 mr-2" /> Gerar Pacotes Padrão</Button>
+                        )}
+                        <Button size="sm" onClick={() => setShowPkgForm(true)}><Plus className="w-4 h-4 mr-1" /> Novo</Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 {showPkgForm && (
