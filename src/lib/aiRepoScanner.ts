@@ -56,7 +56,11 @@ export class AIRepoScanner {
   }
 
   private shouldProcessFile(path: string): boolean {
-    const extensions = ['.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.json', '.md', '.html'];
+    const extensions = [
+      '.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.json', '.md', '.html',
+      '.py', '.php', '.java', '.go', '.yml', '.yaml', '.xml', '.vue', '.svelte',
+      '.txt', '.toml', '.rs', '.c', '.cpp', '.h', '.rb', '.sh', '.env', '.config'
+    ];
     const excludePatterns = ['node_modules', '.git', 'dist', 'build', '.next', 'package-lock', 'bun.lock'];
     
     return extensions.some(ext => path.endsWith(ext)) && 
