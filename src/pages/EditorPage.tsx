@@ -59,7 +59,7 @@ const EditorPage = () => {
     { type: "system", text: "IAProgramador Terminal v2.0 — Conecte seu GitHub para começar.", timestamp: new Date() },
   ]);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\nSou um agente autônomo (como o Antigravity). Você não precisa usar comandos específicos.\n\nSimplesmente converse comigo e diga o que você deseja mudar, corrigir ou criar, e eu mapearei o repositório e farei o trabalho pra você! Se apenas tiver uma dúvida, pode me perguntar livremente.", timestamp: new Date() },
+    { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\nSou um agente autônomo. Você não precisa usar comandos específicos.\n\nSimplesmente converse comigo e diga o que você deseja mudar, corrigir ou criar, e eu mapearei o repositório e farei o trabalho pra você! Se apenas tiver uma dúvida, pode me perguntar livremente.", timestamp: new Date() },
   ]);
   const [isThinking, setIsThinking] = useState(false);
   const [searchParams] = useSearchParams();
@@ -332,12 +332,12 @@ const EditorPage = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden bg-background p-2 gap-2 text-foreground font-sans">
       <AuthErrorHandler />
       <UserBalanceBar />
 
       {/* Title bar */}
-      <div className="h-10 bg-card border-b border-border flex items-center justify-between px-3 shrink-0">
+      <div className="h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-4 shrink-0 transition-all">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-muted-foreground hover:text-foreground">
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
@@ -390,11 +390,11 @@ const EditorPage = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden gap-2">
         {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-64 bg-card border-r border-border flex flex-col shrink-0">
-            <div className="flex border-b border-border">
+          <div className="w-64 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden">
+            <div className="flex border-b border-border bg-muted/40">
               {([
                 { id: "files" as const, icon: FolderGit2, disabled: !selectedRepo },
                 { id: "github" as const, icon: Github },
@@ -449,10 +449,10 @@ const EditorPage = () => {
         )}
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 flex overflow-hidden">
-            <div className={`flex-1 flex flex-col overflow-hidden ${showPreview ? "w-1/2" : ""}`}>
-              <div className="h-9 bg-muted border-b border-border flex items-center overflow-x-auto shrink-0">
+        <div className="flex-1 flex flex-col overflow-hidden gap-2">
+          <div className="flex-1 flex overflow-hidden gap-2">
+            <div className={`flex-1 flex flex-col overflow-hidden bg-card border border-border rounded-xl shadow-sm ${showPreview ? "w-1/2" : ""}`}>
+              <div className="h-10 bg-muted/30 border-b border-border flex items-center overflow-x-auto shrink-0 px-1">
                 {loadingFile && <Loader2 className="w-3 h-3 text-primary animate-spin ml-2" />}
                 {openTabs.map(tab => (
                   <div key={tab.path} onClick={() => setActiveTab(tab.path)}
@@ -486,15 +486,15 @@ const EditorPage = () => {
               )}
             </div>
             {showPreview && (
-              <div className="w-1/2 border-l border-border">
+              <div className="w-1/2 bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
                 <PreviewPanel url="" onRefresh={() => {}} fileContent={activeFile?.content} fileName={activeFile?.name} />
               </div>
             )}
           </div>
           {bottomOpen && (
-            <div className="h-56 border-t border-border flex flex-col shrink-0">
-              <div className="h-8 bg-muted flex items-center justify-between px-2 shrink-0">
-                <div className="flex items-center">
+            <div className="h-64 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden">
+              <div className="h-9 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
+                <div className="flex items-center gap-1">
                   {([{ id: "terminal" as const, icon: Terminal, label: "Terminal" }, { id: "chat" as const, icon: MessageSquare, label: "Chat IA" }]).map(tab => (
                     <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1 px-3 py-1 text-xs ${bottomTab === tab.id ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}>
                       <tab.icon className="w-3 h-3" /> {tab.label}
@@ -508,8 +508,8 @@ const EditorPage = () => {
               </div>
             </div>
           )}
-          <div className="h-6 bg-card border-t border-border flex items-center justify-between px-3 text-xs text-muted-foreground shrink-0">
-            <div className="flex items-center gap-3">
+          <div className="h-8 bg-card border border-border rounded-lg shadow-sm flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0 mt-auto">
+            <div className="flex items-center gap-4">
               {!bottomOpen && (
                 <>
                   <button onClick={() => { setBottomOpen(true); setBottomTab("terminal"); }} className="hover:text-foreground flex items-center gap-1"><Terminal className="w-3 h-3" /> Terminal</button>
