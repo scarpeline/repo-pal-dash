@@ -168,15 +168,34 @@ const SuperAdmin = () => {
 
   // Package CRUD
   const savePkg = async () => {
-    if (!pkgName || !pkgCredits || !pkgPrice) return;
+    if (!validatePackage()) return;
+    
     const credits = parseInt(pkgCredits);
     const price = Math.round(parseFloat(pkgPrice) * 100);
-    if (editingPkg) {
-      await supabase.from("packages").update({ name: pkgName, description: pkgDesc || null, credits_amount: credits, price_brl: price } as any).eq("id", editingPkg.id);
-    } else {
-      await supabase.from("packages").insert({ name: pkgName, description: pkgDesc || null, credits_amount: credits, price_brl: price } as any);
+    
+    try {
+      if (editingPkg) {
+        await supabase.from("packages").update({ 
+          name: pkgName, 
+          description: pkgDesc || null, 
+          credits_amount: credits, 
+          price_brl: price 
+        } as any).eq("id", editingPkg.id);
+        toast.success("Pacote atualizado com sucesso!");
+      } else {
+        await supabase.from("packages").insert({ 
+          name: pkgName, 
+          description: pkgDesc || null, 
+          credits_amount: credits, 
+          price_brl: price 
+        } as any);
+        toast.success("Pacote criado com sucesso!");
+      }
+      resetPkgForm(); 
+      fetchAll();
+    } catch (error) {
+      toast.error("Erro ao salvar pacote: " + error.message);
     }
-    resetPkgForm(); fetchAll();
   };
 
   const deletePkg = async (id: string) => { if (!confirm("Excluir pacote?")) return; await supabase.from("packages").delete().eq("id", id); fetchAll(); };
@@ -327,7 +346,45 @@ const SuperAdmin = () => {
       setPkgInputTokens(tokens.inputTokens.toString());
       setPkgOutputTokens(tokens.outputTokens.toString());
       setPkgCredits(tokens.totalTokens.toString());
+      
+      // Auto-fill package name based on price range
+      if (!pkgName || pkgName === "") {
+        let suggestedName = "";
+        if (priceNum <= 10) suggestedName = "Pacote Starter";
+        else if (priceNum <= 30) suggestedName = "Pacote Professional";
+        else if (priceNum <= 60) suggestedName = "Pacote Business";
+        else suggestedName = "Pacote Enterprise";
+        
+        setPkgName(suggestedName);
+      }
+      
+      // Auto-fill description
+      if (!pkgDesc || pkgDesc === "") {
+        const totalTokens = tokens.totalTokens.toLocaleString('pt-BR');
+        setPkgDesc(`Pacote com ${totalTokens} tokens (${tokens.inputTokens.toLocaleString('pt-BR')} input + ${tokens.outputTokens.toLocaleString('pt-BR')} output) para uso nos modelos IA mais avançados.`);
+      }
     }
+  };
+
+  // Validate package before saving
+  const validatePackage = () => {
+    if (!pkgName.trim()) {
+      toast.error("Nome do pacote é obrigatório");
+      return false;
+    }
+    if (!pkgDesc.trim()) {
+      toast.error("Descrição do pacote é obrigatória");
+      return false;
+    }
+    if (!pkgCredits || parseInt(pkgCredits) <= 0) {
+      toast.error("Quantidade de créditos deve ser maior que zero");
+      return false;
+    }
+    if (!pkgPrice || parseFloat(pkgPrice) <= 0) {
+      toast.error("Preço deve ser maior que zero");
+      return false;
+    }
+    return true;
   };
 
   const totalRevenue = users.reduce((s, u) => s + u.total_deposited_cents, 0);
@@ -577,45 +634,63 @@ const SuperAdmin = () => {
                 {showPkgForm && (
                   <CardContent className="space-y-4">
                     {/* Calculator Section */}
-                    <div className="bg-muted/50 rounded-lg p-4 space-y-3 border border-border">
-                      <p className="text-sm font-semibold flex items-center gap-2">
-                        <Calculator className="w-4 h-4 text-primary" />
-                        Calculadora Automática de Pacotes
+                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 space-y-3 border border-blue-200">
+                      <p className="text-sm font-semibold flex items-center gap-2 text-blue-800">
+                        <Calculator className="w-4 h-4 text-blue-600" />
+                        Calculadora Inteligente de Pacotes
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Automático</span>
                       </p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
-                          <Label className="text-xs">Modelo IA</Label>
+                          <Label className="text-xs font-medium text-gray-700">Modelo IA</Label>
                           <select 
                             value={pkgModelId} 
                             onChange={e => setPkgModelId(e.target.value)} 
-                            className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm text-foreground"
+                            className="w-full bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           >
                             {modelPricing.map(m => <option key={m.model_id} value={m.model_id}>{m.model_label}</option>)}
                           </select>
                         </div>
                         <div>
-                          <Label className="text-xs">Tokens Entrada</Label>
-                          <Input type="number" value={pkgInputTokens} onChange={e => setPkgInputTokens(e.target.value)} className="h-8" />
+                          <Label className="text-xs font-medium text-gray-700">Tokens Entrada</Label>
+                          <Input type="number" value={pkgInputTokens} onChange={e => setPkgInputTokens(e.target.value)} className="h-8 border-gray-300" />
                         </div>
                         <div>
-                          <Label className="text-xs">Tokens Saída</Label>
-                          <Input type="number" value={pkgOutputTokens} onChange={e => setPkgOutputTokens(e.target.value)} className="h-8" />
+                          <Label className="text-xs font-medium text-gray-700">Tokens Saída</Label>
+                          <Input type="number" value={pkgOutputTokens} onChange={e => setPkgOutputTokens(e.target.value)} className="h-8 border-gray-300" />
                         </div>
                         <div>
-                          <Label className="text-xs">Margem Lucro (%)</Label>
-                          <Input type="number" value={pkgMarginPercent} onChange={e => setPkgMarginPercent(e.target.value)} className="h-8" />
+                          <Label className="text-xs font-medium text-gray-700">Margem Lucro (%)</Label>
+                          <Input type="number" value={pkgMarginPercent} onChange={e => setPkgMarginPercent(e.target.value)} className="h-8 border-gray-300" />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between bg-background rounded p-2 text-xs">
-                        <div className="space-x-4">
-                          <span className="text-muted-foreground">Custo API: <strong className="text-destructive">R$ {(calculatePackageValues().costPrice / 100).toFixed(2)}</strong></span>
-                          <span className="text-muted-foreground">Preço Final: <strong className="text-primary">R$ {(calculatePackageValues().salePrice / 100).toFixed(2)}</strong></span>
-                          <span className="text-muted-foreground">Lucro: <strong className="text-[hsl(var(--success))]">R$ {(calculatePackageValues().profit / 100).toFixed(2)}</strong></span>
-                          <span className="text-muted-foreground">Margem: <strong>{calculatePackageValues().margin.toFixed(0)}%</strong></span>
+                      <div className="bg-white rounded-lg p-3 border border-gray-200">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                          <div className="text-center">
+                            <div className="text-gray-500 mb-1">Custo API</div>
+                            <div className="font-bold text-red-600">R$ {(calculatePackageValues().costPrice / 100).toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500 mb-1">Preço Final</div>
+                            <div className="font-bold text-blue-600">R$ {(calculatePackageValues().salePrice / 100).toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500 mb-1">Lucro</div>
+                            <div className="font-bold text-green-600">R$ {(calculatePackageValues().profit / 100).toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500 mb-1">Margem Real</div>
+                            <div className="font-bold text-purple-600">{calculatePackageValues().margin.toFixed(0)}%</div>
+                          </div>
                         </div>
-                        <Button size="sm" variant="secondary" onClick={applyCalculatedValues} className="h-7 text-xs">
-                          <TrendingUp className="w-3 h-3 mr-1" /> Aplicar Valores
-                        </Button>
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                          <div className="text-xs text-gray-600">
+                            <strong>Total de Tokens:</strong> {parseInt(pkgInputTokens) + parseInt(pkgOutputTokens).toLocaleString('pt-BR')}
+                          </div>
+                          <Button size="sm" onClick={applyCalculatedValues} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
+                            <TrendingUp className="w-3 h-3 mr-1" /> Aplicar Valores
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
