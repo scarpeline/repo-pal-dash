@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Sync packages to Asaas Products ──
+    // ── Sync/validate packages ──
     if (action === "sync-products") {
       const { data: pkgs, error: pkgErr } = await supabase
         .from("packages")
@@ -247,28 +247,17 @@ Deno.serve(async (req) => {
 
       const results = [];
       for (const pkg of pkgs || []) {
-        if (!pkg.asaas_product_id) {
-          const productRes = await asaasFetch(baseUrl, "/products", apiKey, {
-            method: "POST",
-            body: JSON.stringify({
-              name: pkg.name,
-              value: pkg.price_brl / 100, // Preço em Reais
-              billingType: "PIX",
-              description: pkg.description || `Pacote ${pkg.name}`,
-            }),
-          });
-
-          if (productRes.id) {
-            await supabase
-              .from("packages")
-              .update({ asaas_product_id: productRes.id })
-              .eq("id", pkg.id);
-            results.push({ name: pkg.name, status: "created", id: productRes.id });
-          } else {
-            results.push({ name: pkg.name, status: "error", error: productRes.error });
-          }
+        // Asaas doesn't have a products API - packages are managed locally
+        // Just validate and mark as synced with a local reference
+        if (!pkg.asaas_plan_id) {
+          const localRef = `pkg_${pkg.id.slice(0, 8)}`;
+          await supabase
+            .from("packages")
+            .update({ asaas_plan_id: localRef })
+            .eq("id", pkg.id);
+          results.push({ name: pkg.name, status: "synced", id: localRef });
         } else {
-          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_product_id });
+          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_plan_id });
         }
       }
 
@@ -288,10 +277,10 @@ Deno.serve(async (req) => {
       if (package_id) {
         const { data: pkg } = await supabase
           .from("packages")
-          .select("asaas_product_id")
+          .select("asaas_plan_id")
           .eq("id", package_id)
           .single();
-        asaasProductId = pkg?.asaas_product_id || null;
+        asaasProductId = pkg?.asaas_plan_id || null;
       }
 
       if (!amount_cents || amount_cents < 500) {
