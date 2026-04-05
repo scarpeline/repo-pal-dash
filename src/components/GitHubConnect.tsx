@@ -38,7 +38,7 @@ const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnecte
   const handleOAuth = async () => {
     setConnecting(true);
     try {
-      const redirectUri = `${window.location.origin}/github/callback`;
+      const redirectUri = "https://iaprogramador.online/github/callback";
       const state = Math.random().toString(36).substring(7);
       localStorage.setItem("gh_oauth_state", state);
 
