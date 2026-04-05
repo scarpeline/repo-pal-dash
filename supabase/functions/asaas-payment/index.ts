@@ -288,10 +288,10 @@ Deno.serve(async (req) => {
       if (package_id) {
         const { data: pkg } = await supabase
           .from("packages")
-          .select("asaas_product_id")
+          .select("asaas_plan_id")
           .eq("id", package_id)
           .single();
-        asaasProductId = pkg?.asaas_product_id || null;
+        asaasProductId = pkg?.asaas_plan_id || null;
       }
 
       if (!amount_cents || amount_cents < 500) {
