@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Gift, LogOut, Code2,
+  Wallet, Gift, LogOut, Code2, Globe
 } from "lucide-react";
 import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatUsageText } from "@/utils/credits";
 import { toast } from "sonner";
 import { AIFileModifier } from "@/lib/aiFileModifier";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Tab = { path: string; name: string; content: string; sha?: string; dirty?: boolean };
 type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text: string; timestamp: Date };
@@ -33,6 +34,7 @@ type ChatMsg = { role: "user" | "ai" | "system"; content: string; timestamp: Dat
 
 const EditorPage = () => {
   const { user, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"files" | "github" | "search">("github");
@@ -57,7 +59,7 @@ const EditorPage = () => {
     { type: "system", text: "IAProgramador Terminal v2.0 — Conecte seu GitHub para começar.", timestamp: new Date() },
   ]);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\n💬 Chat normal: pergunte sobre código\n✏️ Editar repo: use /edit ou /editar seguido do comando\n\nExemplos:\n• /edit muda a cor do botão para azul\n• /editar adiciona um footer no site\n• /edit corrige o bug do formulário", timestamp: new Date() },
+    { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\nSou um agente autônomo (como o Antigravity). Você não precisa usar comandos específicos.\n\nSimplesmente converse comigo e diga o que você deseja mudar, corrigir ou criar, e eu mapearei o repositório e farei o trabalho pra você! Se apenas tiver uma dúvida, pode me perguntar livremente.", timestamp: new Date() },
   ]);
   const [isThinking, setIsThinking] = useState(false);
   const [searchParams] = useSearchParams();
@@ -213,7 +215,12 @@ const EditorPage = () => {
         setChatMessages(p => [...p, { role: "system", content: msg, timestamp: new Date() }]);
       };
 
-      const result = await modifier.processCommand(message, model || "google/gemini-2.5-flash", addProgress);
+      const result = await modifier.processCommand(
+        message, 
+        model || "google/gemini-2.5-flash", 
+        addProgress,
+        chatMessages.filter(m => m.role !== "system")
+      );
       
       if (result.modifications.length === 0) {
         setChatMessages(p => [...p, { role: "ai", content: result.message, timestamp: new Date() }]);
@@ -254,15 +261,14 @@ const EditorPage = () => {
     setIsThinking(true);
     
     try {
-      const isEditCommand = message.startsWith('/edit ') || message.startsWith('/editar ');
-      
-      if (ghToken && selectedRepo && isEditCommand) {
-        const command = message.replace(/^\/(edit|editar)\s+/, '');
-        await handleFileModification(command, model);
+      if (ghToken && selectedRepo) {
+        // Se há um repositório conectado, o Agente cuida de TODAS as interações via o AIFileModifier
+        await handleFileModification(message, model);
         setIsThinking(false);
         return;
       }
 
+      // Fallback: se não tiver repositório conectado, age como chat simples
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
@@ -281,8 +287,6 @@ const EditorPage = () => {
           messages,
           fileContent: activeFile?.content,
           fileName: activeFile?.name,
-          repoName: selectedRepo?.full_name,
-          branch,
           model: model || "google/gemini-3-flash-preview",
         }),
       });
@@ -361,6 +365,18 @@ const EditorPage = () => {
           </button>
           <NotificationBell />
           
+          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1">
+            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+            <select 
+              value={language} 
+              onChange={(e) => setLanguage(e.target.value as any)}
+              className="bg-transparent border-none text-xs text-muted-foreground outline-none cursor-pointer"
+            >
+              <option value="pt-BR">PT</option>
+              <option value="en-US">EN</option>
+              <option value="es-ES">ES</option>
+            </select>
+          </div>
           <button onClick={() => navigate("/wallet")} className="text-muted-foreground hover:text-foreground" title="Carteira">
             <Wallet className="w-4 h-4" />
           </button>

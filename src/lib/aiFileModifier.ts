@@ -19,25 +19,25 @@ export class AIFileModifier {
   async processCommand(
     command: string,
     model: string = "google/gemini-2.5-flash",
-    onProgress?: (msg: string) => void
+    onProgress?: (msg: string) => void,
+    chatHistory: { role: string; content: string }[] = []
   ): Promise<{ message: string; modifications: FileModification[] }> {
     try {
-      onProgress?.("📁 Varrendo arquivos do repositório...");
+      onProgress?.("📁 Varrendo e analisando todos os arquivos...");
       const files = await this.scanner.scanAllFiles();
 
       if (files.length === 0) {
         return { message: "❌ Nenhum arquivo encontrado no repositório.", modifications: [] };
       }
 
-      onProgress?.(`📄 ${files.length} arquivos encontrados. Analisando com IA...`);
+      onProgress?.(`📄 ${files.length} arquivos analisados. Processando seu comando...`);
 
       // Build a compact file map for the AI (limit to ~50KB to avoid token overflow)
       let totalSize = 0;
       const fileMap: { path: string; content: string }[] = [];
       for (const f of files) {
         if (totalSize + f.content.length > 50000) {
-          // Include path only for remaining files
-          fileMap.push({ path: f.path, content: `[arquivo muito grande - ${f.content.length} chars]` });
+          fileMap.push({ path: f.path, content: `[arquivo omitido ou truncado - limite de contexto]` });
         } else {
           fileMap.push({ path: f.path, content: f.content });
           totalSize += f.content.length;
@@ -51,22 +51,28 @@ export class AIFileModifier {
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-      const systemPrompt = `Você é um assistente de programação expert. O usuário quer modificar um repositório GitHub.
-Analise os arquivos do repositório e gere as modificações necessárias.
+      const systemPrompt = `Você é um Engenheiro de Software Autônomo nível Staff (como o Claude Code / Antigravity).
+Sua missão é resolver o problema do usuário analisando o código e fazendo modificações automaticamente quando necessário, ou apenas tirando dúvidas.
 
 REPOSITÓRIO: ${this.repo.full_name} (branch: ${this.branch})
 
 ARQUIVOS DO REPOSITÓRIO:
 ${fileMap.map(f => `--- ${f.path} ---\n${f.content}\n`).join('\n')}
 
-REGRAS:
-1. Responda APENAS com um JSON válido, sem markdown, sem \`\`\`
-2. O JSON deve ter o formato: { "modifications": [...], "summary": "..." }
-3. Cada modificação: { "path": "caminho/do/arquivo", "content": "conteúdo completo do arquivo modificado", "operation": "update" ou "create", "message": "descrição da mudança" }
-4. Para "update", envie o conteúdo COMPLETO do arquivo modificado
-5. Para "create", envie o conteúdo completo do novo arquivo
-6. Se não encontrar o que modificar, retorne: { "modifications": [], "summary": "explicação" }
-7. Seja preciso e mantenha o código funcional`;
+REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
+1. Sua única resposta deve ser EXCLUSIVAMENTE um objeto JSON válido, sem usar blocos de markdown como \`\`\`json.
+2. O formato obrigatório do JSON: { "modifications": [...], "summary": "sua resposta em texto para o usuário, no papel de desenvolvedor." }
+3. Se o usuário pedir para alterar, adicionar ou corrigir algo no projeto, preencha o array "modifications". 
+4. Cada objeto em "modifications" deve ser: { "path": "caminho/do/arquivo", "content": "CÓDIGO COMPLETO SUBSTITUTO", "operation": "update" ou "create", "message": "descrição do commit" }.
+5. "content" DEVE SEMPRE conter o CÓDIGO FONTE COMPLETO do arquivo após sua modificação. Nunca resuma com reticências.
+6. Se a solicitação do usuário for apenas uma dúvida, ou se nenhuma modificação com código for necessária, retorne "modifications": [] e escreva a resposta explicativa no campo "summary".
+7. Seja natural no campo "summary", conversando em Português do Brasil de forma prestativa e direta.`;
+
+      const apiMessages = [
+        { role: "system", content: systemPrompt },
+        ...chatHistory.map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: m.content })),
+        { role: "user", content: command }
+      ];
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
         method: "POST",
@@ -75,7 +81,7 @@ REGRAS:
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          messages: [{ role: "user", content: command }],
+          messages: apiMessages,
           repoName: this.repo.full_name,
           branch: this.branch,
           model,
