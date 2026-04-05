@@ -249,7 +249,20 @@ const EditorPage = () => {
       setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date() }]);
     }
   };
-      // Fluxo normal do chat IA
+  const handleChatSend = useCallback(async (message: string, model?: string) => {
+    setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
+    setIsThinking(true);
+    
+    try {
+      const isEditCommand = message.startsWith('/edit ') || message.startsWith('/editar ');
+      
+      if (ghToken && selectedRepo && isEditCommand) {
+        const command = message.replace(/^\/(edit|editar)\s+/, '');
+        await handleFileModification(command, model);
+        setIsThinking(false);
+        return;
+      }
+
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
@@ -287,11 +300,12 @@ const EditorPage = () => {
         ? `\n\n${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
         : "";
       setChatMessages(p => [...p, { role: "ai", content: aiContent + usageInfo, timestamp: new Date() }]);
-    } catch (err: any) {
-      setChatMessages(p => [...p, { role: "ai", content: `Erro: ${err.message}`, timestamp: new Date() }]);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setChatMessages(p => [...p, { role: "ai", content: `Erro: ${errMsg}`, timestamp: new Date() }]);
     }
     setIsThinking(false);
-  }, [selectedRepo, branch, activeFile, chatMessages]);
+  }, [selectedRepo, branch, activeFile, chatMessages, ghToken]);
 
   const renderFileTree = (nodes: FileNode[]) => (
     <div className="text-xs">
