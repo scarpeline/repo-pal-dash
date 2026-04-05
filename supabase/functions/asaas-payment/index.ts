@@ -77,7 +77,23 @@ Deno.serve(async (req) => {
 
     const supabase = getSupabase();
     const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    let action = url.searchParams.get("action");
+
+    if (!action && req.method !== "GET" && req.method !== "HEAD") {
+      const rawBody = await req.clone().text().catch(() => "");
+      if (rawBody) {
+        try {
+          const body = JSON.parse(rawBody);
+          if (typeof body?.action === "string" && body.action) {
+            action = body.action;
+          }
+        } catch {
+          // Ignore non-JSON bodies here; specific handlers can parse them later if needed.
+        }
+      }
+    }
+
+    console.log("asaas-payment", { method: req.method, action });
 
     // ── Webhook from Asaas ──
     if (action === "webhook") {
