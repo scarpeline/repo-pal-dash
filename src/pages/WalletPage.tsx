@@ -14,8 +14,11 @@ function formatBRL(cents: number) {
 }
 
 interface PackageItem {
-  id: string; name: string; description: string | null;
-  credits_amount: number; price_brl: number;
+  id: string; 
+  name: string; 
+  description: string | null;
+  credits_amount: number; 
+  price_brl: number;
 }
 
 export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
@@ -55,10 +58,15 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     setTransactions(txData.transactions || []);
   };
 
-  const handleRecharge = async (amountCents: number, packageId?: string) => {
+  const handleRecharge = async (amountInBrlOrCents: number, packageId?: string) => {
     if (!session || !user) return;
     setLoading(true);
     setPixData(null);
+    
+    // Se vier de um pacote, o price_brl na tabela está em centavos (ex: 1000 para R$10).
+    // Se vier do botão de recarga rápida, o valor também é passado em centavos no componente atual.
+    const amountCents = amountInBrlOrCents;
+
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
