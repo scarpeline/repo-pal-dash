@@ -633,7 +633,7 @@ const SuperAdmin = () => {
                               <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{w.pix_key}</code>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={w.status === "paid" ? "success" : w.status === "pending" ? "warning" : "destructive"}>
+                              <Badge variant={w.status === "paid" ? "default" : w.status === "pending" ? "secondary" : "destructive"}>
                                 {w.status === "paid" ? "Pago" : w.status === "pending" ? "Pendente" : "Rejeitado"}
                               </Badge>
                             </TableCell>
