@@ -150,6 +150,17 @@ const SuperAdmin = () => {
     fetchAll();
   };
 
+  const updateWithdrawalStatus = async (id: string, newStatus: string) => {
+    const { error } = await supabase
+      .from("withdrawal_requests")
+      .update({ status: newStatus as any })
+      .eq("id", id);
+
+    if (error) toast.error("Erro ao atualizar status");
+    else toast.success(`Pedido marcado como ${newStatus}`);
+    fetchAll();
+  };
+
   const quickDonate = async (userId: string) => {
     const amtStr = prompt("Quantos Reais (R$) adicionar ao saldo deste usuário?");
     if (!amtStr) return;
@@ -549,6 +560,64 @@ const SuperAdmin = () => {
                             </div>
                           </TableCell>
                         </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Withdrawals */}
+          <TabsContent value="withdrawals">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><HandCoins className="w-5 h-5" /> Solicitações de Saque (Afiliados)</CardTitle>
+                <CardDescription>Aprove ou rejeite pedidos de saque. A transferência real deve ser feita manualmente ou via API antes de marcar como pago.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div> : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Chave PIX</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {withdrawals.length === 0 ? (
+                        <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma solicitação pendente</TableCell></TableRow>
+                      ) : withdrawals.map((w) => {
+                        const u = users.find(usr => usr.id === w.user_id);
+                        return (
+                          <TableRow key={w.id}>
+                            <TableCell>
+                              <div className="font-medium text-xs">{u?.email || "ID: " + w.user_id.slice(0,8)}</div>
+                            </TableCell>
+                            <TableCell className="font-bold text-[hsl(var(--success))]">R$ {(w.amount_cents / 100).toFixed(2)}</TableCell>
+                            <TableCell>
+                              <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{w.pix_key}</code>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={w.status === "paid" ? "success" : w.status === "pending" ? "warning" : "destructive"}>
+                                {w.status === "paid" ? "Pago" : w.status === "pending" ? "Pendente" : "Rejeitado"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-[10px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</TableCell>
+                            <TableCell className="text-right">
+                              {w.status === "pending" && (
+                                <div className="flex justify-end gap-1">
+                                  <Button size="sm" variant="outline" className="h-7 text-xs text-green-600 border-green-200" onClick={() => updateWithdrawalStatus(w.id, 'paid')}>Pagar</Button>
+                                  <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500" onClick={() => updateWithdrawalStatus(w.id, 'rejected')}>Rejeitar</Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
                     </TableBody>

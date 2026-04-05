@@ -11,6 +11,7 @@ interface Profile {
   referral_code: string | null;
   referred_by: string | null;
   pix_key: string | null;
+  pix_key_type: string | null;
 }
 
 interface Balance {

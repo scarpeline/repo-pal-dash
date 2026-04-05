@@ -76,7 +76,15 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           }),
         }
       );
-      const data = await res.json();
+      
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error("Erro de infraestrutura (Edge Function): " + text.slice(0, 50));
+      }
+
       if (data.error) {
         toast.error(data.error);
       } else {
@@ -84,8 +92,8 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         toast.success("PIX gerado! Escaneie o QR Code ou copie o código.");
         loadData();
       }
-    } catch {
-      toast.error("Erro ao gerar PIX");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar PIX");
     } finally {
       setLoading(false);
     }

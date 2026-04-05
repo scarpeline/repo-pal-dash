@@ -31,15 +31,27 @@ async function asaasFetch(
   apiKey: string,
   options: RequestInit = {}
 ) {
-  const res = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      access_token: apiKey,
-      ...(options.headers || {}),
-    },
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        access_token: apiKey,
+        ...(options.headers || {}),
+      },
+    });
+    
+    const text = await res.text();
+    if (!text) return { error: `Resposta vazia da API do Asaas (${res.status})` };
+    
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return { error: `Erro ao processar JSON: ${text.slice(0, 100)}` };
+    }
+  } catch (err) {
+    return { error: `Erro de conexão: ${String(err)}` };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -246,10 +258,17 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           name: customer_name || user.email,
           email: customer_email || user.email,
-          cpfCnpj: customer_cpf,
+          cpfCnpj: customer_cpf || "00000000000", // CPF de teste se vazio
           externalReference: user.id,
         }),
       });
+
+      if (customerRes.error) {
+        return new Response(JSON.stringify({ error: customerRes.error }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (customerRes.id) {
         customerId = customerRes.id;
@@ -287,11 +306,25 @@ Deno.serve(async (req) => {
         }),
       });
 
+      if (paymentData.error) {
+        return new Response(JSON.stringify({ error: paymentData.error }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const pixData = await asaasFetch(
         baseUrl,
         `/payments/${paymentData.id}/pixQrCode`,
         apiKey
       );
+
+      if (pixData.error) {
+        return new Response(JSON.stringify({ error: pixData.error }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       await supabase.from("transactions").insert({
         user_id: user.id,
