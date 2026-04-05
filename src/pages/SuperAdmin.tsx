@@ -389,7 +389,7 @@ const SuperAdmin = () => {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro na sincronização");
-      if (error) throw error;
+      
       
       const results = data.sync_results || [];
       const created = results.filter((r: any) => r.status === "created").length;
