@@ -54,6 +54,18 @@ const EditorPage = () => {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const [loadingFile, setLoadingFile] = useState(false);
+  const [repoUrls, setRepoUrls] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("repo_preview_urls") || "{}"); } catch { return {}; }
+  });
+
+  const handleUrlChange = useCallback((newUrl: string) => {
+    if (!selectedRepo) return;
+    setRepoUrls(prev => {
+      const next = { ...prev, [selectedRepo.full_name]: newUrl };
+      localStorage.setItem("repo_preview_urls", JSON.stringify(next));
+      return next;
+    });
+  }, [selectedRepo]);
 
   const [termMessages, setTermMessages] = useState<TermMsg[]>([
     { type: "system", text: "IAProgramador Terminal v2.0 — Conecte seu GitHub para começar.", timestamp: new Date() },
@@ -487,7 +499,13 @@ const EditorPage = () => {
             </div>
             {showPreview && (
               <div className="w-1/2 bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
-                <PreviewPanel url="" onRefresh={() => {}} fileContent={activeFile?.content} fileName={activeFile?.name} />
+                <PreviewPanel 
+                  url={selectedRepo ? (repoUrls[selectedRepo.full_name] || "") : ""} 
+                  onUrlChange={handleUrlChange}
+                  onRefresh={() => {}} 
+                  fileContent={activeFile?.content} 
+                  fileName={activeFile?.name} 
+                />
               </div>
             )}
           </div>

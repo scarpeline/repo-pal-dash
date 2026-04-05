@@ -6,6 +6,7 @@ interface PreviewPanelProps {
   onRefresh: () => void;
   fileContent?: string;
   fileName?: string;
+  onUrlChange?: (url: string) => void;
 }
 
 const getLanguage = (name: string): string => {
@@ -32,7 +33,7 @@ const renderMarkdown = (md: string): string => {
     .replace(/\n/g, '<br/>');
 };
 
-const PreviewPanel = ({ url, onRefresh, fileContent, fileName }: PreviewPanelProps) => {
+const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: PreviewPanelProps) => {
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [key, setKey] = useState(0);
   const [mode, setMode] = useState<"preview" | "source">("preview");
@@ -80,9 +81,19 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName }: PreviewPanelPro
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
 
-        <div className="flex-1 bg-input border border-border rounded px-2.5 py-1 text-xs text-muted-foreground font-mono truncate">
-          {url || fileName || "preview"}
-        </div>
+        {onUrlChange ? (
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => onUrlChange(e.target.value)}
+            placeholder="Cole aqui a URL live da sua aplicação (Ex: seu-site.vercel.app)"
+            className="flex-1 bg-input/50 focus:bg-input border border-border rounded px-2.5 py-1 text-xs text-foreground font-mono outline-none focus:border-primary placeholder:text-muted-foreground/50 transition-colors"
+          />
+        ) : (
+          <div className="flex-1 bg-input border border-border rounded px-2.5 py-1 text-xs text-muted-foreground font-mono truncate">
+            {url || fileName || "preview"}
+          </div>
+        )}
 
         {/* Viewport controls */}
         <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
