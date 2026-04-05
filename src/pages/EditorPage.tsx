@@ -57,7 +57,7 @@ const EditorPage = () => {
     { type: "system", text: "IAProgramador Terminal v2.0 — Conecte seu GitHub para começar.", timestamp: new Date() },
   ]);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "system", content: "Bem-vindo ao IAProgramador! Conecte seu GitHub pelo painel lateral.", timestamp: new Date() },
+    { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\n💬 Chat normal: pergunte sobre código\n✏️ Editar repo: use /edit ou /editar seguido do comando\n\nExemplos:\n• /edit muda a cor do botão para azul\n• /editar adiciona um footer no site\n• /edit corrige o bug do formulário", timestamp: new Date() },
   ]);
   const [isThinking, setIsThinking] = useState(false);
   const [searchParams] = useSearchParams();
