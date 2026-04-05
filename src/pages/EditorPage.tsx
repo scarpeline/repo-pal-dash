@@ -23,6 +23,8 @@ import {
 } from "@/lib/github";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatUsageText } from "@/utils/credits";
+import { toast } from "sonner";
 
 type Tab = { path: string; name: string; content: string; sha?: string; dirty?: boolean };
 type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text: string; timestamp: Date };
@@ -216,7 +218,7 @@ const EditorPage = () => {
       const data = await res.json();
       const aiContent = data.content || "Sem resposta do modelo.";
       const usageInfo = data.usage
-        ? `\n\n_Tokens: ${data.usage.input_tokens} in / ${data.usage.output_tokens} out | Custo: R$ ${(data.usage.cost_cents / 100).toFixed(4)}_`
+        ? `\n\n${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
         : "";
       setChatMessages(p => [...p, { role: "ai", content: aiContent + usageInfo, timestamp: new Date() }]);
     } catch (err: any) {

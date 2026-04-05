@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
+import { formatCredits } from "@/utils/credits";
 import { toast } from "sonner";
 
 function formatBRL(cents: number) {
@@ -142,7 +143,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                     <p className="text-sm font-bold text-foreground">{pkg.name}</p>
                     {pkg.description && <p className="text-xs text-muted-foreground mt-0.5">{pkg.description}</p>}
                     <p className="text-lg font-bold text-primary mt-1">{formatBRL(pkg.price_brl)}</p>
-                    <p className="text-xs text-muted-foreground">{pkg.credits_amount.toLocaleString()} créditos</p>
+                    <p className="text-xs text-muted-foreground">{formatCredits(pkg.credits_amount)} créditos</p>
                   </button>
                 ))}
               </div>
