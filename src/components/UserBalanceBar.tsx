@@ -2,10 +2,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const UserBalanceBar = () => {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
@@ -22,10 +24,14 @@ const UserBalanceBar = () => {
   if (!user || balance === null) return null;
 
   return (
-    <div className="h-7 bg-card border-b border-border flex items-center justify-end px-3 gap-2 text-xs shrink-0">
-      <Wallet className="w-3 h-3 text-[hsl(var(--success))]" />
-      <span className="text-foreground font-medium">R$ {(balance / 100).toFixed(2)}</span>
-    </div>
+    <button 
+      onClick={() => navigate("/wallet")}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors" 
+      title="Ir para Carteira"
+    >
+      <Wallet className="w-4 h-4 text-primary" />
+      <span className="text-sm font-bold text-primary">R$ {(balance / 100).toFixed(2)}</span>
+    </button>
   );
 };
 

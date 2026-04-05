@@ -346,7 +346,6 @@ const EditorPage = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background p-2 gap-2 text-foreground font-sans">
       <AuthErrorHandler />
-      <UserBalanceBar />
 
       {/* Title bar */}
       <div className="h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-4 shrink-0 transition-all">
@@ -375,23 +374,22 @@ const EditorPage = () => {
           <button onClick={() => setShowPreview(!showPreview)} className={`flex items-center gap-1 text-sm px-2 py-1 rounded ${showPreview ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
             <Eye className="w-3.5 h-3.5" /> Preview
           </button>
+          
+          <UserBalanceBar />
           <NotificationBell />
           
-          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1">
-            <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1 ml-1">
+            <Globe className="w-4 h-4 text-muted-foreground" />
             <select 
               value={language} 
               onChange={(e) => setLanguage(e.target.value as any)}
-              className="bg-transparent border-none text-sm text-muted-foreground outline-none cursor-pointer"
+              className="bg-transparent border-none text-sm font-medium text-muted-foreground outline-none cursor-pointer"
             >
               <option value="pt-BR">PT</option>
               <option value="en-US">EN</option>
               <option value="es-ES">ES</option>
             </select>
           </div>
-          <button onClick={() => navigate("/wallet")} className="text-muted-foreground hover:text-foreground" title="Carteira">
-            <Wallet className="w-4 h-4" />
-          </button>
           <button onClick={() => navigate("/affiliate")} className="text-muted-foreground hover:text-foreground" title="Afiliados">
             <Gift className="w-4 h-4" />
           </button>
