@@ -380,15 +380,10 @@ const SuperAdmin = () => {
 
   const syncAsaasProducts = async () => {
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Não autenticado");
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=sync-products`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro na sincronização");
+      const { data, error } = await supabase.functions.invoke("asaas-payment", {
+        body: { action: "sync-products" },
+      });
+      if (error) throw error;
       
       
       const results = data.sync_results || [];
