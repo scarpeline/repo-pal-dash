@@ -77,11 +77,22 @@ Deno.serve(async (req) => {
 
     const supabase = getSupabase();
     const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    let action = url.searchParams.get("action");
+
+    let payload: any = {};
+    if (req.method === "POST") {
+      try {
+        payload = await req.json();
+        if (!action && payload.action) {
+          action = payload.action;
+        }
+      } catch (_) {
+        // Body não é JSON ou está vazio
+      }
+    }
 
     // ── Webhook from Asaas ──
     if (action === "webhook") {
-      const payload = await req.json();
       const event = payload.event;
 
       if (
@@ -264,8 +275,7 @@ Deno.serve(async (req) => {
 
     // ── Create PIX payment ──
     if (action === "create-pix") {
-      const { amount_cents, customer_name, customer_cpf, customer_email, package_id } =
-        await req.json();
+      const { amount_cents, customer_name, customer_cpf, customer_email, package_id } = payload;
 
       // Check if we have a specific package product ID
       let asaasProductId = null;

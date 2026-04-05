@@ -380,7 +380,7 @@ const SuperAdmin = () => {
 
   const syncAsaasProducts = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("asaas-payment", {
+      const { data, error } = await supabase.functions.invoke("asaas-payment?action=sync-products", {
         body: { action: "sync-products" },
       });
       if (error) throw error;
