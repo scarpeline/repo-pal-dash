@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    /* Novo tema Light Mode Premium Laranja e Branco */
-    --background: 0 0% 98%;
-    --foreground: 220 16% 12%;
+    /* Novo Tema Black & Orange (Dark Mode) */
+    --background: 220 16% 8%;
+    --foreground: 210 20% 92%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 16% 12%;
+    --card: 220 16% 12%;
+    --card-foreground: 210 20% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 16% 12%;
+    --popover: 220 16% 12%;
+    --popover-foreground: 210 20% 92%;
 
-    /* Laranja moderno e vibrante */
+    /* Laranja moderno e vibrante (Botões e destaques) */
     --primary: 24 100% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 94%;
-    --secondary-foreground: 220 16% 12%;
+    --secondary: 220 16% 16%;
+    --secondary-foreground: 210 20% 92%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 12% 45%;
+    --muted: 220 14% 15%;
+    --muted-foreground: 215 14% 60%;
 
     --accent: 24 100% 55%;
     --accent-foreground: 0 0% 100%;
@@ -30,35 +30,33 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 90%;
-    --input: 220 14% 90%;
+    --border: 220 14% 20%;
+    --input: 220 14% 20%;
     --ring: 24 100% 55%;
 
-    /* Bordas mais arredondadas e amigáveis */
+    /* Bordas mais arredondadas mantendo a leveza do design flutuante */
     --radius: 0.8rem;
 
-    /* Sidebar mais limpo que o background */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 16% 25%;
+    --sidebar-background: 220 16% 12%;
+    --sidebar-foreground: 210 20% 92%;
     --sidebar-primary: 24 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 94%;
-    --sidebar-accent-foreground: 220 16% 12%;
-    --sidebar-border: 220 14% 90%;
+    --sidebar-accent: 220 16% 16%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 220 14% 20%;
     --sidebar-ring: 24 100% 55%;
 
-    --editor-bg: 0 0% 100%;
-    --editor-line: 220 14% 94%;
-    --editor-active-line: 220 14% 90%;
-    --editor-selection: 24 100% 90%;
+    --editor-bg: 220 18% 10%;
+    --editor-line: 220 14% 15%;
+    --editor-active-line: 220 14% 18%;
+    --editor-selection: 24 100% 30%; /* Seleção Puxada pro laranja */
     
-    --success: 142 71% 45%;
+    --success: 142 60% 55%;
     --warning: 38 92% 55%;
     --info: 210 100% 55%;
 
-    /* Mantendo o tema do terminal elegante (mas escuro) pelo contraste real de um shell */
-    --terminal: 220 18% 10%;
-    --terminal-green: 142 60% 55%;
+    --terminal: 220 20% 6%;
+    --terminal-green: 24 100% 55%; /* Deixando detalhes do terminal na paleta laranja também */
 
     --github: 220 16% 12%;
   }
