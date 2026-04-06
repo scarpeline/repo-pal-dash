@@ -30,6 +30,9 @@ interface Lead {
 interface AdminPackage {
   id: string; name: string; description: string | null;
   credits_amount: number; price_brl: number; is_active: boolean;
+  checkout_url?: string | null;
+  asaas_payment_link_id?: string | null;
+  stripe_price_id?: string | null;
 }
 
 interface WithdrawalRequest {
@@ -46,6 +49,7 @@ interface ModelPricing {
 
 const SuperAdmin = () => {
   const { isAdmin, loading: authLoading, user } = useAuth();
+  const backend = supabase as any;
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
@@ -87,7 +91,7 @@ const SuperAdmin = () => {
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
   useEffect(() => {
-    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
+    if (!authLoading && isAdmin) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -114,7 +118,7 @@ const SuperAdmin = () => {
     if (pkgsRes.data) setPackages(pkgsRes.data as any[]);
     
     // Fetch app settings
-    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    const { data: settings } = await backend.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
 
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
@@ -261,6 +265,7 @@ const SuperAdmin = () => {
     const price = Math.round(parseFloat(pkgPrice) * 100);
     
     try {
+      if (editingPkg) {
         await supabase.from("packages").update({ 
           name: pkgName, 
           description: pkgDesc || null, 
@@ -286,7 +291,8 @@ const SuperAdmin = () => {
       resetPkgForm(); 
       fetchAll();
     } catch (error) {
-      toast.error("Erro ao salvar pacote: " + error.message);
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error("Erro ao salvar pacote: " + message);
     }
   };
 
@@ -517,8 +523,7 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
-  const hasAccess = isAdmin || ADMIN_EMAILS.includes(user?.email || "");
+  const hasAccess = isAdmin;
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
@@ -1108,7 +1113,7 @@ const SuperAdmin = () => {
                       variant={primaryGateway === "asaas" ? "default" : "outline"}
                       onClick={async () => {
                         setPrimaryGateway("asaas");
-                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
+                        await backend.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
                         toast.success("Gateway primário alterado para Asaas");
                       }}
                       className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"
@@ -1122,7 +1127,7 @@ const SuperAdmin = () => {
                       variant={primaryGateway === "stripe" ? "default" : "outline"}
                       onClick={async () => {
                         setPrimaryGateway("stripe");
-                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
+                        await backend.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
                         toast.success("Gateway primário alterado para Stripe");
                       }}
                       className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"

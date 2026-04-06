@@ -2,11 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-const SUPER_ADMIN_EMAILS = [
-  "escarpelineparticular@gmail.com",
-  "empresasescarpeline@gmail.com",
-];
-
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -23,23 +18,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [ghToken, setGhToken] = useState<string | null>(() => localStorage.getItem("gh_token"));
+
+  const syncAuthState = useCallback(async (nextSession: Session | null) => {
+    setSession(nextSession);
+    const nextUser = nextSession?.user ?? null;
+    setUser(nextUser);
+
+    if (!nextUser) {
+      setIsAdmin(false);
+      setIsLoading(false);
+      return;
+    }
+
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", nextUser.id)
+      .eq("role", "admin");
+
+    setIsAdmin(Boolean(roles?.length));
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      void syncAuthState(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      void syncAuthState(session);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [syncAuthState]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -47,8 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("gh_token");
     localStorage.removeItem("gh_user");
   }, []);
-
-  const isAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || "");
 
   return (
     <AuthContext.Provider value={{ user, session, isLoading, isAdmin, ghToken, setGhToken, logout }}>
@@ -62,5 +73,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
-
-export const SUPER_ADMIN_EMAILS_CONST = SUPER_ADMIN_EMAILS;

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle, Package, Loader2, ExternalLink } from "lucide-react";
-import { formatCredits } from "@/utils/credits";
 import { toast } from "sonner";
 
 function formatBRL(cents: number) {
@@ -14,24 +13,20 @@ function formatBRL(cents: number) {
 }
 
 interface PackageItem {
-<<<<<<< HEAD
-  id: string; name: string; description: string | null;
-  credits_amount: number; price_brl: number;
-  checkout_url?: string;
-  stripe_price_id?: string;
-=======
-  id: string; 
-  name: string; 
+  id: string;
+  name: string;
   description: string | null;
-  credits_amount: number; 
+  credits_amount: number;
   price_brl: number;
->>>>>>> bb8f967b14a3040be9edb2179ffff30270865a88
+  checkout_url?: string | null;
+  stripe_price_id?: string | null;
 }
 
 export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const navigate = useNavigate();
   const goBack = onBack || (() => navigate("/"));
   const { user, session } = useAuth();
+  const backend = supabase as any;
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
@@ -48,7 +43,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     const { data } = await supabase.from("packages").select("*").eq("is_active", true).order("price_brl");
     if (data) setPackages(data as any[]);
 
-    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    const { data: settings } = await backend.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
   };
 
@@ -77,25 +72,19 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     if (!session || !user) return;
     setLoading(true);
     setPixData(null);
-<<<<<<< HEAD
+    const pkg = packages.find((p) => p.id === packageId);
 
-    const pkg = packages.find(p => p.id === packageId);
-
-    // 1. Mandatory use of manual checkout URL if set (User's Asaas Links)
     if (pkg?.checkout_url) {
-      setPixData({ 
-        qr: null, 
-        copy: pkg.checkout_url, 
-        url: pkg.checkout_url 
+      setPixData({
+        qr: null,
+        copy: pkg.checkout_url,
+        url: pkg.checkout_url,
       });
       setLoading(false);
       toast.info("Link de pagamento gerado!");
       return;
     }
 
-=======
-    
->>>>>>> bb8f967b14a3040be9edb2179ffff30270865a88
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       
@@ -109,8 +98,8 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             body: JSON.stringify({
               price_id: pkg?.stripe_price_id,
               package_id: packageId,
-              amount_cents: amountCents,
-              credits: pkg?.credits_amount || amountCents,
+              amount_cents: amountInCents,
+              credits: pkg?.credits_amount || amountInCents,
             }),
           }
         );
@@ -241,59 +230,46 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             </div>
 
             {pixData && (
-<<<<<<< HEAD
-              <div className="space-y-3 pt-4 border-t border-border">
-                <div className="flex justify-center"><QrCode className="h-6 w-6 text-muted-foreground" /></div>
-                
-                <div className="flex justify-center flex-col items-center gap-3">
+              <div className="space-y-4 border-t border-border pt-4 animate-in fade-in slide-in-from-top-4">
+                <div className="flex justify-center">
+                  <QrCode className="h-6 w-6 text-muted-foreground" />
+                </div>
+
+                <div className="flex flex-col items-center gap-4 rounded-lg bg-muted/30 px-4 py-6">
                   {pixData.qr ? (
-                    <img src={`data:image/png;base64,${pixData.qr}`} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
-                  ) : pixData.url ? (
-                    <div className="bg-white p-2 rounded-lg border border-border">
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixData.url)}`} 
-                        alt="QR Code Checkout" 
-                        className="w-40 h-40"
+                    <div className="rounded-lg border border-border bg-background p-2">
+                      <img
+                        src={`data:image/png;base64,${pixData.qr}`}
+                        alt="QR Code PIX"
+                        loading="lazy"
+                        className="h-48 w-48 rounded-md"
                       />
                     </div>
-                  ) : null}
-                  
-                  <Button variant="secondary" className="w-full" onClick={copyPix}>
-                    {pixData.qr ? "Copiar código PIX" : "Copiar Link de Pagamento"}
-                  </Button>
-                </div>
-                
-                {pixData.url && (
-                  <div className="pt-2">
-                    <p className="text-xs text-center text-muted-foreground mb-2">
-                      {pixData.qr ? "Problemas com o QR Code?" : "Deseja pagar no navegador?"}
-                    </p>
-                    <Button variant="outline" className="w-full gap-2" onClick={() => window.open(pixData.url!, "_blank")}>
-                      <ExternalLink className="h-4 w-4" /> {pixData.qr ? "Pagar no Checkout Asaas" : "Ir para Checkout Seguro"}
-                    </Button>
-                  </div>
-                )}
-=======
-              <div className="space-y-4 pt-4 border-t border-border animate-in fade-in slide-in-from-top-4">
-                <div className="flex flex-col items-center gap-4 py-4 bg-muted/30 rounded-lg">
-                  {pixData.qr ? (
-                    <div className="bg-white p-2 rounded-lg">
-                      <img src={`data:image/png;base64,${pixData.qr}`} alt="QR Code PIX" className="w-48 h-48" />
-                    </div>
                   ) : (
-                    <div className="w-48 h-48 flex items-center justify-center border border-dashed rounded-lg"><QrCode className="w-12 h-12 text-muted-foreground/30" /></div>
+                    <div className="flex h-48 w-48 items-center justify-center rounded-lg border border-dashed border-border bg-background">
+                      <div className="flex flex-col items-center gap-2 px-4 text-center text-sm text-muted-foreground">
+                        <QrCode className="h-10 w-10" />
+                        <span>Link de pagamento pronto para abrir no navegador.</span>
+                      </div>
+                    </div>
                   )}
-                  
-                  <div className="w-full max-w-sm space-y-2 px-4">
-                    <Button variant="secondary" className="w-full" onClick={copyPix}>Copiar Código Copia e Cola</Button>
+
+                  <div className="w-full max-w-sm space-y-2">
+                    <Button variant="secondary" className="w-full" onClick={copyPix}>
+                      {pixData.qr ? "Copiar código PIX" : "Copiar link de pagamento"}
+                    </Button>
                     {pixData.url && (
-                      <Button variant="outline" className="w-full gap-2" onClick={() => window.open(pixData.url!, "_blank")}>
-                        <ExternalLink className="w-4 h-4" /> Pagar via Link Asaas
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => window.open(pixData.url!, "_blank")}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {pixData.qr ? "Pagar no checkout" : "Abrir checkout seguro"}
                       </Button>
                     )}
                   </div>
                 </div>
->>>>>>> bb8f967b14a3040be9edb2179ffff30270865a88
               </div>
             )}
           </CardContent>
@@ -316,7 +292,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-bold ${tx.type === "deposit" || tx.type === "commission" ? "text-green-500" : "text-destructive"}`}>
+                      <p className={`text-sm font-bold ${tx.type === "deposit" || tx.type === "commission" ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
                         {tx.type === "deposit" || tx.type === "commission" ? "+" : "-"}{formatBRL(tx.amount_cents)}
                       </p>
                       <Badge variant="outline" className="text-[9px] uppercase">{tx.status}</Badge>
