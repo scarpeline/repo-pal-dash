@@ -30,6 +30,9 @@ interface Lead {
 interface AdminPackage {
   id: string; name: string; description: string | null;
   credits_amount: number; price_brl: number; is_active: boolean;
+  checkout_url?: string | null;
+  asaas_payment_link_id?: string | null;
+  stripe_price_id?: string | null;
 }
 
 interface WithdrawalRequest {
@@ -261,6 +264,7 @@ const SuperAdmin = () => {
     const price = Math.round(parseFloat(pkgPrice) * 100);
     
     try {
+      if (editingPkg) {
         await supabase.from("packages").update({ 
           name: pkgName, 
           description: pkgDesc || null, 
@@ -286,7 +290,8 @@ const SuperAdmin = () => {
       resetPkgForm(); 
       fetchAll();
     } catch (error) {
-      toast.error("Erro ao salvar pacote: " + error.message);
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error("Erro ao salvar pacote: " + message);
     }
   };
 
