@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
-  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle
+  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink
 } from "lucide-react";
 
 interface AdminUser {
@@ -73,6 +73,10 @@ const SuperAdmin = () => {
   const [pkgInputTokens, setPkgInputTokens] = useState("1000");
   const [pkgOutputTokens, setPkgOutputTokens] = useState("1000");
   const [pkgMarginPercent, setPkgMarginPercent] = useState("50");
+  const [pkgCheckoutUrl, setPkgCheckoutUrl] = useState("");
+  const [pkgAsaasLinkId, setPkgAsaasLinkId] = useState("");
+  const [pkgStripePriceId, setPkgStripePriceId] = useState("");
+  const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
 
   // Notification
   const [notifUserId, setNotifUserId] = useState("all");
@@ -108,6 +112,11 @@ const SuperAdmin = () => {
     }
     if (leadsRes.data) setLeads(leadsRes.data as any[]);
     if (pkgsRes.data) setPackages(pkgsRes.data as any[]);
+    
+    // Fetch app settings
+    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    if (settings) setPrimaryGateway(settings.value as any);
+
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
     if (pricingRes.data) {
       setModelPricing(pricingRes.data as any[]);
@@ -252,12 +261,14 @@ const SuperAdmin = () => {
     const price = Math.round(parseFloat(pkgPrice) * 100);
     
     try {
-      if (editingPkg) {
         await supabase.from("packages").update({ 
           name: pkgName, 
           description: pkgDesc || null, 
           credits_amount: credits, 
-          price_brl: price 
+          price_brl: price,
+          checkout_url: pkgCheckoutUrl,
+          asaas_payment_link_id: pkgAsaasLinkId,
+          stripe_price_id: pkgStripePriceId
         } as any).eq("id", editingPkg.id);
         toast.success("Pacote atualizado com sucesso!");
       } else {
@@ -265,7 +276,10 @@ const SuperAdmin = () => {
           name: pkgName, 
           description: pkgDesc || null, 
           credits_amount: credits, 
-          price_brl: price 
+          price_brl: price,
+          checkout_url: pkgCheckoutUrl,
+          asaas_payment_link_id: pkgAsaasLinkId,
+          stripe_price_id: pkgStripePriceId
         } as any);
         toast.success("Pacote criado com sucesso!");
       }
@@ -283,6 +297,9 @@ const SuperAdmin = () => {
     setPkgDesc(pkg.description || "");
     setPkgCredits(pkg.credits_amount.toString());
     setPkgPrice((pkg.price_brl / 100).toString());
+    setPkgCheckoutUrl(pkg.checkout_url || "");
+    setPkgAsaasLinkId(pkg.asaas_payment_link_id || "");
+    setPkgStripePriceId(pkg.stripe_price_id || "");
     setShowPkgForm(true);
   };
 
@@ -296,6 +313,9 @@ const SuperAdmin = () => {
     setPkgInputTokens("1000");
     setPkgOutputTokens("1000");
     setPkgMarginPercent("50");
+    setPkgCheckoutUrl("");
+    setPkgAsaasLinkId("");
+    setPkgStripePriceId("");
     setShowPkgForm(false);
   };
 
@@ -539,6 +559,7 @@ const SuperAdmin = () => {
             <TabsTrigger value="calculator">Calculadora</TabsTrigger>
             <TabsTrigger value="credits">Créditos</TabsTrigger>
             <TabsTrigger value="notifications">Notificações</TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2"><Settings className="w-4 h-4" /> Configurações</TabsTrigger>
           </TabsList>
 
           {/* Users */}
@@ -891,7 +912,31 @@ const SuperAdmin = () => {
                     </div>
                     <div><Label>Descrição</Label><Textarea value={pkgDesc} onChange={e => setPkgDesc(e.target.value)} placeholder="Pacote com 2000 tokens para uso nos modelos IA..." /></div>
                     <div><Label>Preço (R$) <span className="text-xs text-muted-foreground ml-1">(auto-calcula tokens)</span></Label><Input type="number" step="0.01" value={pkgPrice} onChange={e => handlePriceChange(e.target.value)} placeholder="29.90" /></div>
-                    <div className="flex gap-2">
+                    
+                    <div className="border-t pt-4 mt-2 space-y-4">
+                      <p className="text-sm font-semibold flex items-center gap-2 text-blue-600">
+                        <ExternalLink className="w-4 h-4" /> Configurações de Gateway (Links Externos)
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">URL de Checkout (Asaas/Stripe)</Label>
+                          <Input value={pkgCheckoutUrl} onChange={e => setPkgCheckoutUrl(e.target.value)} placeholder="https://www.asaas.com/c/..." className="h-8 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">ID do Link Asaas</Label>
+                          <Input value={pkgAsaasLinkId} onChange={e => setPkgAsaasLinkId(e.target.value)} placeholder="link_..." className="h-8 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">ID do Preço Stripe</Label>
+                          <Input value={pkgStripePriceId} onChange={e => setPkgStripePriceId(e.target.value)} placeholder="price_..." className="h-8 text-xs" />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        * Se a URL de Checkout estiver preenchida, o sistema redirecionará o usuário diretamente para ela.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
                       <Button onClick={savePkg}><Save className="w-4 h-4" /> {editingPkg ? "Atualizar" : "Criar"}</Button>
                       <Button variant="outline" onClick={resetPkgForm}>Cancelar</Button>
                     </div>
@@ -1038,6 +1083,64 @@ const SuperAdmin = () => {
                 <div><Label>Título</Label><Input value={notifTitle} onChange={e => setNotifTitle(e.target.value)} /></div>
                 <div><Label>Mensagem</Label><Textarea value={notifMessage} onChange={e => setNotifMessage(e.target.value)} /></div>
                 <Button onClick={sendNotification} disabled={!notifTitle || !notifMessage}><Mail className="w-4 h-4" /> Enviar</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          {/* Configurações Globais */}
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-primary" />
+                  Configurações Globais do Sistema
+                </CardTitle>
+                <CardDescription>Gerencie o gateway de pagamento e outras preferências globais.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Gateway de Pagamento Primário</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Selecione qual gateway será usado por padrão para processar novos pagamentos.
+                  </p>
+                  <div className="flex gap-4">
+                    <Button 
+                      variant={primaryGateway === "asaas" ? "default" : "outline"}
+                      onClick={async () => {
+                        setPrimaryGateway("asaas");
+                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
+                        toast.success("Gateway primário alterado para Asaas");
+                      }}
+                      className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"
+                    >
+                      <Badge variant="outline" className={primaryGateway === "asaas" ? "bg-white text-primary" : "opacity-50"}>
+                        {primaryGateway === "asaas" ? "Ativo" : "Alternativo"}
+                      </Badge>
+                      <span className="font-bold">Asaas (Brasil/PIX)</span>
+                    </Button>
+                    <Button 
+                      variant={primaryGateway === "stripe" ? "default" : "outline"}
+                      onClick={async () => {
+                        setPrimaryGateway("stripe");
+                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
+                        toast.success("Gateway primário alterado para Stripe");
+                      }}
+                      className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"
+                    >
+                      <Badge variant="outline" className={primaryGateway === "stripe" ? "bg-white text-primary" : "opacity-50"}>
+                        {primaryGateway === "stripe" ? "Ativo" : "Contingência"}
+                      </Badge>
+                      <span className="font-bold">Stripe (Internacional/Cartão)</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4 text-destructive">Zona de Perigo</h3>
+                  <p className="text-xs text-muted-foreground mb-4">Ações irreversíveis que impactam dados sensíveis.</p>
+                  <Button variant="destructive" onClick={() => { if(confirm("Deseja realmente limpar todos os logs de transação?")) toast.error("Função não implementada por segurança."); }}>
+                    Limpar Histórico de Transações
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

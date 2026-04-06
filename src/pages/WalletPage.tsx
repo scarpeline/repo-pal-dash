@@ -16,6 +16,8 @@ function formatBRL(cents: number) {
 interface PackageItem {
   id: string; name: string; description: string | null;
   credits_amount: number; price_brl: number;
+  checkout_url?: string;
+  stripe_price_id?: string;
 }
 
 export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
@@ -26,6 +28,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
   const [pixData, setPixData] = useState<{ qr: string | null; copy: string | null; url: string | null } | null>(null);
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const loadPackages = async () => {
     const { data } = await supabase.from("packages").select("*").eq("is_active", true).order("price_brl");
     if (data) setPackages(data as any[]);
+
+    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    if (settings) setPrimaryGateway(settings.value as any);
   };
 
   const loadData = async () => {
@@ -59,8 +65,48 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     if (!session || !user) return;
     setLoading(true);
     setPixData(null);
+
+    const pkg = packages.find(p => p.id === packageId);
+
+    // 1. Mandatory use of manual checkout URL if set (User's Asaas Links)
+    if (pkg?.checkout_url) {
+      setPixData({ 
+        qr: null, 
+        copy: pkg.checkout_url, 
+        url: pkg.checkout_url 
+      });
+      setLoading(false);
+      toast.info("Link de pagamento gerado!");
+      return;
+    }
+
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      
+      // 2. Stripe Fallback Logic
+      if (primaryGateway === "stripe") {
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/stripe-payment?action=create-checkout`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              price_id: pkg?.stripe_price_id,
+              package_id: packageId,
+              amount_cents: amountCents,
+              credits: pkg?.credits_amount || amountCents,
+            }),
+          }
+        );
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        throw new Error(data.error || "Erro ao iniciar Stripe");
+      }
+
+      // 3. Default Asaas (PIX) logic
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=create-pix`,
         {
@@ -107,7 +153,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const copyPix = () => {
     if (pixData?.copy) {
       navigator.clipboard.writeText(pixData.copy);
-      toast.success("Código PIX copiado!");
+      toast.success(pixData.qr ? "Código PIX copiado!" : "Link de checkout copiado!");
     }
   };
 
@@ -177,18 +223,32 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             {pixData && (
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex justify-center"><QrCode className="h-6 w-6 text-muted-foreground" /></div>
-                {pixData.qr && (
-                  <div className="flex justify-center flex-col items-center gap-3">
+                
+                <div className="flex justify-center flex-col items-center gap-3">
+                  {pixData.qr ? (
                     <img src={`data:image/png;base64,${pixData.qr}`} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
-                    <Button variant="secondary" className="w-full" onClick={copyPix}>Copiar código PIX</Button>
-                  </div>
-                )}
+                  ) : pixData.url ? (
+                    <div className="bg-white p-2 rounded-lg border border-border">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixData.url)}`} 
+                        alt="QR Code Checkout" 
+                        className="w-40 h-40"
+                      />
+                    </div>
+                  ) : null}
+                  
+                  <Button variant="secondary" className="w-full" onClick={copyPix}>
+                    {pixData.qr ? "Copiar código PIX" : "Copiar Link de Pagamento"}
+                  </Button>
+                </div>
                 
                 {pixData.url && (
                   <div className="pt-2">
-                    <p className="text-xs text-center text-muted-foreground mb-2">Problemas com o QR Code?</p>
+                    <p className="text-xs text-center text-muted-foreground mb-2">
+                      {pixData.qr ? "Problemas com o QR Code?" : "Deseja pagar no navegador?"}
+                    </p>
                     <Button variant="outline" className="w-full gap-2" onClick={() => window.open(pixData.url!, "_blank")}>
-                      <ExternalLink className="w-4 h-4" /> Pagar no Checkout Asaas
+                      <ExternalLink className="h-4 w-4" /> {pixData.qr ? "Pagar no Checkout Asaas" : "Ir para Checkout Seguro"}
                     </Button>
                   </div>
                 )}
