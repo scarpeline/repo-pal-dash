@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico'],
       manifest: {
         name: 'IAProgramador',
         short_name: 'IAP',
@@ -26,14 +26,16 @@ export default defineConfig(({ mode }) => ({
         theme_color: '#22c55e',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'https://storage.googleapis.com/gpt-engineer-file-uploads/W0BBV8Ucd5X8aOF533hC26sQDeM2/social-images/social-1775339955350-ChatGPT_Image_3_de_abr._de_2026,_00_01_23.webp',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/webp',
+            purpose: 'any'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'https://storage.googleapis.com/gpt-engineer-file-uploads/W0BBV8Ucd5X8aOF533hC26sQDeM2/social-images/social-1775339955350-ChatGPT_Image_3_de_abr._de_2026,_00_01_23.webp',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/webp',
+            purpose: 'maskable'
           }
         ]
       }

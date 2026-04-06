@@ -381,7 +381,7 @@ const EditorPage = () => {
           <UserBalanceBar />
           <NotificationBell />
           
-          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1 ml-1">
+          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1 ml-1 hidden xs:flex">
             <Globe className="w-4 h-4 text-muted-foreground" />
             <select 
               value={language} 
@@ -393,32 +393,33 @@ const EditorPage = () => {
               <option value="es-ES">ES</option>
             </select>
           </div>
-          <button onClick={() => navigate("/affiliate")} className="text-muted-foreground hover:text-foreground" title="Afiliados">
+          <button onClick={() => navigate("/affiliate")} className="text-muted-foreground hover:text-foreground hidden sm:block" title="Afiliados">
             <Gift className="w-4 h-4" />
           </button>
-          <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+          <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
           <button onClick={logout} className="text-muted-foreground hover:text-foreground" title="Sair">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden gap-2">
+      <div className="flex flex-1 overflow-hidden gap-1 md:gap-2 relative">
         {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-64 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden">
-            <div className="flex border-b border-border bg-muted/40">
+          <div className="absolute inset-0 z-40 md:relative md:inset-auto md:z-0 w-full md:w-64 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-left duration-300">
+            <div className="flex border-b border-border bg-muted/40 p-1">
               {([
                 { id: "files" as const, icon: FolderGit2, disabled: !selectedRepo },
                 { id: "github" as const, icon: Github },
                 { id: "search" as const, icon: Search, disabled: !selectedRepo },
               ]).map(tab => (
                 <button key={tab.id} onClick={() => !tab.disabled && setSidebarTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center py-2.5 text-sm ${
-                    sidebarTab === tab.id ? "text-foreground border-b-2 border-primary" :
+                  className={`flex-1 flex items-center justify-center py-2 text-sm rounded ${
+                    sidebarTab === tab.id ? "bg-background text-foreground shadow-sm" :
                     tab.disabled ? "text-muted-foreground/30 cursor-not-allowed" : "text-muted-foreground hover:text-foreground"
                   }`}><tab.icon className="w-3.5 h-3.5" /></button>
               ))}
+              <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-auto">
               {sidebarTab === "github" && (
@@ -466,7 +467,7 @@ const EditorPage = () => {
           
           {/* Vertical Panel: Chat & Terminal */}
           {bottomOpen && (
-            <div className="w-80 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden">
+            <div className="absolute inset-0 z-30 md:relative md:inset-auto md:z-0 w-full md:w-80 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right duration-300">
               <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
                 <div className="flex items-center gap-1">
                   {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
@@ -489,7 +490,7 @@ const EditorPage = () => {
               
               {/* Editor Panel - Only visible if there are open tabs */}
               {openTabs.length > 0 && (
-                <div className={`flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden ${showPreview ? "w-1/2" : "flex-1"}`}>
+                <div className={`flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden ${showPreview ? "hidden lg:flex w-1/2" : "flex-1"}`}>
                   <div className="h-10 bg-muted/30 border-b border-border flex items-center overflow-x-auto shrink-0 px-1">
                     {loadingFile && <Loader2 className="w-3 h-3 text-primary animate-spin ml-2" />}
                     {openTabs.map(tab => (
@@ -515,9 +516,9 @@ const EditorPage = () => {
                 </div>
               )}
 
-              {/* Preview Panel - Takes full remaining space if no editor */}
+              {/* Preview Panel - Full width on small screens if editor is hidden */}
               {showPreview && (
-                <div className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col ${openTabs.length > 0 ? "w-1/2" : "flex-1"}`}>
+                <div className={`bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col ${openTabs.length > 0 ? "flex-1 lg:w-1/2" : "flex-1"}`}>
                   <PreviewPanel 
                     url={selectedRepo ? (repoUrls[selectedRepo.full_name] || "") : ""} 
                     onUrlChange={handleUrlChange}
