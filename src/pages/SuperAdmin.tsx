@@ -49,6 +49,7 @@ interface ModelPricing {
 
 const SuperAdmin = () => {
   const { isAdmin, loading: authLoading, user } = useAuth();
+  const backend = supabase as any;
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
@@ -117,7 +118,7 @@ const SuperAdmin = () => {
     if (pkgsRes.data) setPackages(pkgsRes.data as any[]);
     
     // Fetch app settings
-    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    const { data: settings } = await backend.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
 
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
@@ -1113,7 +1114,7 @@ const SuperAdmin = () => {
                       variant={primaryGateway === "asaas" ? "default" : "outline"}
                       onClick={async () => {
                         setPrimaryGateway("asaas");
-                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
+                        await backend.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
                         toast.success("Gateway primário alterado para Asaas");
                       }}
                       className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"
@@ -1127,7 +1128,7 @@ const SuperAdmin = () => {
                       variant={primaryGateway === "stripe" ? "default" : "outline"}
                       onClick={async () => {
                         setPrimaryGateway("stripe");
-                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
+                        await backend.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
                         toast.success("Gateway primário alterado para Stripe");
                       }}
                       className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"

@@ -26,6 +26,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const navigate = useNavigate();
   const goBack = onBack || (() => navigate("/"));
   const { user, session } = useAuth();
+  const backend = supabase as any;
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
@@ -42,7 +43,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     const { data } = await supabase.from("packages").select("*").eq("is_active", true).order("price_brl");
     if (data) setPackages(data as any[]);
 
-    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    const { data: settings } = await backend.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
   };
 
