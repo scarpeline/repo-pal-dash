@@ -1,0 +1,21 @@
+{
+  "name": "IAProgramador",
+  "short_name": "IAP",
+  "description": "Editor de código online com inteligência artificial integrada.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/W0BBV8Ucd5X8aOF533hC26sQDeM2/social-images/social-1775339955350-ChatGPT_Image_3_de_abr._de_2026,_00_01_23.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    }
+  ]
+}
