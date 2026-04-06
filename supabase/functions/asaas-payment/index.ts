@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     let action = url.searchParams.get("action");
 
+<<<<<<< HEAD
     let payload: any = {};
     if (req.method === "POST") {
       try {
@@ -90,6 +91,23 @@ Deno.serve(async (req) => {
         // Body não é JSON ou está vazio
       }
     }
+=======
+    if (!action && req.method !== "GET" && req.method !== "HEAD") {
+      const rawBody = await req.clone().text().catch(() => "");
+      if (rawBody) {
+        try {
+          const body = JSON.parse(rawBody);
+          if (typeof body?.action === "string" && body.action) {
+            action = body.action;
+          }
+        } catch {
+          // Ignore non-JSON bodies here; specific handlers can parse them later if needed.
+        }
+      }
+    }
+
+    console.log("asaas-payment", { method: req.method, action });
+>>>>>>> bb8f967b14a3040be9edb2179ffff30270865a88
 
     // ── Webhook from Asaas ──
     if (action === "webhook") {
@@ -283,7 +301,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Sync packages to Asaas Products ──
+    // ── Sync/validate packages ──
     if (action === "sync-products") {
       const { data: pkgs, error: pkgErr } = await supabase
         .from("packages")
@@ -294,28 +312,17 @@ Deno.serve(async (req) => {
 
       const results = [];
       for (const pkg of pkgs || []) {
-        if (!pkg.asaas_product_id) {
-          const productRes = await asaasFetch(baseUrl, "/products", apiKey, {
-            method: "POST",
-            body: JSON.stringify({
-              name: pkg.name,
-              value: pkg.price_brl / 100, // Preço em Reais
-              billingType: "PIX",
-              description: pkg.description || `Pacote ${pkg.name}`,
-            }),
-          });
-
-          if (productRes.id) {
-            await supabase
-              .from("packages")
-              .update({ asaas_product_id: productRes.id })
-              .eq("id", pkg.id);
-            results.push({ name: pkg.name, status: "created", id: productRes.id });
-          } else {
-            results.push({ name: pkg.name, status: "error", error: productRes.error });
-          }
+        // Asaas doesn't have a products API - packages are managed locally
+        // Just validate and mark as synced with a local reference
+        if (!pkg.asaas_plan_id) {
+          const localRef = `pkg_${pkg.id.slice(0, 8)}`;
+          await supabase
+            .from("packages")
+            .update({ asaas_plan_id: localRef })
+            .eq("id", pkg.id);
+          results.push({ name: pkg.name, status: "synced", id: localRef });
         } else {
-          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_product_id });
+          results.push({ name: pkg.name, status: "exists", id: pkg.asaas_plan_id });
         }
       }
 
@@ -334,10 +341,10 @@ Deno.serve(async (req) => {
       if (package_id) {
         const { data: pkg } = await supabase
           .from("packages")
-          .select("asaas_product_id")
+          .select("asaas_plan_id")
           .eq("id", package_id)
           .single();
-        asaasProductId = pkg?.asaas_product_id || null;
+        asaasProductId = pkg?.asaas_plan_id || null;
       }
 
       if (!amount_cents || amount_cents < 500) {

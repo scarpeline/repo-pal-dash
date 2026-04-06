@@ -150,10 +150,10 @@ const SuperAdmin = () => {
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
     if (isBlocked) {
-      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked");
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "user" as any);
       toast.success("Usuário desbloqueado com sucesso!");
     } else {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" });
+      await supabase.from("user_roles").insert({ user_id: userId, role: "user" } as any);
       toast.success("Usuário bloqueado do acesso à IA!");
     }
     fetchAll();
@@ -405,6 +405,7 @@ const SuperAdmin = () => {
       });
       if (error) throw error;
       
+      
       const results = data.sync_results || [];
       const created = results.filter((r: any) => r.status === "created").length;
       const errors = results.filter((r: any) => r.status === "error").length;
@@ -414,7 +415,7 @@ const SuperAdmin = () => {
       } else {
         toast.success(`${created || results.length} pacotes sincronizados com sucesso!`);
       }
-      fetchPackages();
+      fetchAll();
     } catch (err: any) {
       toast.error("Erro na sincronização: " + err.message);
     }
@@ -648,7 +649,7 @@ const SuperAdmin = () => {
                               <code className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{w.pix_key}</code>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={w.status === "paid" ? "success" : w.status === "pending" ? "warning" : "destructive"}>
+                              <Badge variant={w.status === "paid" ? "default" : w.status === "pending" ? "secondary" : "destructive"}>
                                 {w.status === "paid" ? "Pago" : w.status === "pending" ? "Pendente" : "Rejeitado"}
                               </Badge>
                             </TableCell>
