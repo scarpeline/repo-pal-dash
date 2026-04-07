@@ -73,6 +73,14 @@ const SuperAdmin = () => {
   const [pkgStripePriceId, setPkgStripePriceId] = useState("");
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
 
+  // Configurações de WhatsApp
+  const [rechargeWhatsappLink, setRechargeWhatsappLink] = useState("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
+  const [rechargeButtonEnabled, setRechargeButtonEnabled] = useState(true);
+  const [rechargeButtonText, setRechargeButtonText] = useState("💬 Falar no WhatsApp para Recarga");
+  const [extensionWhatsappLink, setExtensionWhatsappLink] = useState("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
+  const [extensionButtonEnabled, setExtensionButtonEnabled] = useState(true);
+  const [extensionButtonText, setExtensionButtonText] = useState("🛒 Comprar Extensão/Licença");
+
   // Notification
   const [notifUserId, setNotifUserId] = useState("all");
   const [notifTitle, setNotifTitle] = useState("");
@@ -111,6 +119,44 @@ const SuperAdmin = () => {
     // Fetch app settings
     const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
+
+    // Fetch WhatsApp settings
+    const { data: whatsappSettings } = await supabase
+      .from("app_settings")
+      .select("*")
+      .in("key", [
+        "recharge_whatsapp_link",
+        "recharge_button_enabled",
+        "recharge_button_text",
+        "extension_whatsapp_link",
+        "extension_button_enabled",
+        "extension_button_text"
+      ]);
+    
+    if (whatsappSettings) {
+      whatsappSettings.forEach((setting) => {
+        switch (setting.key) {
+          case "recharge_whatsapp_link":
+            setRechargeWhatsappLink(setting.value);
+            break;
+          case "recharge_button_enabled":
+            setRechargeButtonEnabled(setting.value === "true");
+            break;
+          case "recharge_button_text":
+            setRechargeButtonText(setting.value);
+            break;
+          case "extension_whatsapp_link":
+            setExtensionWhatsappLink(setting.value);
+            break;
+          case "extension_button_enabled":
+            setExtensionButtonEnabled(setting.value === "true");
+            break;
+          case "extension_button_text":
+            setExtensionButtonText(setting.value);
+            break;
+        }
+      });
+    }
 
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
     if (pricingRes.data) {
@@ -1000,6 +1046,141 @@ const SuperAdmin = () => {
                       </Badge>
                       <span className="font-bold">Stripe (Internacional/Cartão)</span>
                     </Button>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6 space-y-6">
+                  <h3 className="text-lg font-semibold">Configurações de WhatsApp</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure os links de WhatsApp para recarga manual e compra de extensões.
+                  </p>
+                  
+                  {/* Configurações de Recarga */}
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4" /> Botão de Recarga
+                    </h4>
+                    
+                    <div className="flex items-center gap-4">
+                      <Label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4"
+                          checked={rechargeButtonEnabled}
+                          onChange={async (e) => {
+                            const newValue = e.target.checked;
+                            setRechargeButtonEnabled(newValue);
+                            await supabase.from("app_settings").upsert({ 
+                              key: "recharge_button_enabled", 
+                              value: newValue.toString() as any 
+                            }, { onConflict: "key" });
+                            toast.success(newValue ? "Botão de recarga ativado" : "Botão de recarga desativado");
+                          }}
+                        />
+                        <span>Ativar botão de recarga</span>
+                      </Label>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="recharge-text">Texto do Botão</Label>
+                      <Input 
+                        id="recharge-text"
+                        value={rechargeButtonText}
+                        onChange={(e) => setRechargeButtonText(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "recharge_button_text", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Texto do botão atualizado");
+                        }}
+                        placeholder="Ex: 💬 Falar no WhatsApp para Recarga"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="recharge-link">Link WhatsApp para Recarga</Label>
+                      <Input 
+                        id="recharge-link"
+                        value={rechargeWhatsappLink}
+                        onChange={(e) => setRechargeWhatsappLink(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "recharge_whatsapp_link", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Link de recarga atualizado");
+                        }}
+                        placeholder="https://wa.me/..."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Link que será aberto quando o usuário clicar no botão de recarga.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Configurações de Extensão */}
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4" /> Botão de Comprar Extensão
+                    </h4>
+                    
+                    <div className="flex items-center gap-4">
+                      <Label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4"
+                          checked={extensionButtonEnabled}
+                          onChange={async (e) => {
+                            const newValue = e.target.checked;
+                            setExtensionButtonEnabled(newValue);
+                            await supabase.from("app_settings").upsert({ 
+                              key: "extension_button_enabled", 
+                              value: newValue.toString() as any 
+                            }, { onConflict: "key" });
+                            toast.success(newValue ? "Botão de extensão ativado" : "Botão de extensão desativado");
+                          }}
+                        />
+                        <span>Ativar botão de extensão</span>
+                      </Label>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="extension-text">Texto do Botão</Label>
+                      <Input 
+                        id="extension-text"
+                        value={extensionButtonText}
+                        onChange={(e) => setExtensionButtonText(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "extension_button_text", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Texto do botão atualizado");
+                        }}
+                        placeholder="Ex: 🛒 Comprar Extensão/Licença"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="extension-link">Link WhatsApp para Extensão</Label>
+                      <Input 
+                        id="extension-link"
+                        value={extensionWhatsappLink}
+                        onChange={(e) => setExtensionWhatsappLink(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "extension_whatsapp_link", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Link de extensão atualizado");
+                        }}
+                        placeholder="https://wa.me/..."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Link que será aberto quando o usuário clicar no botão de comprar extensão.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

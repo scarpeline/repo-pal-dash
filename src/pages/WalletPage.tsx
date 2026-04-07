@@ -38,6 +38,14 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [loading, setLoading] = useState(false);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
+  
+  // Configurações de recarga via WhatsApp
+  const [rechargeWhatsappLink, setRechargeWhatsappLink] = useState<string>("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
+  const [rechargeButtonEnabled, setRechargeButtonEnabled] = useState<boolean>(true);
+  const [rechargeButtonText, setRechargeButtonText] = useState<string>("💬 Falar no WhatsApp para Recarga");
+  const [extensionWhatsappLink, setExtensionWhatsappLink] = useState<string>("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
+  const [extensionButtonEnabled, setExtensionButtonEnabled] = useState<boolean>(true);
+  const [extensionButtonText, setExtensionButtonText] = useState<string>("🛒 Comprar Extensão/Licença");
   const [pixData, setPixData] = useState<{
     qr: string | null;
     copy: string | null;
@@ -80,12 +88,51 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
       .order("price_brl");
     if (data) setPackages(data as any[]);
 
+    // Carregar gateway primário
     const { data: settings } = await supabase
       .from("app_settings")
       .select("*")
       .eq("key", "primary_gateway")
       .single();
     if (settings) setPrimaryGateway(settings.value as any);
+
+    // Carregar configurações de recarga WhatsApp
+    const { data: whatsappSettings } = await supabase
+      .from("app_settings")
+      .select("*")
+      .in("key", [
+        "recharge_whatsapp_link",
+        "recharge_button_enabled", 
+        "recharge_button_text",
+        "extension_whatsapp_link",
+        "extension_button_enabled",
+        "extension_button_text"
+      ]);
+    
+    if (whatsappSettings) {
+      whatsappSettings.forEach((setting) => {
+        switch (setting.key) {
+          case "recharge_whatsapp_link":
+            setRechargeWhatsappLink(setting.value);
+            break;
+          case "recharge_button_enabled":
+            setRechargeButtonEnabled(setting.value === "true");
+            break;
+          case "recharge_button_text":
+            setRechargeButtonText(setting.value);
+            break;
+          case "extension_whatsapp_link":
+            setExtensionWhatsappLink(setting.value);
+            break;
+          case "extension_button_enabled":
+            setExtensionButtonEnabled(setting.value === "true");
+            break;
+          case "extension_button_text":
+            setExtensionButtonText(setting.value);
+            break;
+        }
+      });
+    }
   };
 
   const loadData = async () => {
@@ -382,10 +429,33 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                 ))}
               </div>
 
-              <div className="pt-2 border-t border-border">
+              <div className="pt-2 border-t border-border space-y-2">
+                {/* Botão de Recarga via WhatsApp */}
+                {rechargeButtonEnabled && (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 border-green-500/30 hover:bg-green-500/10 hover:border-green-500 text-green-600 dark:text-green-400"
+                    onClick={() => window.open(rechargeWhatsappLink, "_blank")}
+                  >
+                    <MessageSquare className="h-4 w-4" /> {rechargeButtonText}
+                  </Button>
+                )}
+                
+                {/* Botão de Comprar Extensão */}
+                {extensionButtonEnabled && (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500 text-blue-600 dark:text-blue-400"
+                    onClick={() => window.open(extensionWhatsappLink, "_blank")}
+                  >
+                    <ExternalLink className="h-4 w-4" /> {extensionButtonText}
+                  </Button>
+                )}
+                
+                {/* Botão antigo de falar com responsável (mantido como fallback) */}
                 <Button
-                  variant="outline"
-                  className="w-full gap-2 border-green-500/30 hover:bg-green-500/10 hover:border-green-500 text-green-600 dark:text-green-400"
+                  variant="ghost"
+                  className="w-full gap-2 text-muted-foreground hover:text-foreground"
                   onClick={() => window.open("https://w.app/o-scarpeline", "_blank")}
                 >
                   <MessageSquare className="h-4 w-4" /> Falar com responsável
