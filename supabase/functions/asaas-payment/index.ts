@@ -79,7 +79,6 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     let action = url.searchParams.get("action");
 
-<<<<<<< HEAD
     let payload: any = {};
     if (req.method === "POST") {
       try {
@@ -91,23 +90,8 @@ Deno.serve(async (req) => {
         // Body não é JSON ou está vazio
       }
     }
-=======
-    if (!action && req.method !== "GET" && req.method !== "HEAD") {
-      const rawBody = await req.clone().text().catch(() => "");
-      if (rawBody) {
-        try {
-          const body = JSON.parse(rawBody);
-          if (typeof body?.action === "string" && body.action) {
-            action = body.action;
-          }
-        } catch {
-          // Ignore non-JSON bodies here; specific handlers can parse them later if needed.
-        }
-      }
-    }
 
     console.log("asaas-payment", { method: req.method, action });
->>>>>>> bb8f967b14a3040be9edb2179ffff30270865a88
 
     // ── Webhook from Asaas ──
     if (action === "webhook") {
