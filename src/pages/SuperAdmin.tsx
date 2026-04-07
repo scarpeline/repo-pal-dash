@@ -14,6 +14,7 @@ import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
   Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink
 } from "lucide-react";
+import { formatCreditsAsBRL } from "@/utils/credits";
 
 interface AdminUser {
   id: string; email: string; full_name: string | null;
@@ -272,10 +273,10 @@ const SuperAdmin = () => {
     setLoading(true);
     const defaultPrices = [10, 30, 50, 100, 200, 500];
     const newPackages = defaultPrices.map(price => {
-      const credits = price * 100; // 1 crédito = 1 centavo de real
+      const credits = price * 100; // 1 centavo = R$ 0,01 de saldo
       return {
         name: price <= 30 ? "Pacote Starter" : price <= 100 ? "Pacote Business" : "Pacote Pro Max",
-        description: `Pacote de recarga de R$ ${price.toFixed(2)}. Saldo válido para uso em todos os modelos de IA.`,
+        description: `Pacote de recarga de R$ ${price.toFixed(2)}. Saldo em Reais válido para uso em todos os modelos de IA.`,
         price_brl: price * 100,
         credits_amount: credits,
         is_active: true
@@ -448,7 +449,7 @@ const SuperAdmin = () => {
     setPkgPrice(price);
     const priceNum = parseFloat(price);
     if (!isNaN(priceNum) && priceNum > 0) {
-      // 1 crédito por centavo de real (valor direto)
+      // 1 centavo de real = R$ 0,01 de saldo
       const credits = Math.round(priceNum * 100);
       setPkgCredits(credits.toString());
       
@@ -464,7 +465,7 @@ const SuperAdmin = () => {
 
   const validatePackage = () => {
     if (!pkgName.trim()) { toast.error("Nome do pacote é obrigatório"); return false; }
-    if (!pkgCredits || parseInt(pkgCredits) <= 0) { toast.error("Quantidade de créditos deve ser maior que zero"); return false; }
+    if (!pkgCredits || parseInt(pkgCredits) <= 0) { toast.error("Valor do saldo deve ser maior que zero"); return false; }
     if (!pkgPrice || parseFloat(pkgPrice) <= 0) { toast.error("Preço deve ser maior que zero"); return false; }
     return true;
   };
@@ -868,7 +869,7 @@ const SuperAdmin = () => {
                     </CardHeader>
                     <CardContent>
                       <p className="text-2xl font-bold text-primary">R$ {(pkg.price_brl / 100).toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">{pkg.credits_amount.toLocaleString()} créditos</p>
+                      <p className="text-sm text-muted-foreground">{formatCreditsAsBRL(pkg.credits_amount)} de saldo</p>
                       <div className="flex gap-2 mt-3">
                         <Button size="sm" variant="outline" onClick={() => editPkg(pkg)}><Edit2 className="w-3 h-3" /></Button>
                         <Button size="sm" variant="outline" onClick={() => deletePkg(pkg.id)}><Trash2 className="w-3 h-3" /></Button>

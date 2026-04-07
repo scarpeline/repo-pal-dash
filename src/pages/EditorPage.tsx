@@ -275,7 +275,7 @@ const EditorPage = () => {
       if (!bal || bal.balance_cents <= 0) {
         setChatMessages(p => [...p, 
           { role: "user", content: message, timestamp: new Date() },
-          { role: "system", content: "⚠️ Saldo insuficiente. Recarregue sua carteira para usar a IA. Acesse a página Carteira para adquirir um pacote de créditos.", timestamp: new Date() }
+          { role: "system", content: "⚠️ Saldo insuficiente. Recarregue sua carteira para usar a IA. Acesse a página Carteira para adquirir um pacote.", timestamp: new Date() }
         ]);
         return;
       }

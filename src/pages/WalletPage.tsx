@@ -9,7 +9,7 @@ import {
   Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle,
   Package, Loader2, ExternalLink, CreditCard, MessageSquare, RefreshCw
 } from "lucide-react";
-import { formatCredits } from "@/utils/credits";
+import { formatCredits, formatCreditsAsBRL } from "@/utils/credits";
 import { toast } from "sonner";
 
 function formatBRL(cents: number) {
@@ -377,7 +377,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             </p>
             {balance && (
               <p className="text-xs text-muted-foreground mt-1">
-                {formatCredits(balance.balance_cents)} créditos disponíveis
+                Saldo disponível para uso na IA
               </p>
             )}
           </CardContent>
@@ -407,7 +407,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                     <div className="flex items-end justify-between mt-4">
                       <p className="text-xl font-bold text-primary">{formatBRL(pkg.price_brl)}</p>
                       <Badge variant="outline" className="text-[10px]">
-                        {pkg.credits_amount.toLocaleString("pt-BR")} crds
+                        {formatCreditsAsBRL(pkg.credits_amount)}
                       </Badge>
                     </div>
                     {pkg.checkout_url && (
@@ -430,17 +430,6 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
               </div>
 
               <div className="pt-2 border-t border-border space-y-2">
-                {/* Botão de Recarga via WhatsApp */}
-                {rechargeButtonEnabled && (
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 border-green-500/30 hover:bg-green-500/10 hover:border-green-500 text-green-600 dark:text-green-400"
-                    onClick={() => window.open(rechargeWhatsappLink, "_blank")}
-                  >
-                    <MessageSquare className="h-4 w-4" /> {rechargeButtonText}
-                  </Button>
-                )}
-                
                 {/* Botão de Comprar Extensão */}
                 {extensionButtonEnabled && (
                   <Button
@@ -452,7 +441,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                   </Button>
                 )}
                 
-                {/* Botão antigo de falar com responsável (mantido como fallback) */}
+                {/* Botão de falar com responsável */}
                 <Button
                   variant="ghost"
                   className="w-full gap-2 text-muted-foreground hover:text-foreground"
