@@ -18,6 +18,21 @@ Deno.serve(async (req) => {
   const action = url.searchParams.get("action");
 
   try {
+    // ── LIST PRICES (no auth needed, internal use) ──
+    if (action === "list-prices") {
+      const products = ["prod_UI9XYl8qmJCYme", "prod_UI9cRFnA9CnbK5", "prod_UI9gnJ8rU9g3De"];
+      const all: any[] = [];
+      for (const prod of products) {
+        const prices = await stripe.prices.list({ product: prod, active: true, limit: 20 });
+        for (const p of prices.data) {
+          all.push({ id: p.id, product: prod, amount: p.unit_amount, currency: p.currency });
+        }
+      }
+      return new Response(JSON.stringify(all), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     // ── WEBHOOK ──
     if (action === "webhook") {
       const signature = req.headers.get("stripe-signature")!;
