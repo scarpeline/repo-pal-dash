@@ -1014,7 +1014,17 @@ const SuperAdmin = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Gateway de Pagamento Primário</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Gateway de Pagamento Primário</h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchAll}
+                      className="gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" /> Atualizar
+                    </Button>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     Selecione qual gateway será usado por padrão para processar novos pagamentos.
                   </p>
