@@ -42,10 +42,10 @@ async function asaasFetch(
         ...(options.headers || {}),
       },
     });
-    
+
     const text = await res.text();
     if (!text) return { error: `Resposta vazia da API do Asaas (${res.status})` };
-    
+
     try {
       return JSON.parse(text);
     } catch (e) {
@@ -54,6 +54,117 @@ async function asaasFetch(
   } catch (err) {
     return { error: `Erro de conexão: ${String(err)}` };
   }
+}
+
+async function creditUserBalance(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  amountCents: number,
+  creditsToDeliver: number,
+  externalId: string,
+  description: string,
+  paymentMethod: string
+) {
+  const { data: bal } = await supabase
+    .from("balances")
+    .select("balance_cents, total_deposited_cents")
+    .eq("user_id", userId)
+    .single();
+
+  if (!bal) return false;
+
+  const finalCredits = creditsToDeliver > 0 ? creditsToDeliver : amountCents;
+
+  await supabase
+    .from("balances")
+    .update({
+      balance_cents: bal.balance_cents + finalCredits,
+      total_deposited_cents: bal.total_deposited_cents + amountCents,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+
+  // Upsert transaction
+  const { data: existingTx } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (existingTx) {
+    await supabase
+      .from("transactions")
+      .update({ status: "confirmed" })
+      .eq("id", existingTx.id);
+  } else {
+    await supabase.from("transactions").insert({
+      user_id: userId,
+      type: "deposit",
+      amount_cents: amountCents,
+      description,
+      payment_method: paymentMethod,
+      payment_gateway: "asaas",
+      external_id: externalId,
+      status: "confirmed",
+    });
+  }
+
+  // Comissão de afiliado 30%
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("referred_by")
+    .eq("id", userId)
+    .single();
+
+  if (userProfile?.referred_by && userProfile.referred_by !== userId) {
+    const commissionCents = Math.floor(amountCents * 0.3);
+
+    await supabase.from("affiliate_commissions").insert({
+      affiliate_user_id: userProfile.referred_by,
+      referred_user_id: userId,
+      commission_cents: commissionCents,
+      status: "pending",
+    });
+
+    await supabase.from("transactions").insert({
+      user_id: userProfile.referred_by,
+      type: "commission",
+      amount_cents: commissionCents,
+      description: "Comissão 30% de depósito",
+      payment_method: "affiliate",
+      payment_gateway: "asaas",
+      status: "confirmed",
+    });
+
+    const { data: affBal } = await supabase
+      .from("balances")
+      .select("balance_cents, total_deposited_cents")
+      .eq("user_id", userProfile.referred_by)
+      .single();
+
+    if (affBal) {
+      await supabase
+        .from("balances")
+        .update({
+          balance_cents: affBal.balance_cents + commissionCents,
+          total_deposited_cents: affBal.total_deposited_cents + commissionCents,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userProfile.referred_by);
+    }
+  }
+
+  // Atualizar lead_captures
+  await supabase
+    .from("lead_captures")
+    .update({
+      has_paid: true,
+      total_paid_cents: bal.total_deposited_cents + amountCents,
+      last_login_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -97,23 +208,21 @@ Deno.serve(async (req) => {
     if (action === "webhook") {
       const event = payload.event;
 
-      if (
-        event === "PAYMENT_CONFIRMED" ||
-        event === "PAYMENT_RECEIVED"
-      ) {
+      if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
         const payment = payload.payment;
         const externalRef = payment?.externalReference;
-        let userId = null;
+        let userId: string | null = null;
         let amountCents = 0;
         let creditsToDeliver = 0;
-        let packageId = null;
+        let packageId: string | null = null;
 
         if (externalRef && externalRef.includes(":")) {
-          // Standard dynamic payment flow
-          [userId, amountCents] = externalRef.split(":");
-          amountCents = parseInt(amountCents);
+          // Fluxo dinâmico padrão: userId:amountCents
+          const parts = externalRef.split(":");
+          userId = parts[0];
+          amountCents = parseInt(parts[1]);
         } else if (payment.paymentLink) {
-          // Static Payment Link flow (user provided kt6lffsnpy43hsrb etc)
+          // Fluxo de Link de Pagamento Estático
           const { data: pkg } = await supabase
             .from("packages")
             .select("id, credits_amount, price_brl")
@@ -125,109 +234,28 @@ Deno.serve(async (req) => {
             creditsToDeliver = pkg.credits_amount;
             amountCents = pkg.price_brl;
 
-            // Try to find user by Asaas Customer ID or Email
             const { data: profile } = await supabase
               .from("profiles")
               .select("id")
-              .or(`asaas_customer_id.eq.${payment.customer},email.eq.${payment.email}`)
+              .or(
+                `asaas_customer_id.eq.${payment.customer},email.eq.${payment.email}`
+              )
               .maybeSingle();
-            
-            userId = profile?.id;
+
+            userId = profile?.id || null;
           }
         }
 
         if (userId && amountCents > 0) {
-          const { data: bal } = await supabase
-            .from("balances")
-            .select("balance_cents, total_deposited_cents")
-            .eq("user_id", userId)
-            .single();
-
-          if (bal) {
-            // Credits can be the amount paid (if generic) or specific from package
-            const finalCredits = creditsToDeliver > 0 ? creditsToDeliver : amountCents;
-            
-            await supabase
-              .from("balances")
-              .update({
-                balance_cents: bal.balance_cents + finalCredits,
-                total_deposited_cents:
-                  bal.total_deposited_cents + amountCents,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("user_id", userId);
-
-            // Update or Insert transaction
-            const { data: existingTx } = await supabase
-              .from("transactions")
-              .select("id")
-              .eq("external_id", payment.id)
-              .maybeSingle();
-
-            if (existingTx) {
-              await supabase
-                .from("transactions")
-                .update({ status: "confirmed" })
-                .eq("id", existingTx.id);
-            } else {
-              await supabase.from("transactions").insert({
-                user_id: userId,
-                type: "deposit",
-                amount_cents: amountCents,
-                description: `Depósito via Link Asaas${packageId ? ' (Pacote)' : ''}`,
-                payment_method: "link_asaas",
-                payment_gateway: "asaas",
-                external_id: payment.id,
-                status: "confirmed",
-              });
-            }
-
-            // Affiliate commission 30%
-            const { data: userProfile } = await supabase
-              .from("profiles")
-              .select("referred_by")
-              .eq("id", userId)
-              .single();
-
-            if (userProfile?.referred_by && userProfile.referred_by !== userId) {
-              const commissionCents = Math.floor(amountCents * 0.3);
-
-              await supabase.from("affiliate_commissions").insert({
-                affiliate_user_id: userProfile.referred_by,
-                referred_user_id: userId,
-                commission_cents: commissionCents,
-                status: "pending",
-              });
-
-              await supabase.from("transactions").insert({
-                user_id: userProfile.referred_by,
-                type: "commission",
-                amount_cents: commissionCents,
-                description: "Comissão 30% de depósito",
-                payment_method: "affiliate",
-                payment_gateway: "asaas",
-                status: "confirmed",
-              });
-
-              const { data: affBal } = await supabase
-                .from("balances")
-                .select("balance_cents, total_deposited_cents")
-                .eq("user_id", userProfile.referred_by)
-                .single();
-
-              if (affBal) {
-                await supabase
-                  .from("balances")
-                  .update({
-                    balance_cents: affBal.balance_cents + commissionCents,
-                    total_deposited_cents:
-                      affBal.total_deposited_cents + commissionCents,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("user_id", userProfile.referred_by);
-              }
-            }
-          }
+          await creditUserBalance(
+            supabase,
+            userId,
+            amountCents,
+            creditsToDeliver,
+            payment.id,
+            `Depósito via ${packageId ? "Pacote Asaas" : "Link Asaas"}`,
+            "link_asaas"
+          );
         }
       }
 
@@ -296,8 +324,6 @@ Deno.serve(async (req) => {
 
       const results = [];
       for (const pkg of pkgs || []) {
-        // Asaas doesn't have a products API - packages are managed locally
-        // Just validate and mark as synced with a local reference
         if (!pkg.asaas_plan_id) {
           const localRef = `pkg_${pkg.id.slice(0, 8)}`;
           await supabase
@@ -320,17 +346,6 @@ Deno.serve(async (req) => {
     if (action === "create-pix") {
       const { amount_cents, customer_name, customer_cpf, customer_email, package_id } = payload;
 
-      // Check if we have a specific package product ID
-      let asaasProductId = null;
-      if (package_id) {
-        const { data: pkg } = await supabase
-          .from("packages")
-          .select("asaas_plan_id")
-          .eq("id", package_id)
-          .single();
-        asaasProductId = pkg?.asaas_plan_id || null;
-      }
-
       if (!amount_cents || amount_cents < 500) {
         return new Response(
           JSON.stringify({ error: "Valor mínimo: R$ 5,00" }),
@@ -341,39 +356,59 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Find or create Asaas customer
-      let customerId: string | null = null;
-
-      const customerRes = await asaasFetch(baseUrl, "/customers", apiKey, {
-        method: "POST",
-        body: JSON.stringify({
-          name: customer_name || user.email,
-          email: customer_email || user.email,
-          cpfCnpj: customer_cpf || "00000000000", // CPF de teste se vazio
-          externalReference: user.id,
-        }),
-      });
-
-      if (customerRes.error) {
-        return new Response(JSON.stringify({ error: customerRes.error }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      // Busca o pacote se informado para obter créditos corretos
+      let packageCredits = 0;
+      if (package_id) {
+        const { data: pkg } = await supabase
+          .from("packages")
+          .select("credits_amount")
+          .eq("id", package_id)
+          .single();
+        packageCredits = pkg?.credits_amount || 0;
       }
 
-      if (customerRes.id) {
-        customerId = customerRes.id;
-        // Save asaas_customer_id to profile for future webhook matching
-        await supabase.from("profiles").update({ asaas_customer_id: customerId } as any).eq("id", user.id);
+      // Buscar ou criar cliente Asaas
+      let customerId: string | null = null;
+
+      // Verificar se já temos o customer_id salvo
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("asaas_customer_id")
+        .eq("id", user.id)
+        .single();
+
+      if ((existingProfile as any)?.asaas_customer_id) {
+        customerId = (existingProfile as any).asaas_customer_id;
       } else {
-        const findRes = await asaasFetch(
-          baseUrl,
-          `/customers?externalReference=${user.id}`,
-          apiKey
-        );
-        customerId = findRes.data?.[0]?.id || null;
-        if (customerId) {
-           await supabase.from("profiles").update({ asaas_customer_id: customerId } as any).eq("id", user.id);
+        const customerRes = await asaasFetch(baseUrl, "/customers", apiKey, {
+          method: "POST",
+          body: JSON.stringify({
+            name: customer_name || user.email,
+            email: customer_email || user.email,
+            cpfCnpj: customer_cpf || "00000000000",
+            externalReference: user.id,
+          }),
+        });
+
+        if (customerRes.id) {
+          customerId = customerRes.id;
+          await supabase
+            .from("profiles")
+            .update({ asaas_customer_id: customerId } as any)
+            .eq("id", user.id);
+        } else {
+          const findRes = await asaasFetch(
+            baseUrl,
+            `/customers?externalReference=${user.id}`,
+            apiKey
+          );
+          customerId = findRes.data?.[0]?.id || null;
+          if (customerId) {
+            await supabase
+              .from("profiles")
+              .update({ asaas_customer_id: customerId } as any)
+              .eq("id", user.id);
+          }
         }
       }
 
@@ -395,21 +430,18 @@ Deno.serve(async (req) => {
         dueDate: new Date(Date.now() + 86400000)
           .toISOString()
           .split("T")[0],
-        description: `CodPilot - Crédito R$ ${amountBrl.toFixed(2)}`,
-        externalReference: `${user.id}:${amount_cents}`,
+        description: `IAProgramador - Crédito R$ ${amountBrl.toFixed(2)}`,
+        externalReference: `${user.id}:${amount_cents}${package_id ? `:${package_id}` : ""}`,
       };
-
-      if (asaasProductId) {
-        paymentBody.product = asaasProductId;
-      }
 
       const paymentData = await asaasFetch(baseUrl, "/payments", apiKey, {
         method: "POST",
         body: JSON.stringify(paymentBody),
       });
 
-      if (paymentData.error) {
-        return new Response(JSON.stringify({ error: paymentData.error }), {
+      if (paymentData.error || paymentData.errors) {
+        const errMsg = paymentData.error || paymentData.errors?.[0]?.description || "Erro ao criar cobrança";
+        return new Response(JSON.stringify({ error: errMsg }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -445,7 +477,71 @@ Deno.serve(async (req) => {
           pix_qr_code: pixData?.encodedImage || null,
           pix_copy_paste: pixData?.payload || null,
           invoice_url: paymentData.invoiceUrl,
+          package_credits: packageCredits,
         }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // ── Verificar status de um pagamento PIX ──
+    if (action === "check-payment") {
+      const { payment_id } = payload;
+      if (!payment_id) {
+        return new Response(JSON.stringify({ error: "payment_id obrigatório" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const paymentData = await asaasFetch(baseUrl, `/payments/${payment_id}`, apiKey);
+
+      if (paymentData.status === "CONFIRMED" || paymentData.status === "RECEIVED") {
+        // Verificar se já foi creditado
+        const { data: tx } = await supabase
+          .from("transactions")
+          .select("status")
+          .eq("external_id", payment_id)
+          .maybeSingle();
+
+        if (tx && tx.status !== "confirmed") {
+          const externalRef = paymentData.externalReference || "";
+          let amountCents = 0;
+          let packageCredits = 0;
+
+          if (externalRef.includes(":")) {
+            const parts = externalRef.split(":");
+            amountCents = parseInt(parts[1]);
+            const packageId = parts[2] || null;
+
+            if (packageId) {
+              const { data: pkg } = await supabase
+                .from("packages")
+                .select("credits_amount")
+                .eq("id", packageId)
+                .single();
+              packageCredits = pkg?.credits_amount || 0;
+            }
+          }
+
+          if (amountCents > 0) {
+            await creditUserBalance(
+              supabase,
+              user.id,
+              amountCents,
+              packageCredits,
+              payment_id,
+              `Depósito PIX confirmado`,
+              "pix_asaas"
+            );
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ status: paymentData.status }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -455,8 +551,7 @@ Deno.serve(async (req) => {
 
     // ── Create credit card payment via Asaas token ──
     if (action === "create-card") {
-      const { amount_cents, customer_cpf, customer_name, card_token } =
-        await req.json();
+      const { amount_cents, customer_cpf, customer_name, card_token, package_id } = payload;
 
       if (!amount_cents || amount_cents < 500) {
         return new Response(
@@ -466,6 +561,16 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
         );
+      }
+
+      let packageCredits = 0;
+      if (package_id) {
+        const { data: pkg } = await supabase
+          .from("packages")
+          .select("credits_amount")
+          .eq("id", package_id)
+          .single();
+        packageCredits = pkg?.credits_amount || 0;
       }
 
       let customerId: string | null = null;
@@ -506,8 +611,8 @@ Deno.serve(async (req) => {
           billingType: "CREDIT_CARD",
           value: amountBrl,
           dueDate: new Date().toISOString().split("T")[0],
-          description: `CodPilot - Crédito R$ ${amountBrl.toFixed(2)}`,
-          externalReference: `${user.id}:${amount_cents}`,
+          description: `IAProgramador - Crédito R$ ${amountBrl.toFixed(2)}`,
+          externalReference: `${user.id}:${amount_cents}${package_id ? `:${package_id}` : ""}`,
           creditCardToken: card_token,
         }),
       });
@@ -515,8 +620,7 @@ Deno.serve(async (req) => {
       if (paymentData.errors) {
         return new Response(
           JSON.stringify({
-            error:
-              paymentData.errors[0]?.description || "Erro no pagamento",
+            error: paymentData.errors[0]?.description || "Erro no pagamento",
           }),
           {
             status: 400,
@@ -524,6 +628,8 @@ Deno.serve(async (req) => {
           }
         );
       }
+
+      const isConfirmed = paymentData.status === "CONFIRMED";
 
       await supabase.from("transactions").insert({
         user_id: user.id,
@@ -533,26 +639,19 @@ Deno.serve(async (req) => {
         payment_method: "credit_card",
         payment_gateway: "asaas",
         external_id: paymentData.id,
-        status: paymentData.status === "CONFIRMED" ? "confirmed" : "pending",
+        status: isConfirmed ? "confirmed" : "pending",
       });
 
-      if (paymentData.status === "CONFIRMED") {
-        const { data: bal } = await supabase
-          .from("balances")
-          .select("balance_cents, total_deposited_cents")
-          .eq("user_id", user.id)
-          .single();
-        if (bal) {
-          await supabase
-            .from("balances")
-            .update({
-              balance_cents: bal.balance_cents + amount_cents,
-              total_deposited_cents:
-                bal.total_deposited_cents + amount_cents,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("user_id", user.id);
-        }
+      if (isConfirmed) {
+        await creditUserBalance(
+          supabase,
+          user.id,
+          amount_cents,
+          packageCredits,
+          paymentData.id,
+          `Cartão confirmado R$ ${amountBrl.toFixed(2)}`,
+          "credit_card"
+        );
       }
 
       return new Response(

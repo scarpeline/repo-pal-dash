@@ -30,9 +30,6 @@ interface Lead {
 interface AdminPackage {
   id: string; name: string; description: string | null;
   credits_amount: number; price_brl: number; is_active: boolean;
-  checkout_url?: string | null;
-  asaas_payment_link_id?: string | null;
-  stripe_price_id?: string | null;
 }
 
 interface WithdrawalRequest {
@@ -49,7 +46,6 @@ interface ModelPricing {
 
 const SuperAdmin = () => {
   const { isAdmin, loading: authLoading, user } = useAuth();
-  const backend = supabase as any;
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
@@ -72,11 +68,6 @@ const SuperAdmin = () => {
   const [pkgDesc, setPkgDesc] = useState("");
   const [pkgCredits, setPkgCredits] = useState("");
   const [pkgPrice, setPkgPrice] = useState("");
-  // Package calculator auto-calculation
-  const [pkgModelId, setPkgModelId] = useState("");
-  const [pkgInputTokens, setPkgInputTokens] = useState("1000");
-  const [pkgOutputTokens, setPkgOutputTokens] = useState("1000");
-  const [pkgMarginPercent, setPkgMarginPercent] = useState("50");
   const [pkgCheckoutUrl, setPkgCheckoutUrl] = useState("");
   const [pkgAsaasLinkId, setPkgAsaasLinkId] = useState("");
   const [pkgStripePriceId, setPkgStripePriceId] = useState("");
@@ -91,7 +82,7 @@ const SuperAdmin = () => {
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
   useEffect(() => {
-    if (!authLoading && isAdmin) fetchAll();
+    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -118,14 +109,13 @@ const SuperAdmin = () => {
     if (pkgsRes.data) setPackages(pkgsRes.data as any[]);
     
     // Fetch app settings
-    const { data: settings } = await backend.from("app_settings").select("*").eq("key", "primary_gateway").single();
+    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
 
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
     if (pricingRes.data) {
       setModelPricing(pricingRes.data as any[]);
       if (!calcModel && (pricingRes.data as any[]).length > 0) setCalcModel((pricingRes.data as any[])[0].model_id);
-      if (!pkgModelId && (pricingRes.data as any[]).length > 0) setPkgModelId((pricingRes.data as any[])[0].model_id);
     }
     setLoading(false);
   };
@@ -232,24 +222,23 @@ const SuperAdmin = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Package CRUD
   const createDefaultPackages = async () => {
     setLoading(true);
-    const defaultPrices = [10, 15, 20, 25, 30, 50, 70, 100, 150, 200];
+    const defaultPrices = [10, 30, 50, 100, 200, 500];
     const newPackages = defaultPrices.map(price => {
-      const tokens = calculateTokensFromPrice(price, pkgModelId || "google/gemini-3-flash-preview", 50);
+      const credits = price * 100; // 1 crédito = 1 centavo de real
       return {
-        name: price <= 30 ? "Pacote Professional" : price <= 70 ? "Pacote Business" : "Pacote Enterprise",
-        description: `Pacote com ${tokens.totalTokens.toLocaleString('pt-BR')} tokens para acelerar seus projetos IA.`,
+        name: price <= 30 ? "Pacote Starter" : price <= 100 ? "Pacote Business" : "Pacote Pro Max",
+        description: `Pacote de recarga de R$ ${price.toFixed(2)}. Saldo válido para uso em todos os modelos de IA.`,
         price_brl: price * 100,
-        credits_amount: tokens.totalTokens,
+        credits_amount: credits,
         is_active: true
       };
     });
 
     try {
       await supabase.from("packages").insert(newPackages as any[]);
-      toast.success("Todos os 10 Pacotes Padrão foram gerados com sucesso!");
+      toast.success("Pacotes padrão gerados com sucesso!");
       fetchAll();
     } catch (e) {
       toast.error("Erro ao gerar pacotes");
@@ -258,41 +247,62 @@ const SuperAdmin = () => {
     }
   };
 
+  const reajustAllPackages = async () => {
+    setLoading(true);
+    try {
+      const { data: pkgs } = await supabase.from("packages").select("*");
+      if (!pkgs) return;
+      
+      const updates = pkgs.map(pkg => 
+        supabase.from("packages")
+          .update({ credits_amount: pkg.price_brl } as any)
+          .eq("id", pkg.id)
+      );
+      
+      await Promise.all(updates);
+      toast.success("Todos os pacotes foram reajustados para Real!");
+      fetchAll();
+    } catch (e) {
+      toast.error("Erro ao reajustar pacotes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const savePkg = async () => {
     if (!validatePackage()) return;
-    
+
     const credits = parseInt(pkgCredits);
     const price = Math.round(parseFloat(pkgPrice) * 100);
-    
+
     try {
       if (editingPkg) {
-        await supabase.from("packages").update({ 
-          name: pkgName, 
-          description: pkgDesc || null, 
-          credits_amount: credits, 
+        await supabase.from("packages").update({
+          name: pkgName,
+          description: pkgDesc || null,
+          credits_amount: credits,
           price_brl: price,
-          checkout_url: pkgCheckoutUrl,
-          asaas_payment_link_id: pkgAsaasLinkId,
-          stripe_price_id: pkgStripePriceId
+          checkout_url: pkgCheckoutUrl || null,
+          asaas_payment_link_id: pkgAsaasLinkId || null,
+          stripe_price_id: pkgStripePriceId || null,
         } as any).eq("id", editingPkg.id);
         toast.success("Pacote atualizado com sucesso!");
       } else {
-        await supabase.from("packages").insert({ 
-          name: pkgName, 
-          description: pkgDesc || null, 
-          credits_amount: credits, 
+        await supabase.from("packages").insert({
+          name: pkgName,
+          description: pkgDesc || null,
+          credits_amount: credits,
           price_brl: price,
-          checkout_url: pkgCheckoutUrl,
-          asaas_payment_link_id: pkgAsaasLinkId,
-          stripe_price_id: pkgStripePriceId
+          checkout_url: pkgCheckoutUrl || null,
+          asaas_payment_link_id: pkgAsaasLinkId || null,
+          stripe_price_id: pkgStripePriceId || null,
         } as any);
         toast.success("Pacote criado com sucesso!");
       }
-      resetPkgForm(); 
+      resetPkgForm();
       fetchAll();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro desconhecido";
-      toast.error("Erro ao salvar pacote: " + message);
+    } catch (error: any) {
+      toast.error("Erro ao salvar pacote: " + (error?.message || String(error)));
     }
   };
 
@@ -315,10 +325,6 @@ const SuperAdmin = () => {
     setPkgDesc("");
     setPkgCredits("");
     setPkgPrice("");
-    setPkgModelId(modelPricing[0]?.model_id || "");
-    setPkgInputTokens("1000");
-    setPkgOutputTokens("1000");
-    setPkgMarginPercent("50");
     setPkgCheckoutUrl("");
     setPkgAsaasLinkId("");
     setPkgStripePriceId("");
@@ -366,43 +372,7 @@ const SuperAdmin = () => {
     return { apiInput, apiOutput, resaleInput, resaleOutput, totalApi, totalResale, profit: totalResale - totalApi };
   };
 
-  // Package calculator auto-calculation
-  const calculatePackageValues = () => {
-    const mp = modelPricing.find(m => m.model_id === pkgModelId);
-    if (!mp) return { credits: 0, costPrice: 0, salePrice: 0, profit: 0, margin: 0 };
-    
-    const inTokens = parseInt(pkgInputTokens) || 0;
-    const outTokens = parseInt(pkgOutputTokens) || 0;
-    const marginPct = parseFloat(pkgMarginPercent) || 50;
-    
-    // Custo real da API (em centavos)
-    const apiInputCost = (inTokens / 1_000_000) * mp.api_cost_input_per_million;
-    const apiOutputCost = (outTokens / 1_000_000) * mp.api_cost_output_per_million;
-    const totalApiCost = apiInputCost + apiOutputCost;
-    
-    // Preço de revenda base (em centavos)
-    const resaleInput = (inTokens / 1_000_000) * mp.resale_price_input_per_million;
-    const resaleOutput = (outTokens / 1_000_000) * mp.resale_price_output_per_million;
-    const baseResalePrice = resaleInput + resaleOutput;
-    
-    // Aplicar margem de lucro desejada sobre o preço de revenda
-    const marginMultiplier = 1 + (marginPct / 100);
-    const finalPrice = Math.round(baseResalePrice * marginMultiplier);
-    
-    // Créditos = quantidade total de tokens (input + output)
-    const totalCredits = inTokens + outTokens;
-    
-    const profit = finalPrice - totalApiCost;
-    const actualMargin = totalApiCost > 0 ? ((finalPrice - totalApiCost) / totalApiCost) * 100 : 0;
-    
-    return {
-      credits: totalCredits,
-      costPrice: totalApiCost,
-      salePrice: finalPrice,
-      profit: profit,
-      margin: actualMargin
-    };
-  };
+  // Package values simplified
 
   const syncAsaasProducts = async () => {
     try {
@@ -427,90 +397,29 @@ const SuperAdmin = () => {
     }
   };
 
-  // Auto-fill package values when calculator changes
-  const applyCalculatedValues = () => {
-    const calc = calculatePackageValues();
-    setPkgCredits(calc.credits.toString());
-    setPkgPrice((calc.salePrice / 100).toFixed(2));
-  };
-
-  // Calculate tokens based on price (reverse calculation)
-  const calculateTokensFromPrice = (price: number, modelId: string, marginPercent: number = 50) => {
-    const mp = modelPricing.find(m => m.model_id === modelId);
-    if (!mp || price <= 0) return { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-
-    // Converter preço para centavos
-    const priceInCents = Math.round(price * 100);
-    
-    // Calcular preço base sem margem
-    const marginMultiplier = 1 + (marginPercent / 100);
-    const basePrice = priceInCents / marginMultiplier;
-    
-    // Preço por milhão de tokens (média de input e output)
-    const resalePricePerMillion = (mp.resale_price_input_per_million + mp.resale_price_output_per_million) / 2;
-    
-    // Calcular quantidade total de tokens
-    const totalTokens = Math.round((basePrice / resalePricePerMillion) * 1_000_000);
-    
-    // Dividir em 70% input e 30% output (proporção comum)
-    const inputTokens = Math.round(totalTokens * 0.7);
-    const outputTokens = Math.round(totalTokens * 0.3);
-    
-    return {
-      inputTokens: Math.max(1000, inputTokens), // mínimo 1000 tokens
-      outputTokens: Math.max(1000, outputTokens), // mínimo 1000 tokens
-      totalTokens: inputTokens + outputTokens
-    };
-  };
-
-  // Auto-fill tokens when price changes
+  // Simple price change handler
   const handlePriceChange = (price: string) => {
     setPkgPrice(price);
-    
     const priceNum = parseFloat(price);
-    if (!isNaN(priceNum) && priceNum > 0 && pkgModelId) {
-      const tokens = calculateTokensFromPrice(priceNum, pkgModelId, parseFloat(pkgMarginPercent) || 50);
-      setPkgInputTokens(tokens.inputTokens.toString());
-      setPkgOutputTokens(tokens.outputTokens.toString());
-      setPkgCredits(tokens.totalTokens.toString());
+    if (!isNaN(priceNum) && priceNum > 0) {
+      // 1 crédito por centavo de real (valor direto)
+      const credits = Math.round(priceNum * 100);
+      setPkgCredits(credits.toString());
       
-      // Auto-fill package name based on price range
       if (!pkgName || pkgName === "") {
-        let suggestedName = "";
-        if (priceNum <= 10) suggestedName = "Pacote Starter";
-        else if (priceNum <= 30) suggestedName = "Pacote Professional";
-        else if (priceNum <= 60) suggestedName = "Pacote Business";
-        else suggestedName = "Pacote Enterprise";
-        
-        setPkgName(suggestedName);
+        setPkgName(`Recarga R$ ${priceNum.toFixed(2)}`);
       }
       
-      // Auto-fill description
       if (!pkgDesc || pkgDesc === "") {
-        const totalTokens = tokens.totalTokens.toLocaleString('pt-BR');
-        setPkgDesc(`Pacote com ${totalTokens} tokens (${tokens.inputTokens.toLocaleString('pt-BR')} input + ${tokens.outputTokens.toLocaleString('pt-BR')} output) para uso nos modelos IA mais avançados.`);
+        setPkgDesc(`Adicione R$ ${priceNum.toFixed(2)} ao seu saldo para uso imediato em tokens de IA.`);
       }
     }
   };
 
-  // Validate package before saving
   const validatePackage = () => {
-    if (!pkgName.trim()) {
-      toast.error("Nome do pacote é obrigatório");
-      return false;
-    }
-    if (!pkgDesc.trim()) {
-      toast.error("Descrição do pacote é obrigatória");
-      return false;
-    }
-    if (!pkgCredits || parseInt(pkgCredits) <= 0) {
-      toast.error("Quantidade de créditos deve ser maior que zero");
-      return false;
-    }
-    if (!pkgPrice || parseFloat(pkgPrice) <= 0) {
-      toast.error("Preço deve ser maior que zero");
-      return false;
-    }
+    if (!pkgName.trim()) { toast.error("Nome do pacote é obrigatório"); return false; }
+    if (!pkgCredits || parseInt(pkgCredits) <= 0) { toast.error("Quantidade de créditos deve ser maior que zero"); return false; }
+    if (!pkgPrice || parseFloat(pkgPrice) <= 0) { toast.error("Preço deve ser maior que zero"); return false; }
     return true;
   };
 
@@ -523,7 +432,8 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const hasAccess = isAdmin;
+  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
+  const hasAccess = isAdmin || ADMIN_EMAILS.includes(user?.email || "");
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
@@ -834,6 +744,9 @@ const SuperAdmin = () => {
                   <div className="flex items-center justify-between">
                     <CardTitle>{editingPkg ? "Editar Pacote" : "Gerenciar Pacotes"}</CardTitle>
                     <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={reajustAllPackages} disabled={loading} className="text-xs text-orange-600 border-orange-200 hover:bg-orange-50">
+                        <TrendingUp className="w-4 h-4 mr-1.5" /> Reajustar Todos (Real)
+                      </Button>
                       <Button size="sm" variant="outline" onClick={syncAsaasProducts} className="gap-2">
                         <RefreshCw className="w-4 h-4" /> Sincronizar Asaas
                       </Button>
@@ -850,65 +763,15 @@ const SuperAdmin = () => {
                 </CardHeader>
                 {showPkgForm && (
                   <CardContent className="space-y-4">
-                    {/* Calculator Section */}
-                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 space-y-3 border border-blue-200">
-                      <p className="text-sm font-semibold flex items-center gap-2 text-blue-800">
-                        <Calculator className="w-4 h-4 text-blue-600" />
-                        Calculadora Inteligente de Pacotes
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Automático</span>
+                    <div className="bg-primary/5 rounded-lg p-4 mb-4 border border-primary/20">
+                      <p className="text-sm font-semibold flex items-center gap-2 text-primary">
+                        <Package className="w-4 h-4" />
+                        Configuração de Créditos em Real (BRL)
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full whitespace-nowrap">1 Crédito = 1 Centavo</span>
                       </p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div>
-                          <Label className="text-xs font-medium text-gray-700">Modelo IA</Label>
-                          <select 
-                            value={pkgModelId} 
-                            onChange={e => setPkgModelId(e.target.value)} 
-                            className="w-full bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            {modelPricing.map(m => <option key={m.model_id} value={m.model_id}>{m.model_label}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-gray-700">Tokens Entrada</Label>
-                          <Input type="number" value={pkgInputTokens} onChange={e => setPkgInputTokens(e.target.value)} className="h-8 border-gray-300" />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-gray-700">Tokens Saída</Label>
-                          <Input type="number" value={pkgOutputTokens} onChange={e => setPkgOutputTokens(e.target.value)} className="h-8 border-gray-300" />
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-gray-700">Margem Lucro (%)</Label>
-                          <Input type="number" value={pkgMarginPercent} onChange={e => setPkgMarginPercent(e.target.value)} className="h-8 border-gray-300" />
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border border-gray-200">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Custo API</div>
-                            <div className="font-bold text-red-600">R$ {(calculatePackageValues().costPrice / 100).toFixed(2)}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Preço Final</div>
-                            <div className="font-bold text-blue-600">R$ {(calculatePackageValues().salePrice / 100).toFixed(2)}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Lucro</div>
-                            <div className="font-bold text-green-600">R$ {(calculatePackageValues().profit / 100).toFixed(2)}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-gray-500 mb-1">Margem Real</div>
-                            <div className="font-bold text-purple-600">{calculatePackageValues().margin.toFixed(0)}%</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
-                          <div className="text-xs text-gray-600">
-                            <strong>Total de Tokens:</strong> {parseInt(pkgInputTokens) + parseInt(pkgOutputTokens).toLocaleString('pt-BR')}
-                          </div>
-                          <Button size="sm" onClick={applyCalculatedValues} className="h-7 text-xs bg-blue-600 hover:bg-blue-700">
-                            <TrendingUp className="w-3 h-3 mr-1" /> Aplicar Valores
-                          </Button>
-                        </div>
-                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        O sistema agora opera 100% em Real. Ao definir o preço, a quantidade de créditos (tokens) deve ser o valor total em centavos para manter a proporção correta de consumo.
+                      </p>
                     </div>
 
                     {/* Manual Fields */}
@@ -1113,7 +976,7 @@ const SuperAdmin = () => {
                       variant={primaryGateway === "asaas" ? "default" : "outline"}
                       onClick={async () => {
                         setPrimaryGateway("asaas");
-                        await backend.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
+                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "asaas" as any }, { onConflict: "key" });
                         toast.success("Gateway primário alterado para Asaas");
                       }}
                       className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"
@@ -1127,7 +990,7 @@ const SuperAdmin = () => {
                       variant={primaryGateway === "stripe" ? "default" : "outline"}
                       onClick={async () => {
                         setPrimaryGateway("stripe");
-                        await backend.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
+                        await supabase.from("app_settings").upsert({ key: "primary_gateway", value: "stripe" as any }, { onConflict: "key" });
                         toast.success("Gateway primário alterado para Stripe");
                       }}
                       className="flex-1 h-24 flex flex-col gap-2 transition-all hover:scale-[1.02]"
