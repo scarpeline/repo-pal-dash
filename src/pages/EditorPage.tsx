@@ -269,6 +269,21 @@ const EditorPage = () => {
     }
   };
   const handleChatSend = useCallback(async (message: string, model?: string) => {
+    // Check if user has balance before allowing AI usage
+    try {
+      const { supabase: sb } = await import("@/integrations/supabase/client");
+      const { data: bal } = await sb.from("balances").select("balance_cents").eq("user_id", user?.id).single();
+      if (!bal || bal.balance_cents <= 0) {
+        setChatMessages(p => [...p, 
+          { role: "user", content: message, timestamp: new Date() },
+          { role: "system", content: "⚠️ Saldo insuficiente. Recarregue sua carteira para usar a IA. Acesse a página Carteira para adquirir um pacote de créditos.", timestamp: new Date() }
+        ]);
+        return;
+      }
+    } catch (e) {
+      console.error("Balance check error", e);
+    }
+
     setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
     setIsThinking(true);
     
