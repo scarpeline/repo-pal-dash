@@ -249,7 +249,6 @@ const EditorPage = () => {
       try {
         const tree = await getRepoTree(ghToken!, selectedRepo.owner.login, selectedRepo.name, branch);
         setFiles(tree);
-        
         // Refresh any open tabs that were modified
         const modifiedPaths = new Set(result.modifications.map(m => m.path));
         for (const tab of openTabs) {

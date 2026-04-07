@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import GitHubCallback from "./pages/GitHubCallback";
+import OAuthCallback from "./pages/OAuthCallback";
 import SuperAdmin from "./pages/SuperAdmin";
 import WalletPage from "./pages/WalletPage";
 import AffiliatePage from "./pages/AffiliatePage";
@@ -26,6 +27,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/github/callback" element={<GitHubCallback />} />
+              <Route path="/~oauth/initiate" element={<OAuthCallback />} />
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/super-admin2026ok" element={<SuperAdmin />} />
               <Route path="/wallet" element={<WalletPage />} />
               <Route path="/affiliate" element={<AffiliatePage />} />
