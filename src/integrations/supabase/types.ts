@@ -222,7 +222,9 @@ export type Database = {
       }
       packages: {
         Row: {
+          asaas_payment_link_id: string | null
           asaas_plan_id: string | null
+          checkout_url: string | null
           created_at: string
           credits_amount: number
           description: string | null
@@ -235,7 +237,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          asaas_payment_link_id?: string | null
           asaas_plan_id?: string | null
+          checkout_url?: string | null
           created_at?: string
           credits_amount: number
           description?: string | null
@@ -248,7 +252,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          asaas_payment_link_id?: string | null
           asaas_plan_id?: string | null
+          checkout_url?: string | null
           created_at?: string
           credits_amount?: number
           description?: string | null

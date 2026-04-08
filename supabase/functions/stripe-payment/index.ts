@@ -15,7 +15,7 @@ function getStripe() {
 }
 
 async function creditUserBalance(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userId: string,
   amountCents: number,
   creditsAmount: number,
@@ -29,12 +29,13 @@ async function creditUserBalance(
     .single();
 
   if (!bal) return false;
+  const b = bal as any;
 
   const finalCredits = creditsAmount > 0 ? creditsAmount : amountCents;
 
   await supabase.from("balances").update({
-    balance_cents: bal.balance_cents + finalCredits,
-    total_deposited_cents: bal.total_deposited_cents + amountCents,
+    balance_cents: b.balance_cents + finalCredits,
+    total_deposited_cents: b.total_deposited_cents + amountCents,
     updated_at: new Date().toISOString(),
   }).eq("user_id", userId);
 
