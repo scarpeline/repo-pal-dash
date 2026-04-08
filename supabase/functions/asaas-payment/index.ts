@@ -57,7 +57,7 @@ async function asaasFetch(
 }
 
 async function creditUserBalance(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userId: string,
   amountCents: number,
   creditsToDeliver: number,
@@ -72,14 +72,15 @@ async function creditUserBalance(
     .single();
 
   if (!bal) return false;
+  const b = bal as any;
 
   const finalCredits = creditsToDeliver > 0 ? creditsToDeliver : amountCents;
 
   await supabase
     .from("balances")
     .update({
-      balance_cents: bal.balance_cents + finalCredits,
-      total_deposited_cents: bal.total_deposited_cents + amountCents,
+      balance_cents: b.balance_cents + finalCredits,
+      total_deposited_cents: b.total_deposited_cents + amountCents,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
@@ -92,10 +93,11 @@ async function creditUserBalance(
     .maybeSingle();
 
   if (existingTx) {
+    const tx = existingTx as any;
     await supabase
       .from("transactions")
       .update({ status: "confirmed" })
-      .eq("id", existingTx.id);
+      .eq("id", tx.id);
   } else {
     await supabase.from("transactions").insert({
       user_id: userId,
@@ -143,11 +145,12 @@ async function creditUserBalance(
       .single();
 
     if (affBal) {
+      const ab = affBal as any;
       await supabase
         .from("balances")
         .update({
-          balance_cents: affBal.balance_cents + commissionCents,
-          total_deposited_cents: affBal.total_deposited_cents + commissionCents,
+          balance_cents: ab.balance_cents + commissionCents,
+          total_deposited_cents: ab.total_deposited_cents + commissionCents,
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", userProfile.referred_by);
@@ -159,7 +162,7 @@ async function creditUserBalance(
     .from("lead_captures")
     .update({
       has_paid: true,
-      total_paid_cents: bal.total_deposited_cents + amountCents,
+      total_paid_cents: b.total_deposited_cents + amountCents,
       last_login_at: new Date().toISOString(),
     })
     .eq("user_id", userId);

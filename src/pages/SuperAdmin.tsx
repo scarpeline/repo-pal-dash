@@ -31,6 +31,8 @@ interface Lead {
 interface AdminPackage {
   id: string; name: string; description: string | null;
   credits_amount: number; price_brl: number; is_active: boolean;
+  checkout_url?: string | null; asaas_payment_link_id?: string | null;
+  stripe_price_id?: string | null; stripe_product_id?: string | null;
 }
 
 interface WithdrawalRequest {
