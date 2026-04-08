@@ -2,9 +2,9 @@
 
 ## ✅ Checklist de Configuração
 
-### 1. Configurar Secrets no Lovable.dev
+### 1. Configurar Secrets
 
-Acesse: **Project Settings > Secrets**
+Acesse: **Configurações > Secrets** ou **Environment Variables**
 
 #### Stripe (Obrigatório para cartão internacional)
 - [ ] `STRIPE_SECRET_KEY` - Chave secreta do Stripe (começa com `sk_test_` ou `sk_live_`)
@@ -152,7 +152,7 @@ ON CONFLICT (key) DO UPDATE SET value = 'stripe';
 ## 🔧 Resolução de Problemas
 
 ### Erro: "STRIPE_SECRET_KEY não configurada"
-**Solução:** Configure a secret `STRIPE_SECRET_KEY` no Lovable.dev
+**Solução:** Configure a secret `STRIPE_SECRET_KEY` nas Configurações
 
 ### Erro: "Webhook secret não configurado"
 **Solução:** Configure a secret `STRIPE_WEBHOOK_SECRET` com o signing secret do webhook

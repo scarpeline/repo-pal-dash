@@ -68,7 +68,7 @@ export async function sendMessageToAI(
   const apiKey = import.meta.env[provider.apiKeyEnv];
   
   if (!apiKey) {
-    throw new Error(`API key não configurada: ${provider.apiKeyEnv}. Adicione no Lovable Secrets.`);
+    throw new Error(`API key não configurada: ${provider.apiKeyEnv}. Adicione nas Configurações (Secrets).`);
   }
 
   switch (provider.id) {

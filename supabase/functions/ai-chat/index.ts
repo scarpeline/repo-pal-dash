@@ -94,9 +94,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiApiKey) {
+      return new Response(JSON.stringify({ error: "AI not configured - GEMINI_API_KEY missing" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -124,16 +124,37 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         : ""
     }`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Map model names to Gemini models
+    const geminiModel = selectedModel.includes("flash") 
+      ? "gemini-1.5-flash" 
+      : "gemini-1.5-pro";
+    
+    // Call Gemini API directly
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
+    
+    // Convert messages to Gemini format
+    const geminiContents = messages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+    
+    // Add system prompt as first user message
+    geminiContents.unshift({
+      role: "user",
+      parts: [{ text: systemPrompt }],
+    });
+    
+    const response = await fetch(geminiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableApiKey}`,
       },
       body: JSON.stringify({
-        model: selectedModel,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        stream: false, // non-streaming to get usage data
+        contents: geminiContents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        },
       }),
     });
 
@@ -156,10 +177,11 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     }
 
     const aiResult = await response.json();
-    const content = aiResult.choices?.[0]?.message?.content || "";
-    const usage = aiResult.usage || {};
-    const inputTokens = usage.prompt_tokens || estimatedInputTokens;
-    const outputTokens = usage.completion_tokens || estimatedOutputTokens;
+    // Parse Gemini response format
+    const content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // Gemini doesn't return token counts directly, estimate based on characters
+    const inputTokens = estimatedInputTokens;
+    const outputTokens = Math.ceil(content.length / 4) || estimatedOutputTokens;
 
     // Calculate actual cost based on real usage
     const actualCostCents = Math.max(

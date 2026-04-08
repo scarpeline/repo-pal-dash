@@ -35,12 +35,12 @@ Status: ⏳ Pendente configuração
 
 ---
 
-## 🔧 Como Configurar no Lovable
+## 🔧 Como Configurar
 
-1. Acesse: https://lovable.dev/projects/d526800b-137a-4c9e-9819-9ea748b616de
-2. Vá em **Settings** → **Secrets**
+1. Acesse as Configurações do projeto
+2. Vá em **Secrets** ou **Environment Variables**
 3. Adicione as API keys que deseja usar
-4. Clique **Save & Deploy**
+4. Salve e faça deploy
 
 ---
 

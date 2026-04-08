@@ -80,7 +80,7 @@ const Auth = () => {
       const { client_id: clientId } = await configRes.json();
 
       if (!clientId) {
-        throw new Error("Google OAuth não configurado. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no Lovable Secrets.");
+        throw new Error("Google OAuth não configurado. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nas Configurações (Secrets).");
       }
 
       // Gerar state para segurança
