@@ -57,7 +57,7 @@ async function asaasFetch(
 }
 
 async function creditUserBalance(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userId: string,
   amountCents: number,
   creditsToDeliver: number,
