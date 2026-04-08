@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
 
   const refCode = searchParams.get("ref");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +29,8 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado!");
+        // Redirect para home após login
+        setTimeout(() => navigate("/", { replace: true }), 1000);
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -45,8 +48,12 @@ const Auth = () => {
         } else if (data?.session) {
           // Login automático se não precisar de confirmação
           toast.success("Conta criada com sucesso! Bem-vindo!");
+          // Redirect para home após cadastro com login automático
+          setTimeout(() => navigate("/", { replace: true }), 1000);
         } else {
           toast.success("Conta criada! Verifique seu email para ativar.");
+          // Redirect para home mesmo sem login automático
+          setTimeout(() => navigate("/", { replace: true }), 1500);
         }
       }
     } catch (err: any) {
