@@ -232,8 +232,8 @@ Deno.serve(async (req) => {
                 price_data: {
                   currency: "brl",
                   product_data: {
-                    name: `Créditos IAProgramador`,
-                    description: `R$ ${(amount_cents / 100).toFixed(2)} em créditos`
+                    name: `Saldo IAProgramador`,
+                    description: `R$ ${(amount_cents / 100).toFixed(2)} em saldo para uso na IA`
                   },
                   unit_amount: amount_cents,
                 },
