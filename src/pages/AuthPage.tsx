@@ -29,7 +29,7 @@ const Auth = () => {
         if (error) throw error;
         toast.success("Login realizado!");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -38,7 +38,16 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        toast.success("Conta criada com sucesso!");
+        
+        // Verificar se precisa de confirmação de email
+        if (data?.user && data.user.identities && data.user.identities.length === 0) {
+          toast.success("Conta criada! Verifique seu email para confirmar o cadastro.");
+        } else if (data?.session) {
+          // Login automático se não precisar de confirmação
+          toast.success("Conta criada com sucesso! Bem-vindo!");
+        } else {
+          toast.success("Conta criada! Verifique seu email para ativar.");
+        }
       }
     } catch (err: any) {
       toast.error(err.message || "Erro na autenticação");
@@ -46,30 +55,47 @@ const Auth = () => {
     setLoading(false);
   };
 
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/oauth/callback`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      });
-      
-      if (error) {
-        toast.error("Erro ao conectar com Google: " + error.message);
-      } else if (data.url) {
-        // Redirecionar para URL de autorização do Google
-        window.location.href = data.url;
+      // Verificar se Google OAuth está configurado
+      const configRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-oauth?action=get_client_id`
+      );
+
+      if (!configRes.ok) {
+        const errorData = await configRes.json().catch(() => ({ error: "Erro desconhecido" }));
+        throw new Error(errorData.error || "Google OAuth não configurado");
       }
+
+      const { client_id: clientId } = await configRes.json();
+
+      if (!clientId) {
+        throw new Error("Google OAuth não configurado. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no Lovable Secrets.");
+      }
+
+      // Gerar state para segurança
+      const state = Math.random().toString(36).substring(7);
+      localStorage.setItem("google_oauth_state", state);
+
+      // Redirecionar para Google OAuth
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: `${window.location.origin}/google/callback`,
+        response_type: "code",
+        scope: "openid email profile",
+        state: state,
+        access_type: "online",
+        prompt: "consent",
+      });
+
+      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
     } catch (err: any) {
       toast.error(err.message || "Erro ao conectar com Google");
+      setGoogleLoading(false);
     }
-    setGoogleLoading(false);
   };
 
   return (

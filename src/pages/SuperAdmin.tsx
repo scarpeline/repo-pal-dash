@@ -92,6 +92,12 @@ const SuperAdmin = () => {
   // Remarketing filter
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
+  // Admin verification
+  const [verificationCode, setVerificationCode] = useState("");
+  const [inputCode, setInputCode] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+
   useEffect(() => {
     if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
@@ -482,10 +488,165 @@ const SuperAdmin = () => {
     leads.filter(l => !l.has_paid);
 
   const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
-  const hasAccess = isAdmin || ADMIN_EMAILS.includes(user?.email || "");
+  const isAdminEmail = ADMIN_EMAILS.includes(user?.email || "");
+  const hasAccess = isAdmin || isAdminEmail;
+
+  // Generate and send verification code
+  const sendVerificationCode = async () => {
+    if (!isAdminEmail) {
+      toast.error("Apenas o Super Admin pode receber código de verificação");
+      return;
+    }
+    
+    setSendingCode(true);
+    try {
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setVerificationCode(code);
+      
+      // Store in sessionStorage for verification (temporary, expires on page close)
+      sessionStorage.setItem("superadmin_verification_code", code);
+      sessionStorage.setItem("superadmin_code_timestamp", Date.now().toString());
+      
+      // Send email via Resend or Edge Function
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          action: "send-admin-code",
+          email: "escarpelineparticular@gmail.com",
+          code: code,
+          userEmail: user?.email,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      
+      if (!res.ok) {
+        // Fallback: show code in toast if email fails
+        toast.success(`Código gerado: ${code}`, { duration: 10000 });
+        toast.info("Código também foi enviado para o email do Super Admin", { duration: 5000 });
+      } else {
+        toast.success("Código de verificação enviado para escarpelineparticular@gmail.com");
+      }
+    } catch (err) {
+      console.error("Error sending code:", err);
+      toast.error("Erro ao enviar código. Tente novamente.");
+    }
+    setSendingCode(false);
+  };
+  
+  const verifyCode = () => {
+    const storedCode = sessionStorage.getItem("superadmin_verification_code");
+    const timestamp = sessionStorage.getItem("superadmin_code_timestamp");
+    
+    if (!storedCode || !timestamp) {
+      toast.error("Código expirado. Solicite um novo.");
+      return;
+    }
+    
+    // Check if code is expired (10 minutes)
+    const codeAge = Date.now() - parseInt(timestamp);
+    if (codeAge > 10 * 60 * 1000) {
+      sessionStorage.removeItem("superadmin_verification_code");
+      sessionStorage.removeItem("superadmin_code_timestamp");
+      toast.error("Código expirado. Solicite um novo.");
+      return;
+    }
+    
+    if (inputCode === storedCode) {
+      setIsVerified(true);
+      sessionStorage.setItem("superadmin_verified", "true");
+      toast.success("Código verificado! Acesso liberado.");
+    } else {
+      toast.error("Código incorreto. Tente novamente.");
+    }
+  };
+  
+  // Check if already verified in this session
+  useEffect(() => {
+    const verified = sessionStorage.getItem("superadmin_verified");
+    if (verified === "true") {
+      setIsVerified(true);
+    }
+  }, []);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
+
+  // Show verification screen for admin emails
+  if (isAdminEmail && !isVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <CardTitle>Verificação de Segurança</CardTitle>
+            <CardDescription>
+              Acesso restrito ao Super Admin. Um código foi enviado para o email cadastrado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!verificationCode ? (
+              <Button 
+                onClick={sendVerificationCode} 
+                disabled={sendingCode}
+                className="w-full"
+              >
+                {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {sendingCode ? "Enviando..." : "Receber Código de Acesso"}
+              </Button>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="code">Código de 6 dígitos</Label>
+                  <Input
+                    id="code"
+                    type="text"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={inputCode}
+                    onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    O código foi enviado para: <strong>escarpelineparticular@gmail.com</strong>
+                  </p>
+                </div>
+                <Button 
+                  onClick={verifyCode} 
+                  disabled={inputCode.length !== 6}
+                  className="w-full"
+                >
+                  Verificar Código
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={sendVerificationCode}
+                  disabled={sendingCode}
+                  className="w-full"
+                >
+                  {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Reenviar Código
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="ghost" 
+              onClick={() => window.location.href = "/"}
+              className="w-full"
+            >
+              Voltar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const getVal = (mp: ModelPricing, field: keyof ModelPricing): string | number => {
     const v = editingPricing[mp.id]?.[field] !== undefined ? editingPricing[mp.id][field] : mp[field];

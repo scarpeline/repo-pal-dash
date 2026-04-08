@@ -68,7 +68,102 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { user_ids, title, message } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    // Handle admin verification code
+    if (action === "send-admin-code") {
+      const { email, code, userEmail, timestamp } = body;
+      
+      if (!email || !code) {
+        return new Response(
+          JSON.stringify({ error: "Missing email or code" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get Resend API key
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      
+      if (!resendApiKey) {
+        // Return success but note that email wasn't sent
+        return new Response(
+          JSON.stringify({ 
+            ok: true, 
+            sent: false, 
+            message: "RESEND_API_KEY not configured. Code generated but email not sent.",
+            code: code 
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Send email via Resend
+      try {
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: "IAProgramador <noreply@iaprogramador.online>",
+            to: [email],
+            subject: "🔐 Código de Acesso - Super Admin",
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #333;">🔐 Código de Acesso Super Admin</h2>
+                <p>Olá,</p>
+                <p>Foi solicitado um código de acesso ao painel Super Admin.</p>
+                <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                  <p style="font-size: 32px; font-weight: bold; color: #ff6b35; margin: 0; letter-spacing: 8px;">${code}</p>
+                </div>
+                <p><strong>Detalhes do acesso:</strong></p>
+                <ul>
+                  <li>Email que solicitou: ${userEmail || "Não identificado"}</li>
+                  <li>Data/Hora: ${timestamp || new Date().toISOString()}</li>
+                </ul>
+                <p style="color: #666; font-size: 12px;">Este código expira em 10 minutos.</p>
+                <p style="color: #666; font-size: 12px;">Se você não solicitou este código, ignore este email.</p>
+              </div>
+            `,
+          }),
+        });
+
+        if (!emailRes.ok) {
+          const errorData = await emailRes.text();
+          console.error("Resend error:", errorData);
+          return new Response(
+            JSON.stringify({ 
+              ok: true, 
+              sent: false, 
+              message: "Email API error. Code generated but email not sent.",
+              code: code 
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ ok: true, sent: true, message: "Email sent successfully" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (emailErr) {
+        console.error("Email send error:", emailErr);
+        return new Response(
+          JSON.stringify({ 
+            ok: true, 
+            sent: false, 
+            message: "Email send failed. Code generated but email not sent.",
+            code: code 
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Handle regular notifications
+    const { user_ids, title, message } = body;
 
     if (!user_ids || !title || !message) {
       return new Response(
@@ -97,8 +192,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // TODO: Send email via Resend when configured
 
     return new Response(
       JSON.stringify({ ok: true, sent: user_ids.length }),
