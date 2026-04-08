@@ -93,10 +93,11 @@ async function creditUserBalance(
     .maybeSingle();
 
   if (existingTx) {
+    const tx = existingTx as any;
     await supabase
       .from("transactions")
       .update({ status: "confirmed" })
-      .eq("id", existingTx.id);
+      .eq("id", tx.id);
   } else {
     await supabase.from("transactions").insert({
       user_id: userId,
