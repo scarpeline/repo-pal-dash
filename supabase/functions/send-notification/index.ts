@@ -132,12 +132,13 @@ Deno.serve(async (req) => {
 
         if (!emailRes.ok) {
           const errorData = await emailRes.text();
-          console.error("Resend error:", errorData);
+          console.error("Resend API error:", errorData);
+          console.error("Resend status:", emailRes.status);
           return new Response(
             JSON.stringify({ 
               ok: true, 
               sent: false, 
-              message: "Email API error. Code generated but email not sent.",
+              message: `Resend API error (${emailRes.status}): ${errorData}. Verifique: 1) Se RESEND_API_KEY está configurada no Lovable Secrets, 2) Se o domínio iaprogramador.online está verificado no Resend dashboard.`,
               code: code 
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

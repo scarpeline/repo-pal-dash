@@ -487,7 +487,7 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
+  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "escarpelineparticular2@gmail.com", "empresasescarpeline@gmail.com"];
   const isAdminEmail = ADMIN_EMAILS.includes(user?.email || "");
   const hasAccess = isAdmin || isAdminEmail;
 
