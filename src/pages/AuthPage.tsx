@@ -12,6 +12,7 @@ import logoImg from "@/assets/logo-iaprogramador.png";
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,31 +29,38 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado!");
-        // Força reload para garantir que o AuthContext pegue a sessão
         setTimeout(() => { window.location.href = "/"; }, 800);
       } else {
+        // Validar que os emails coincidem
+        if (email !== confirmEmail) {
+          toast.error("Os emails não coincidem. Verifique e tente novamente.");
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: { full_name: fullName, ref_code: refCode || undefined },
-            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        
-        // Verificar se precisa de confirmação de email
-        if (data?.user && data.user.identities && data.user.identities.length === 0) {
-          toast.success("Conta criada! Verifique seu email para confirmar o cadastro.");
-        } else if (data?.session) {
-          // Login automático se não precisar de confirmação
+
+        if (data?.session) {
           toast.success("Conta criada com sucesso! Bem-vindo!");
-          // Força reload para garantir que o AuthContext pegue a sessão
           setTimeout(() => { window.location.href = "/"; }, 800);
         } else {
-          toast.success("Conta criada! Verifique seu email para ativar.");
-          // Força reload — mesmo sem sessão, tenta pegar auth state atualizado
-          setTimeout(() => { window.location.href = "/"; }, 1200);
+          // Sem sessão — tenta login automático com as credenciais recém-criadas
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (!signInError) {
+            toast.success("Conta criada com sucesso! Bem-vindo!");
+            setTimeout(() => { window.location.href = "/"; }, 800);
+          } else {
+            // Último recurso: redireciona mesmo assim
+            toast.success("Conta criada! Redirecionando...");
+            setTimeout(() => { window.location.href = "/"; }, 1200);
+          }
         }
       }
     } catch (err: any) {
@@ -149,6 +157,9 @@ const Auth = () => {
               <Input placeholder="Nome completo" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             )}
             <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            {!isLogin && (
+              <Input type="email" placeholder="Confirme seu email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} required />
+            )}
             <Input type="password" placeholder="Senha (mín. 6 caracteres)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
