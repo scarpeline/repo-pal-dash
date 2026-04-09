@@ -365,7 +365,23 @@ const EditorPage = () => {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        setChatMessages(p => [...p, { role: "ai", content: errData.error || `Erro: ${res.status}`, timestamp: new Date() }]);
+        const errorMsg = errData.error || `Erro: ${res.status}`;
+        
+        // Erro 402: saldo insuficiente
+        if (res.status === 402 && errData.code === "INSUFFICIENT_BALANCE") {
+          setChatMessages(p => [...p, { 
+            role: "system", 
+            content: `⚠️ ${errorMsg}\n\n💳 Clique em "Carteira" no menu superior para recarregar.`, 
+            timestamp: new Date() 
+          }]);
+        } else {
+          setChatMessages(p => [...p, { 
+            role: "ai", 
+            content: `❌ ${errorMsg}`, 
+            timestamp: new Date() 
+          }]);
+        }
+        
         setIsThinking(false);
         setCurrentActivity([]);
         return;
