@@ -74,6 +74,10 @@ const EditorPage = () => {
     { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\nSou um agente autônomo. Você não precisa usar comandos específicos.\n\nSimplesmente converse comigo e diga o que você deseja mudar, corrigir ou criar, e eu mapearei o repositório e farei o trabalho pra você! Se apenas tiver uma dúvida, pode me perguntar livremente.", timestamp: new Date() },
   ]);
   const [isThinking, setIsThinking] = useState(false);
+  const [currentActivity, setCurrentActivity] = useState<string[]>([]);
+  const [streamingContent, setStreamingContent] = useState<string>("");
+  const [streamingProvider, setStreamingProvider] = useState<string>("");
+  const [activeProvider, setActiveProvider] = useState<string>("auto");
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -223,9 +227,18 @@ const EditorPage = () => {
     try {
       const modifier = new AIFileModifier(ghToken!, selectedRepo, branch);
       
+      // 🎨 Atividades em tempo real (estilo Windsurf)
       const addProgress = (msg: string) => {
-        setChatMessages(p => [...p, { role: "system", content: msg, timestamp: new Date() }]);
+        setCurrentActivity(prev => {
+          const newActivity = [...prev, msg];
+          // Manter apenas as últimas 5 atividades
+          return newActivity.slice(-5);
+        });
       };
+      
+      // Limpar atividades e iniciar
+      setCurrentActivity(["🤖 Analisando solicitação..."]);
+      setStreamingProvider(model || "auto");
 
       const result = await modifier.processCommand(
         message, 
@@ -234,15 +247,42 @@ const EditorPage = () => {
         chatMessages.filter(m => m.role !== "system")
       );
       
+      // Streaming do conteúdo da resposta
+      if (result.message) {
+        setStreamingContent(result.message);
+        // Simular streaming gradual
+        for (let i = 0; i <= result.message.length; i += 10) {
+          setStreamingContent(result.message.slice(0, i));
+          await new Promise(r => setTimeout(r, 10));
+        }
+      }
+      
       if (result.modifications.length === 0) {
-        setChatMessages(p => [...p, { role: "ai", content: result.message, timestamp: new Date() }]);
+        setChatMessages(p => [...p, { 
+          role: "ai", 
+          content: result.message, 
+          timestamp: new Date(),
+          provider: model || "auto",
+          activity: currentActivity 
+        }]);
+        setCurrentActivity([]);
+        setStreamingContent("");
         return;
       }
 
-      addProgress(result.message + "\n\n⚡ **Aplicando alterações no GitHub...**");
+      addProgress("⚡ Aplicando alterações no GitHub...");
 
       const executionResult = await modifier.executeModifications(result.modifications);
-      setChatMessages(p => [...p, { role: "ai", content: executionResult, timestamp: new Date() }]);
+      setChatMessages(p => [...p, { 
+        role: "ai", 
+        content: executionResult, 
+        timestamp: new Date(),
+        provider: model || "auto",
+        activity: [...currentActivity, "✅ Alterações aplicadas com sucesso!"]
+      }]);
+      
+      setCurrentActivity([]);
+      setStreamingContent("");
 
       // Refresh file tree
       setLoadingTree(true);
@@ -265,6 +305,8 @@ const EditorPage = () => {
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date() }]);
+      setCurrentActivity([]);
+      setStreamingContent("");
     }
   };
   const handleChatSend = useCallback(async (message: string, model?: string) => {
@@ -303,6 +345,10 @@ const EditorPage = () => {
         .map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
       messages.push({ role: "user", content: message });
 
+      // 🎨 Streaming da resposta
+      setCurrentActivity(["🤖 Conectando à IA..."]);
+      setStreamingProvider(model || "auto");
+      
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
         method: "POST",
         headers: {
@@ -321,15 +367,35 @@ const EditorPage = () => {
         const errData = await res.json().catch(() => ({}));
         setChatMessages(p => [...p, { role: "ai", content: errData.error || `Erro: ${res.status}`, timestamp: new Date() }]);
         setIsThinking(false);
+        setCurrentActivity([]);
         return;
       }
 
       const data = await res.json();
       const aiContent = data.content || "Sem resposta do modelo.";
+      const provider = data.provider || model || "IA";
+      
+      // Simular streaming gradual
+      setCurrentActivity(["✅ Resposta recebida", "📝 Formatando..."]);
+      setStreamingContent(aiContent);
+      
+      for (let i = 0; i <= aiContent.length; i += 15) {
+        setStreamingContent(aiContent.slice(0, i));
+        await new Promise(r => setTimeout(r, 8));
+      }
+      
       const usageInfo = data.usage
         ? `\n\n${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
         : "";
-      setChatMessages(p => [...p, { role: "ai", content: aiContent + usageInfo, timestamp: new Date() }]);
+      setChatMessages(p => [...p, { 
+        role: "ai", 
+        content: aiContent + usageInfo, 
+        timestamp: new Date(),
+        provider: provider,
+        activity: currentActivity 
+      }]);
+      setStreamingContent("");
+      setCurrentActivity([]);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       setChatMessages(p => [...p, { role: "ai", content: `Erro: ${errMsg}`, timestamp: new Date() }]);
@@ -493,7 +559,18 @@ const EditorPage = () => {
                 <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
               </div>
               <div className="flex-1 overflow-hidden">
-                {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : <AIChat messages={chatMessages} onSend={handleChatSend} isThinking={isThinking} />}
+                {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
+                  <AIChat 
+                    messages={chatMessages} 
+                    onSend={handleChatSend} 
+                    isThinking={isThinking}
+                    currentActivity={currentActivity}
+                    streamingContent={streamingContent}
+                    streamingProvider={streamingProvider}
+                    selectedProvider={activeProvider}
+                    onProviderChange={setActiveProvider}
+                  />
+                )}
               </div>
             </div>
           )}
