@@ -201,10 +201,10 @@ const SuperAdmin = () => {
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
     if (isBlocked) {
-      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "user" as any);
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked" as any);
       toast.success("Usuário desbloqueado com sucesso!");
     } else {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "user" } as any);
+      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" } as any);
       toast.success("Usuário bloqueado do acesso à IA!");
     }
     fetchAll();
@@ -570,16 +570,41 @@ const SuperAdmin = () => {
     }
   };
 
-  // Verify with password
-  const verifyWithPassword = () => {
-    const ADMIN_PASSWORD = "Fati0196";
-    
-    if (adminPassword === ADMIN_PASSWORD) {
-      setIsVerified(true);
-      sessionStorage.setItem("superadmin_verified", "true");
-      toast.success("Senha verificada! Acesso liberado ao Super Admin.");
-    } else {
-      toast.error("Senha incorreta. Tente novamente.");
+  // Verify with password via server-side edge function
+  const verifyWithPassword = async () => {
+    if (!adminPassword) return;
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          action: "verify-admin-password",
+          password: adminPassword,
+          userEmail: user?.email,
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.verified) {
+          setIsVerified(true);
+          sessionStorage.setItem("superadmin_verified", "true");
+          toast.success("Senha verificada! Acesso liberado ao Super Admin.");
+        } else {
+          toast.error("Senha incorreta. Tente novamente.");
+        }
+      } else {
+        toast.error("Erro ao verificar senha. Tente novamente.");
+      }
+    } catch (err) {
+      console.error("Error verifying password:", err);
+      toast.error("Erro ao verificar senha. Tente novamente.");
     }
   };
   
