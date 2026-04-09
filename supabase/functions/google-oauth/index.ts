@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -109,15 +111,44 @@ Deno.serve(async (req) => {
 
       const user = await userRes.json();
 
+      // --- Supabase Admin: find-or-create user and generate session token ---
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+      // Try to create user (silently ignores if already exists)
+      await supabaseAdmin.auth.admin.createUser({
+        email: user.email,
+        email_confirm: true,
+        user_metadata: {
+          full_name: user.name || user.email,
+          avatar_url: user.picture,
+          provider: "google",
+        },
+      });
+
+      // Generate a magic-link token (does NOT send an email)
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email: user.email,
+      });
+
+      if (linkError || !linkData?.properties?.email_otp) {
+        return new Response(
+          JSON.stringify({ error: "Failed to generate auth token: " + (linkError?.message || "unknown") }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
-          access_token: tokenData.access_token,
           user: { 
             id: user.id,
             email: user.email, 
             name: user.name || user.email,
             picture: user.picture,
           },
+          email_otp: linkData.properties.email_otp,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
