@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
@@ -9,7 +9,6 @@ const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
 export default function GoogleCallback() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [status, setStatus] = useState("Processando login...");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -28,7 +27,7 @@ export default function GoogleCallback() {
       if (isPopup) {
         setTimeout(() => window.close(), 2000);
       } else {
-        setTimeout(() => navigate("/?error=" + encodeURIComponent(errorParam), { replace: true }), 2000);
+        setTimeout(() => { window.location.href = "/?error=" + encodeURIComponent(errorParam); }, 2000);
       }
       return;
     }
@@ -39,7 +38,7 @@ export default function GoogleCallback() {
       if (isPopup) {
         setTimeout(() => window.close(), 2000);
       } else {
-        setTimeout(() => navigate("/?error=no_code", { replace: true }), 2000);
+        setTimeout(() => { window.location.href = "/?error=no_code"; }, 2000);
       }
       return;
     }
@@ -167,7 +166,8 @@ export default function GoogleCallback() {
         if (isPopup) {
           setTimeout(() => window.close(), 1500);
         } else {
-          setTimeout(() => navigate("/", { replace: true }), 1500);
+          // Força reload para garantir que o AuthContext pegue a sessão
+          setTimeout(() => { window.location.href = "/"; }, 1200);
         }
       } catch (err: any) {
         console.error("Google callback error:", err);
@@ -178,13 +178,13 @@ export default function GoogleCallback() {
         if (isPopup) {
           setTimeout(() => window.close(), 3000);
         } else {
-          setTimeout(() => navigate(`/?error=${encodeURIComponent(errorMsg)}`, { replace: true }), 3000);
+          setTimeout(() => { window.location.href = `/?error=${encodeURIComponent(errorMsg)}`; }, 3000);
         }
       }
     }
 
     exchangeCodeAndLogin();
-  }, [searchParams, navigate]);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
