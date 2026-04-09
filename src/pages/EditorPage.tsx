@@ -1,9 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Gift, LogOut, Code2, Globe
+  Wallet, Gift, LogOut, Code2, Globe, Menu, ChevronLeft
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipe } from "@/hooks/use-swipe";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
@@ -36,7 +39,16 @@ const EditorPage = () => {
   const { user, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isMobile = useIsMobile();
+  
+  // Mobile: sidebar começa fechada, desktop: começa aberta
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+  
   const [sidebarTab, setSidebarTab] = useState<"files" | "github" | "search">("github");
 
   const [ghToken, setGhToken] = useState<string | null>(null);
@@ -51,8 +63,21 @@ const EditorPage = () => {
   const [openTabs, setOpenTabs] = useState<Tab[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [bottomTab, setBottomTab] = useState<"terminal" | "chat">("chat");
-  const [bottomOpen, setBottomOpen] = useState(true);
-  const [showPreview, setShowPreview] = useState(true);
+  
+  // Mobile: painéis começam fechados, desktop: começam abertos
+  const [bottomOpen, setBottomOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+  
+  const [showPreview, setShowPreview] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [loadingFile, setLoadingFile] = useState(false);
   const [repoUrls, setRepoUrls] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem("repo_preview_urls") || "{}"); } catch { return {}; }
@@ -79,6 +104,31 @@ const EditorPage = () => {
   const [streamingProvider, setStreamingProvider] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<string>("auto");
   const [searchParams] = useSearchParams();
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // 🎨 Swipe gestures para mobile - swipe da esquerda abre sidebar, da direita fecha
+  const { ref: swipeRef } = useSwipe(
+    () => setSidebarOpen(false), // swipe left fecha sidebar
+    () => setSidebarOpen(true),   // swipe right abre sidebar
+    undefined, // swipe up - não usado
+    undefined  // swipe down - não usado
+  );
+
+  // 🎨 Fechar painéis ao redimensionar para mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobileView = window.innerWidth < 768;
+      if (isMobileView) {
+        // Em mobile, fecha painéis para dar mais espaço
+        if (sidebarOpen && bottomOpen) {
+          setBottomOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [sidebarOpen, bottomOpen]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -443,21 +493,38 @@ const EditorPage = () => {
     <div className="h-screen flex flex-col overflow-hidden bg-background p-2 gap-2 text-foreground font-sans">
       <AuthErrorHandler />
 
-      {/* Title bar */}
-      <div className="h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-4 shrink-0 transition-all">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-muted-foreground hover:text-foreground">
+      {/* Title bar - Mobile otimizado */}
+      <div className="h-14 md:h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-3 md:px-4 shrink-0 transition-all safe-area-pt">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Botão menu mobile maior */}
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)} 
+            className="md:hidden p-2.5 -ml-1 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all"
+            aria-label="Toggle sidebar"
+          >
+            {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+          
+          {/* Botão desktop */}
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)} 
+            className="hidden md:flex p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
           </button>
-          <div className="flex items-center gap-1.5">
-            <img src={logoImg} alt="IAProgramador" className="w-6 h-6 object-contain" />
-            <div className="flex flex-col justify-center gap-1">
-              <span className="text-sm font-bold text-foreground leading-tight">IAProgramador</span>
-              <span className="text-[9px] text-primary font-bold uppercase tracking-wider leading-none">Feito por: O.Scarpeline</span>
+          
+          {/* Logo - Mais compacto em mobile */}
+          <div className="flex items-center gap-1.5 md:gap-1.5">
+            <img src={logoImg} alt="IAProgramador" className="w-7 h-7 md:w-6 md:h-6 object-contain" />
+            <div className="flex flex-col justify-center gap-0.5 md:gap-1">
+              <span className="text-base md:text-sm font-bold text-foreground leading-tight">IAProgramador</span>
+              <span className="text-[8px] md:text-[9px] text-primary font-bold uppercase tracking-wider leading-none hidden sm:block">Feito por: O.Scarpeline</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        
+        {/* Ações - Mais espaçadas em mobile para touch */}
+        <div className="flex items-center gap-2 md:gap-3">
           {selectedRepo && (
             <>
               <span className="text-sm text-muted-foreground font-mono flex items-center gap-1">
@@ -470,31 +537,56 @@ const EditorPage = () => {
               )}
             </>
           )}
-          <button onClick={() => setShowPreview(!showPreview)} className={`flex items-center gap-1 text-sm px-2 py-1 rounded ${showPreview ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-            <Eye className="w-3.5 h-3.5" /> Preview
+          {/* Preview toggle - Touch maior em mobile */}
+          <button 
+            onClick={() => setShowPreview(!showPreview)} 
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 md:px-2 md:py-1 rounded-xl md:rounded-lg active:scale-95 transition-all ${
+              showPreview ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Eye className="w-4 h-4 md:w-3.5 md:h-3.5" />
+            <span className="hidden sm:inline">Preview</span>
           </button>
           
-          <UserBalanceBar />
-          <NotificationBell />
+          {/* Componentes de usuário */}
+          <div className="flex items-center gap-1 md:gap-2">
+            <UserBalanceBar />
+            <NotificationBell />
+          </div>
           
-          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1 ml-1 hidden xs:flex">
+          {/* Idioma - Escondido em mobile pequeno */}
+          <div className="hidden xs:flex items-center gap-1.5 border-r border-border pr-2 md:pr-3 mr-1 ml-1">
             <Globe className="w-4 h-4 text-muted-foreground" />
             <select 
               value={language} 
               onChange={(e) => setLanguage(e.target.value as any)}
-              className="bg-transparent border-none text-sm font-medium text-muted-foreground outline-none cursor-pointer"
+              className="bg-transparent border-none text-xs md:text-sm font-medium text-muted-foreground outline-none cursor-pointer"
             >
               <option value="pt-BR">PT</option>
               <option value="en-US">EN</option>
               <option value="es-ES">ES</option>
             </select>
           </div>
-          <button onClick={() => navigate("/affiliate")} className="text-muted-foreground hover:text-foreground hidden sm:block" title="Afiliados">
+          
+          {/* Afiliados - Desktop only */}
+          <button 
+            onClick={() => navigate("/affiliate")} 
+            className="hidden sm:flex p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" 
+            title="Afiliados"
+          >
             <Gift className="w-4 h-4" />
           </button>
-          <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
-          <button onClick={logout} className="text-muted-foreground hover:text-foreground" title="Sair">
-            <LogOut className="w-4 h-4" />
+          
+          {/* Email - Desktop only */}
+          <span className="hidden md:inline text-sm text-muted-foreground max-w-[120px] truncate">{user?.email}</span>
+          
+          {/* Logout - Touch maior em mobile */}
+          <button 
+            onClick={logout} 
+            className="p-2.5 md:p-2 rounded-xl md:rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all" 
+            title="Sair"
+          >
+            <LogOut className="w-5 h-5 md:w-4 md:h-4" />
           </button>
         </div>
       </div>
@@ -666,6 +758,25 @@ const EditorPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* 🎨 Mobile Bottom Navigation */}
+      <MobileBottomNav
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        bottomOpen={bottomOpen}
+        setBottomOpen={setBottomOpen}
+        bottomTab={bottomTab}
+        setBottomTab={setBottomTab}
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
+        hasOpenTabs={openTabs.length > 0}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        openTabs={openTabs.map(t => ({ path: t.path, name: t.name }))}
+      />
+      
+      {/* Mobile padding para safe area */}
+      <div className="md:hidden h-[72px] safe-area-pb" />
     </div>
   );
 };
