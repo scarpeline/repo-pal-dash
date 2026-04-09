@@ -1,17 +1,18 @@
 import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Zap, Code2, Coins, Bot } from "lucide-react";
 import { toast } from "sonner";
 import logoImg from "@/assets/logo-iaprogramador.png";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +20,6 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
 
   const refCode = searchParams.get("ref");
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,31 +29,38 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado!");
-        // Redirect para home após login
-        setTimeout(() => navigate("/", { replace: true }), 1000);
+        setTimeout(() => { window.location.href = "/"; }, 800);
       } else {
+        // Validar que os emails coincidem
+        if (email !== confirmEmail) {
+          toast.error("Os emails não coincidem. Verifique e tente novamente.");
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: { full_name: fullName, ref_code: refCode || undefined },
-            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        
-        // Verificar se precisa de confirmação de email
-        if (data?.user && data.user.identities && data.user.identities.length === 0) {
-          toast.success("Conta criada! Verifique seu email para confirmar o cadastro.");
-        } else if (data?.session) {
-          // Login automático se não precisar de confirmação
+
+        if (data?.session) {
           toast.success("Conta criada com sucesso! Bem-vindo!");
-          // Redirect para home após cadastro com login automático
-          setTimeout(() => navigate("/", { replace: true }), 1000);
+          setTimeout(() => { window.location.href = "/"; }, 800);
         } else {
-          toast.success("Conta criada! Verifique seu email para ativar.");
-          // Redirect para home mesmo sem login automático
-          setTimeout(() => navigate("/", { replace: true }), 1500);
+          // Sem sessão — tenta login automático com as credenciais recém-criadas
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (!signInError) {
+            toast.success("Conta criada com sucesso! Bem-vindo!");
+            setTimeout(() => { window.location.href = "/"; }, 800);
+          } else {
+            // Último recurso: redireciona mesmo assim
+            toast.success("Conta criada! Redirecionando...");
+            setTimeout(() => { window.location.href = "/"; }, 1200);
+          }
         }
       }
     } catch (err: any) {
@@ -106,7 +113,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 gap-6">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center mb-2">
@@ -117,7 +124,7 @@ const Auth = () => {
             {isLogin ? "Acesse sua conta IAProgramador" : "Crie sua conta e comece a programar com IA"}
           </CardDescription>
           {refCode && !isLogin && (
-            <p className="text-xs text-primary mt-1">🎁 Indicado por: {refCode}</p>
+            <p className="text-xs text-primary mt-1">Indicado por: {refCode}</p>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -150,6 +157,9 @@ const Auth = () => {
               <Input placeholder="Nome completo" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             )}
             <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            {!isLogin && (
+              <Input type="email" placeholder="Confirme seu email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} required />
+            )}
             <Input type="password" placeholder="Senha (mín. 6 caracteres)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -164,6 +174,47 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Marketing copy */}
+      <div className="w-full max-w-md space-y-4 text-center">
+        <h2 className="text-lg font-semibold text-foreground">
+          Programe com as melhores IAs do mundo
+        </h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          O IAProgramador conecta você a mais de <span className="font-medium text-foreground">7 modelos de IA</span> em um
+          só lugar: Gemini, GPT, DeepSeek, Groq, Mistral e mais. Edite repositórios do GitHub,
+          gere código e corrija bugs direto no navegador.
+        </p>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50">
+            <Bot className="w-5 h-5 text-primary" />
+            <span className="text-xs font-medium">7+ IAs</span>
+            <span className="text-[10px] text-muted-foreground">Gemini, GPT, DeepSeek...</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50">
+            <Coins className="w-5 h-5 text-primary" />
+            <span className="text-xs font-medium">A partir de R$ 0,20</span>
+            <span className="text-[10px] text-muted-foreground">por requisição</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50">
+            <Zap className="w-5 h-5 text-primary" />
+            <span className="text-xs font-medium">Instantâneo</span>
+            <span className="text-[10px] text-muted-foreground">Respostas em segundos</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <Code2 className="w-3.5 h-3.5" />
+          <span>Editor de código integrado + terminal + preview ao vivo</span>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Sem assinatura mensal. Pague apenas pelo que usar.
+          <br />
+          <span className="text-primary font-medium">Comece agora com R$ 5,00 de créditos.</span>
+        </p>
+      </div>
     </div>
   );
 };

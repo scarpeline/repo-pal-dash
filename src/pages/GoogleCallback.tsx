@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
@@ -9,7 +9,6 @@ const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
 export default function GoogleCallback() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [status, setStatus] = useState("Processando login...");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -28,7 +27,7 @@ export default function GoogleCallback() {
       if (isPopup) {
         setTimeout(() => window.close(), 2000);
       } else {
-        setTimeout(() => navigate("/?error=" + encodeURIComponent(errorParam), { replace: true }), 2000);
+        setTimeout(() => { window.location.href = "/?error=" + encodeURIComponent(errorParam); }, 2000);
       }
       return;
     }
@@ -39,7 +38,7 @@ export default function GoogleCallback() {
       if (isPopup) {
         setTimeout(() => window.close(), 2000);
       } else {
-        setTimeout(() => navigate("/?error=no_code", { replace: true }), 2000);
+        setTimeout(() => { window.location.href = "/?error=no_code"; }, 2000);
       }
       return;
     }
@@ -63,83 +62,40 @@ export default function GoogleCallback() {
           throw new Error(errorData.error || `Erro ${tokenRes.status}`);
         }
 
-        const { user: googleUser } = await tokenRes.json();
+        const result = await tokenRes.json();
+        const googleUser = result.user;
 
         if (!googleUser?.email) {
           throw new Error("Email não retornado pelo Google");
         }
 
-        setStatus("Verificando usuário...");
+        setStatus("Autenticando...");
 
-        // Verificar se usuário já existe
-        const { data: existingUser } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", googleUser.email)
-          .maybeSingle();
-
-        let authUser;
-
-        if (existingUser) {
-          // Usuário existe - fazer login
-          setStatus("Fazendo login...");
-          
-          // Gerar token de acesso temporário
-          const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: googleUser.email,
-            password: `google_oauth_${googleUser.id}`, // Senha temporária baseada no ID do Google
+        // Use OTP token from server to establish Supabase session
+        if (result.otp_token) {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: result.otp_token,
+            type: "magiclink",
           });
 
-          if (signInError) {
-            // Se falhou, tentar criar novo usuário ou usar magic link
-            const { data: magicLinkData, error: magicError } = await supabase.auth.signInWithOtp({
-              email: googleUser.email,
-              options: {
-                shouldCreateUser: false,
-              },
-            });
-
-            if (magicError) {
-              throw new Error("Não foi possível autenticar. Tente criar conta manualmente.");
-            }
+          if (verifyError) {
+            console.error("OTP verify error:", verifyError);
+            throw new Error("Erro ao verificar token de autenticação. Tente novamente.");
           }
-          
-          authUser = authData?.user;
         } else {
-          // Criar novo usuário
-          setStatus("Criando conta...");
-          
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          throw new Error("Token de autenticação não recebido do servidor.");
+        }
+
+        // Update profile with Google data
+        if (result.user_id) {
+          await supabase.from("profiles").upsert({
+            id: result.user_id,
             email: googleUser.email,
-            password: `google_oauth_${googleUser.id}`,
-            options: {
-              data: {
-                full_name: googleUser.name,
-                avatar_url: googleUser.picture,
-                provider: "google",
-              },
-            },
+            full_name: googleUser.name,
+            avatar_url: googleUser.picture,
+            updated_at: new Date().toISOString(),
           });
-
-          if (signUpError && !signUpError.message.includes("User already registered")) {
-            throw signUpError;
-          }
-
-          authUser = signUpData?.user;
         }
-
-        if (!authUser) {
-          throw new Error("Não foi possível autenticar usuário");
-        }
-
-        // Atualizar perfil com dados do Google
-        await supabase.from("profiles").upsert({
-          id: authUser.id,
-          email: googleUser.email,
-          full_name: googleUser.name,
-          avatar_url: googleUser.picture,
-          updated_at: new Date().toISOString(),
-        });
 
         setStatus("Login realizado!");
         setSuccess(true);
@@ -167,7 +123,8 @@ export default function GoogleCallback() {
         if (isPopup) {
           setTimeout(() => window.close(), 1500);
         } else {
-          setTimeout(() => navigate("/", { replace: true }), 1500);
+          // Força reload para garantir que o AuthContext pegue a sessão
+          setTimeout(() => { window.location.href = "/"; }, 1200);
         }
       } catch (err: any) {
         console.error("Google callback error:", err);
@@ -178,13 +135,13 @@ export default function GoogleCallback() {
         if (isPopup) {
           setTimeout(() => window.close(), 3000);
         } else {
-          setTimeout(() => navigate(`/?error=${encodeURIComponent(errorMsg)}`, { replace: true }), 3000);
+          setTimeout(() => { window.location.href = `/?error=${encodeURIComponent(errorMsg)}`; }, 3000);
         }
       }
     }
 
     exchangeCodeAndLogin();
-  }, [searchParams, navigate]);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
