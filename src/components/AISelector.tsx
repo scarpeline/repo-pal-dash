@@ -45,15 +45,8 @@ export function AISelector({
   const [isAuto, setIsAuto] = useState(autoMode);
 
   useEffect(() => {
-    // Verificar quais providers têm API key configurada
-    const checkApiKeys = () => {
-      const updated = providers.map(p => {
-        const hasKey = !!import.meta.env[p.apiKeyEnv];
-        return { ...p, enabled: p.id === "gemini" ? true : hasKey };
-      });
-      setProviders(updated);
-    };
-    checkApiKeys();
+    // All providers are enabled — API keys are stored server-side in the edge function
+    // No client-side env var check needed
   }, []);
 
   const handleSelect = (provider: AIProvider) => {

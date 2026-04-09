@@ -8,11 +8,26 @@ import { AISelector } from "./AISelector";
 
 const AI_MODELS = [
   { id: "auto", label: "🧠 Modo Inteligente", desc: "Escolhe a melhor IA automaticamente" },
+  // Google Gemini
   { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", desc: "Rápido e eficiente" },
   { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "Equilibrado" },
   { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", desc: "Mais preciso" },
+  // OpenAI
   { id: "openai/gpt-5-mini", label: "GPT-5 Mini", desc: "OpenAI rápido" },
   { id: "openai/gpt-5", label: "GPT-5", desc: "OpenAI avançado" },
+  { id: "openai/gpt-5-nano", label: "GPT-5 Nano", desc: "OpenAI econômico" },
+  // DeepSeek
+  { id: "deepseek/deepseek-chat", label: "DeepSeek Chat", desc: "Especialista em código" },
+  { id: "deepseek/deepseek-reasoner", label: "DeepSeek Reasoner", desc: "Raciocínio avançado" },
+  // Groq (ultra-rápido)
+  { id: "groq/llama-3.3-70b", label: "Llama 3.3 70B (Groq)", desc: "Ultra-rápido via Groq" },
+  { id: "groq/llama-3.1-8b", label: "Llama 3.1 8B (Groq)", desc: "Leve e veloz" },
+  { id: "groq/mixtral-8x7b", label: "Mixtral 8x7B (Groq)", desc: "Multilíngue rápido" },
+  // Mistral
+  { id: "mistral/codestral", label: "Codestral (Mistral)", desc: "Código especializado" },
+  { id: "mistral/mistral-small", label: "Mistral Small", desc: "Leve e eficiente" },
+  // OpenRouter (acesso a múltiplos modelos)
+  { id: "openrouter/deepseek/deepseek-chat:free", label: "DeepSeek Free (OpenRouter)", desc: "Grátis via OpenRouter" },
 ];
 
 type ChatMsg = { 

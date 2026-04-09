@@ -53,7 +53,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     apiKeyEnv: "DEEPSEEK_API_KEY",
     models: ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"],
     defaultModel: "deepseek-coder",
-    enabled: false,
+    enabled: true,
     characteristics: {
       codingStrength: 9,
       reasoningStrength: 8,
@@ -72,7 +72,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     apiKeyEnv: "GROQ_API_KEY",
     models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
     defaultModel: "llama-3.3-70b-versatile",
-    enabled: false,
+    enabled: true,
     characteristics: {
       codingStrength: 8,
       reasoningStrength: 8,
@@ -91,7 +91,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     apiKeyEnv: "MISTRAL_API_KEY",
     models: ["codestral-latest", "mistral-small-latest", "mistral-medium-latest"],
     defaultModel: "codestral-latest",
-    enabled: false,
+    enabled: true,
     characteristics: {
       codingStrength: 10, // Melhor para código!
       reasoningStrength: 8,
@@ -110,7 +110,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     apiKeyEnv: "KIMI_API_KEY",
     models: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
     defaultModel: "moonshot-v1-32k",
-    enabled: false,
+    enabled: true,
     characteristics: {
       codingStrength: 8,
       reasoningStrength: 9,
@@ -134,7 +134,7 @@ export const AI_PROVIDERS: AIProvider[] = [
       "nousresearch/hermes-3-llama-3.1-405b:free"
     ],
     defaultModel: "deepseek/deepseek-chat:free",
-    enabled: false,
+    enabled: true,
     characteristics: {
       codingStrength: 8,
       reasoningStrength: 8,
@@ -153,7 +153,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     apiKeyEnv: "OPENAI_API_KEY",
     models: ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
     defaultModel: "gpt-4o-mini",
-    enabled: false,
+    enabled: true,
     characteristics: {
       codingStrength: 8,
       reasoningStrength: 9,
