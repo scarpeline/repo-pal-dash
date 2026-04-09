@@ -37,23 +37,26 @@ const Auth = () => {
           password,
           options: {
             data: { full_name: fullName, ref_code: refCode || undefined },
-            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        
-        // Verificar se precisa de confirmação de email
+
         if (data?.user && data.user.identities && data.user.identities.length === 0) {
-          toast.success("Conta criada! Verifique seu email para confirmar o cadastro.");
+          // Email already registered with a different provider
+          toast.error("Este email já está cadastrado. Tente fazer login.");
         } else if (data?.session) {
-          // Login automático se não precisar de confirmação
           toast.success("Conta criada com sucesso! Bem-vindo!");
-          // Redirect para home após cadastro com login automático
-          setTimeout(() => navigate("/", { replace: true }), 1000);
+          navigate("/", { replace: true });
         } else {
-          toast.success("Conta criada! Verifique seu email para ativar.");
-          // Redirect para home mesmo sem login automático
-          setTimeout(() => navigate("/", { replace: true }), 1500);
+          // Fallback: sign in immediately after signup
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) {
+            toast.success("Conta criada! Faça login para continuar.");
+            setIsLogin(true);
+          } else {
+            toast.success("Conta criada com sucesso! Bem-vindo!");
+            navigate("/", { replace: true });
+          }
         }
       }
     } catch (err: any) {
