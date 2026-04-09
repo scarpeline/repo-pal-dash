@@ -353,8 +353,8 @@ Deno.serve(async (req) => {
     // Estimate cost (estimate ~500 input tokens, ~1000 output tokens for a typical chat)
     const estimatedInputTokens = 500;
     const estimatedOutputTokens = 1000;
-    const resaleInput = pricing?.resale_price_input_per_million || 30;
-    const resaleOutput = pricing?.resale_price_output_per_million || 120;
+    let resaleInput = pricing?.resale_price_input_per_million || 30;
+    let resaleOutput = pricing?.resale_price_output_per_million || 120;
     const estimatedCostCents = Math.ceil(
       (estimatedInputTokens / 1_000_000) * resaleInput +
       (estimatedOutputTokens / 1_000_000) * resaleOutput
@@ -365,7 +365,7 @@ Deno.serve(async (req) => {
     // Check user balance
     const { data: balance } = await supabaseAdmin
       .from("balances")
-      .select("balance_cents")
+      .select("balance_cents, total_spent_cents")
       .eq("user_id", user.id)
       .single();
 
@@ -404,6 +404,18 @@ Deno.serve(async (req) => {
       }
       apiKey = geminiKey;
       activeProvider = geminiProvider;
+
+      // Re-fetch Gemini pricing so the user isn't charged at the original model's rate
+      const { data: geminiPricing } = await supabaseAdmin
+        .from("ai_model_pricing")
+        .select("resale_price_input_per_million, resale_price_output_per_million")
+        .eq("model_id", "google/gemini-3-flash-preview")
+        .eq("is_active", true)
+        .single();
+      if (geminiPricing) {
+        resaleInput = geminiPricing.resale_price_input_per_million;
+        resaleOutput = geminiPricing.resale_price_output_per_million;
+      }
     }
 
     if (!apiKey) {
