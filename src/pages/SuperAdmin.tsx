@@ -97,9 +97,11 @@ const SuperAdmin = () => {
   const [inputCode, setInputCode] = useState("");
   const [isVerified, setIsVerified] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [verificationMode, setVerificationMode] = useState<"code" | "password">("code");
 
   useEffect(() => {
-    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
+    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "escarpelineparticular2@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -567,6 +569,19 @@ const SuperAdmin = () => {
       toast.error("Código incorreto. Tente novamente.");
     }
   };
+
+  // Verify with password
+  const verifyWithPassword = () => {
+    const ADMIN_PASSWORD = "Fati0196";
+    
+    if (adminPassword === ADMIN_PASSWORD) {
+      setIsVerified(true);
+      sessionStorage.setItem("superadmin_verified", "true");
+      toast.success("Senha verificada! Acesso liberado ao Super Admin.");
+    } else {
+      toast.error("Senha incorreta. Tente novamente.");
+    }
+  };
   
   // Check if already verified in this session
   useEffect(() => {
@@ -588,50 +603,101 @@ const SuperAdmin = () => {
             <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
             <CardTitle>Verificação de Segurança</CardTitle>
             <CardDescription>
-              Acesso restrito ao Super Admin. Um código foi enviado para o email cadastrado.
+              Acesso restrito ao Super Admin. Escolha uma forma de verificação.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!verificationCode ? (
-              <Button 
-                onClick={sendVerificationCode} 
-                disabled={sendingCode}
-                className="w-full"
+            {/* Tabs para escolher modo de verificação */}
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={verificationMode === "code" ? "default" : "outline"}
+                onClick={() => setVerificationMode("code")}
+                className="flex-1"
+                size="sm"
               >
-                {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                {sendingCode ? "Enviando..." : "Receber Código de Acesso"}
+                <Mail className="w-4 h-4 mr-2" />
+                Código por Email
               </Button>
+              <Button
+                variant={verificationMode === "password" ? "default" : "outline"}
+                onClick={() => setVerificationMode("password")}
+                className="flex-1"
+                size="sm"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Senha
+              </Button>
+            </div>
+
+            {verificationMode === "code" ? (
+              <>
+                {!verificationCode ? (
+                  <Button 
+                    onClick={sendVerificationCode} 
+                    disabled={sendingCode}
+                    className="w-full"
+                  >
+                    {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    {sendingCode ? "Enviando..." : "Receber Código de Acesso"}
+                  </Button>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="code">Código de 6 dígitos</Label>
+                      <Input
+                        id="code"
+                        type="text"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={inputCode}
+                        onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        O código foi enviado para: <strong>escarpelineparticular@gmail.com</strong>
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={verifyCode} 
+                      disabled={inputCode.length !== 6}
+                      className="w-full"
+                    >
+                      Verificar Código
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={sendVerificationCode}
+                      disabled={sendingCode}
+                      className="w-full"
+                    >
+                      {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Reenviar Código
+                    </Button>
+                  </>
+                )}
+              </>
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="code">Código de 6 dígitos</Label>
+                  <Label htmlFor="admin-password">Senha do Super Admin</Label>
                   <Input
-                    id="code"
-                    type="text"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={inputCode}
-                    onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
+                    id="admin-password"
+                    type="password"
+                    placeholder="Digite a senha..."
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && verifyWithPassword()}
                   />
                   <p className="text-xs text-muted-foreground">
-                    O código foi enviado para: <strong>escarpelineparticular@gmail.com</strong>
+                    Emails autorizados: <strong>escarpelineparticular@gmail.com</strong> e <strong>escarpelineparticular2@gmail.com</strong>
                   </p>
                 </div>
                 <Button 
-                  onClick={verifyCode} 
-                  disabled={inputCode.length !== 6}
+                  onClick={verifyWithPassword} 
+                  disabled={!adminPassword}
                   className="w-full"
                 >
-                  Verificar Código
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={sendVerificationCode}
-                  disabled={sendingCode}
-                  className="w-full"
-                >
-                  {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Reenviar Código
+                  <Shield className="w-4 h-4 mr-2" />
+                  Entrar com Senha
                 </Button>
               </>
             )}
