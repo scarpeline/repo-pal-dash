@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -107,17 +109,80 @@ Deno.serve(async (req) => {
         });
       }
 
-      const user = await userRes.json();
+      const googleUser = await userRes.json();
+
+      // --- Server-side auth: create/find user and generate OTP ---
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+      // Check if user exists by email
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = existingUsers?.users?.find(
+        (u: any) => u.email === googleUser.email
+      );
+
+      let userId: string;
+
+      if (existingUser) {
+        userId = existingUser.id;
+        // Update user metadata with Google info
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            full_name: googleUser.name || existingUser.user_metadata?.full_name,
+            avatar_url: googleUser.picture || existingUser.user_metadata?.avatar_url,
+            provider: "google",
+          },
+        });
+      } else {
+        // Create new user with auto-confirmed email
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: googleUser.email,
+          email_confirm: true,
+          user_metadata: {
+            full_name: googleUser.name || googleUser.email,
+            avatar_url: googleUser.picture,
+            provider: "google",
+          },
+        });
+        if (createError || !newUser?.user) {
+          return new Response(JSON.stringify({ error: "Erro ao criar usuário: " + (createError?.message || "desconhecido") }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        userId = newUser.user.id;
+      }
+
+      // Generate a magic link token (OTP) for the user — no email sent
+      const { data: otpData, error: otpError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email: googleUser.email,
+      });
+
+      if (otpError || !otpData) {
+        return new Response(JSON.stringify({ error: "Erro ao gerar token: " + (otpError?.message || "desconhecido") }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Extract the OTP token from the link
+      const linkUrl = new URL(otpData.properties?.action_link || "");
+      const otpToken = linkUrl.searchParams.get("token") || "";
+      const otpType = linkUrl.searchParams.get("type") || "magiclink";
 
       return new Response(
         JSON.stringify({
-          access_token: tokenData.access_token,
           user: { 
-            id: user.id,
-            email: user.email, 
-            name: user.name || user.email,
-            picture: user.picture,
+            id: googleUser.id,
+            email: googleUser.email, 
+            name: googleUser.name || googleUser.email,
+            picture: googleUser.picture,
           },
+          otp_token: otpToken,
+          otp_type: otpType,
+          user_id: userId,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

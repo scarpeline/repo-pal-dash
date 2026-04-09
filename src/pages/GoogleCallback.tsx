@@ -62,83 +62,40 @@ export default function GoogleCallback() {
           throw new Error(errorData.error || `Erro ${tokenRes.status}`);
         }
 
-        const { user: googleUser } = await tokenRes.json();
+        const result = await tokenRes.json();
+        const googleUser = result.user;
 
         if (!googleUser?.email) {
           throw new Error("Email não retornado pelo Google");
         }
 
-        setStatus("Verificando usuário...");
+        setStatus("Autenticando...");
 
-        // Verificar se usuário já existe
-        const { data: existingUser } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", googleUser.email)
-          .maybeSingle();
-
-        let authUser;
-
-        if (existingUser) {
-          // Usuário existe - fazer login
-          setStatus("Fazendo login...");
-          
-          // Gerar token de acesso temporário
-          const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: googleUser.email,
-            password: `google_oauth_${googleUser.id}`, // Senha temporária baseada no ID do Google
+        // Use OTP token from server to establish Supabase session
+        if (result.otp_token) {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: result.otp_token,
+            type: "magiclink",
           });
 
-          if (signInError) {
-            // Se falhou, tentar criar novo usuário ou usar magic link
-            const { data: magicLinkData, error: magicError } = await supabase.auth.signInWithOtp({
-              email: googleUser.email,
-              options: {
-                shouldCreateUser: false,
-              },
-            });
-
-            if (magicError) {
-              throw new Error("Não foi possível autenticar. Tente criar conta manualmente.");
-            }
+          if (verifyError) {
+            console.error("OTP verify error:", verifyError);
+            throw new Error("Erro ao verificar token de autenticação. Tente novamente.");
           }
-          
-          authUser = authData?.user;
         } else {
-          // Criar novo usuário
-          setStatus("Criando conta...");
-          
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          throw new Error("Token de autenticação não recebido do servidor.");
+        }
+
+        // Update profile with Google data
+        if (result.user_id) {
+          await supabase.from("profiles").upsert({
+            id: result.user_id,
             email: googleUser.email,
-            password: `google_oauth_${googleUser.id}`,
-            options: {
-              data: {
-                full_name: googleUser.name,
-                avatar_url: googleUser.picture,
-                provider: "google",
-              },
-            },
+            full_name: googleUser.name,
+            avatar_url: googleUser.picture,
+            updated_at: new Date().toISOString(),
           });
-
-          if (signUpError && !signUpError.message.includes("User already registered")) {
-            throw signUpError;
-          }
-
-          authUser = signUpData?.user;
         }
-
-        if (!authUser) {
-          throw new Error("Não foi possível autenticar usuário");
-        }
-
-        // Atualizar perfil com dados do Google
-        await supabase.from("profiles").upsert({
-          id: authUser.id,
-          email: googleUser.email,
-          full_name: googleUser.name,
-          avatar_url: googleUser.picture,
-          updated_at: new Date().toISOString(),
-        });
 
         setStatus("Login realizado!");
         setSuccess(true);

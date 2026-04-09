@@ -5,7 +5,7 @@ import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Zap, Code2, Coins, Bot } from "lucide-react";
 import { toast } from "sonner";
 import logoImg from "@/assets/logo-iaprogramador.png";
 
@@ -105,7 +105,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 gap-6">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center mb-2">
@@ -116,7 +116,7 @@ const Auth = () => {
             {isLogin ? "Acesse sua conta IAProgramador" : "Crie sua conta e comece a programar com IA"}
           </CardDescription>
           {refCode && !isLogin && (
-            <p className="text-xs text-primary mt-1">🎁 Indicado por: {refCode}</p>
+            <p className="text-xs text-primary mt-1">Indicado por: {refCode}</p>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -163,6 +163,47 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Marketing copy */}
+      <div className="w-full max-w-md space-y-4 text-center">
+        <h2 className="text-lg font-semibold text-foreground">
+          Programe com as melhores IAs do mundo
+        </h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          O IAProgramador conecta você a mais de <span className="font-medium text-foreground">7 modelos de IA</span> em um
+          só lugar: Gemini, GPT, DeepSeek, Groq, Mistral e mais. Edite repositórios do GitHub,
+          gere código e corrija bugs direto no navegador.
+        </p>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50">
+            <Bot className="w-5 h-5 text-primary" />
+            <span className="text-xs font-medium">7+ IAs</span>
+            <span className="text-[10px] text-muted-foreground">Gemini, GPT, DeepSeek...</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50">
+            <Coins className="w-5 h-5 text-primary" />
+            <span className="text-xs font-medium">A partir de R$ 0,20</span>
+            <span className="text-[10px] text-muted-foreground">por requisição</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50">
+            <Zap className="w-5 h-5 text-primary" />
+            <span className="text-xs font-medium">Instantâneo</span>
+            <span className="text-[10px] text-muted-foreground">Respostas em segundos</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <Code2 className="w-3.5 h-3.5" />
+          <span>Editor de código integrado + terminal + preview ao vivo</span>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Sem assinatura mensal. Pague apenas pelo que usar.
+          <br />
+          <span className="text-primary font-medium">Comece agora com R$ 5,00 de créditos.</span>
+        </p>
+      </div>
     </div>
   );
 };
