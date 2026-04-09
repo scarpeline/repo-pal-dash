@@ -43,7 +43,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { messages, fileContent, fileName, repoName, branch, model } = await req.json();
+    const body = await req.json();
+    const { messages, fileContent, fileName, repoName, branch, model } = body;
+    
+    console.log("ai-chat request:", { 
+      userId: user.id, 
+      messageCount: messages?.length,
+      model: model || "default",
+      hasFileContent: !!fileContent,
+      hasFileName: !!fileName
+    });
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "Missing messages array" }), {
@@ -53,6 +62,7 @@ Deno.serve(async (req) => {
     }
 
     const selectedModel = model || "google/gemini-3-flash-preview";
+    console.log("Selected model:", selectedModel);
 
     // Fetch pricing for this model
     const { data: pricing } = await supabaseAdmin
@@ -82,10 +92,15 @@ Deno.serve(async (req) => {
       .single();
 
     const currentBalance = balance?.balance_cents || 0;
+    console.log(`User ${user.id} balance check: R$ ${(currentBalance / 100).toFixed(2)} vs min charge R$ ${(minCharge / 100).toFixed(2)}`);
+    
     if (currentBalance < minCharge) {
       return new Response(
         JSON.stringify({
           error: `Saldo insuficiente. Seu saldo: R$ ${(currentBalance / 100).toFixed(2)}. Custo estimado: R$ ${(minCharge / 100).toFixed(2)}. Recarregue na Carteira.`,
+          code: "INSUFFICIENT_BALANCE",
+          currentBalance,
+          requiredAmount: minCharge
         }),
         {
           status: 402,
@@ -159,26 +174,57 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     });
 
     if (!response.ok) {
+      const errText = await response.text();
+      console.error("Gemini API error:", response.status, errText);
+      
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit excedido, tente novamente em alguns segundos." }), {
+        return new Response(JSON.stringify({ error: "Rate limit excedido no Gemini. Tente novamente em alguns segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos da plataforma esgotados." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (response.status === 400) {
+        // Erro 400 geralmente é problema com a requisição (ex: modelo inválido)
+        return new Response(JSON.stringify({ error: `Erro na requisição à API Gemini: ${errText.substring(0, 200)}` }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      return new Response(JSON.stringify({ error: `Erro de IA: ${response.status}` }), {
+      if (response.status === 401 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "API Key do Gemini inválida ou sem permissão. Verifique a configuração GEMINI_API_KEY no Supabase Secrets." }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Qualquer outro erro da API Gemini
+      return new Response(JSON.stringify({ error: `Erro na API Gemini (${response.status}): ${errText.substring(0, 200)}. Verifique o console para mais detalhes.` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const aiResult = await response.json();
+    console.log("Gemini response received:", { 
+      hasCandidates: !!aiResult.candidates,
+      candidateCount: aiResult.candidates?.length,
+      finishReason: aiResult.candidates?.[0]?.finishReason
+    });
+    
     // Parse Gemini response format
     const content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    
+    // Verificar se houve erro de safety ou outro problema
+    const finishReason = aiResult.candidates?.[0]?.finishReason;
+    if (finishReason && finishReason !== "STOP") {
+      console.warn("Gemini finish reason:", finishReason, aiResult.candidates?.[0]?.safetyRatings);
+    }
+    
+    if (!content) {
+      console.error("Empty content from Gemini:", aiResult);
+      return new Response(JSON.stringify({ 
+        error: "A IA retornou uma resposta vazia. Tente reformular sua pergunta.",
+        details: finishReason ? `Motivo: ${finishReason}` : undefined
+      }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
     // Gemini doesn't return token counts directly, estimate based on characters
     const inputTokens = estimatedInputTokens;
     const outputTokens = Math.ceil(content.length / 4) || estimatedOutputTokens;
@@ -193,25 +239,41 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     );
 
     // Deduct from balance and log usage (fire-and-forget)
-    await Promise.all([
-      supabaseAdmin.from("balances").update({
-        balance_cents: currentBalance - actualCostCents,
-        total_spent_cents: (balance as any).total_spent_cents
-          ? (balance as any).total_spent_cents + actualCostCents
-          : actualCostCents,
-        updated_at: new Date().toISOString(),
-      }).eq("user_id", user.id),
-      supabaseAdmin.from("token_usage").insert({
-        user_id: user.id,
-        model: selectedModel,
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        cost_cents: actualCostCents,
-      }),
-    ]);
+    try {
+      const [balanceUpdate, usageInsert] = await Promise.all([
+        supabaseAdmin.from("balances").update({
+          balance_cents: currentBalance - actualCostCents,
+          total_spent_cents: (balance as any).total_spent_cents
+            ? (balance as any).total_spent_cents + actualCostCents
+            : actualCostCents,
+          updated_at: new Date().toISOString(),
+        }).eq("user_id", user.id),
+        supabaseAdmin.from("token_usage").insert({
+          user_id: user.id,
+          model: selectedModel,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          cost_cents: actualCostCents,
+        }),
+      ]);
+      
+      if (balanceUpdate.error) {
+        console.error("Balance update error:", balanceUpdate.error);
+      }
+      if (usageInsert.error) {
+        console.error("Token usage insert error:", usageInsert.error);
+      }
+    } catch (dbError) {
+      console.error("Database operation error:", dbError);
+      // Não falhar a requisição se o DB falhar, mas logar o erro
+    }
 
+    console.log(`Response sent to user ${user.id}: ${content.length} chars, cost R$ ${(actualCostCents / 100).toFixed(2)}`);
+    
     return new Response(JSON.stringify({
       content,
+      provider: "Gemini",
+      model: geminiModel,
       usage: { input_tokens: inputTokens, output_tokens: outputTokens, cost_cents: actualCostCents },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
