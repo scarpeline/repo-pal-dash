@@ -67,13 +67,13 @@ export default function EmailCampaignPage() {
   }, [recipientFilter]);
 
   const loadTemplates = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("email_templates")
       .select("*")
       .eq("is_active", true)
       .order("name");
     
-    if (data) setTemplates(data);
+    if (data) setTemplates(data as Template[]);
   };
 
   const loadCampaigns = async () => {
@@ -118,7 +118,7 @@ export default function EmailCampaignPage() {
   const handleTemplateSelect = (template: Template) => {
     setSubject(template.subject);
     setHtmlContent(template.html_content);
-    setTextContent(template.text_content || "");
+    setTextContent((template as any).text_content || "");
     toast.success(`Template "${template.name}" carregado!`);
   };
 
@@ -298,7 +298,7 @@ export default function EmailCampaignPage() {
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">
                     Conteúdo HTML * 
-                    <span className="ml-2 text-primary">Use {{name}} e {{email}} para personalizar</span>
+                    <span className="ml-2 text-primary">{"Use {{name}} e {{email}} para personalizar"}</span>
                   </label>
                   <Textarea
                     value={htmlContent}
