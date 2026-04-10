@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,35 +68,26 @@ const Auth = () => {
     setLoading(false);
   };
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      const configRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-oauth?action=get_client_id`
-      );
-      if (!configRes.ok) throw new Error("Google OAuth não configurado no servidor");
-
-      const { client_id: clientId } = await configRes.json();
-      if (!clientId) throw new Error("Client ID do Google não encontrado");
-
-      const state = Math.random().toString(36).substring(7);
-      localStorage.setItem("google_oauth_state", state);
-
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: `${window.location.origin}/google/callback`,
-        response_type: "code",
-        scope: "openid email profile",
-        state,
-        access_type: "online",
-        prompt: "select_account",
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
 
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (result.redirected) {
+        return;
+      }
+
+      toast.success("Login com Google realizado!");
+      navigate("/", { replace: true });
     } catch (err: any) {
       toast.error(err.message || "Erro ao conectar com Google");
+    } finally {
       setGoogleLoading(false);
     }
   };
