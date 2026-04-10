@@ -69,15 +69,17 @@ export function calculateTotalCredits(inputTokens: number, outputTokens: number)
  * Gera texto de consumo para exibição ao usuário
  * @param inputTokens - tokens de entrada
  * @param outputTokens - tokens de saída
- * @param costCents - custo em centavos
+ * @param costCents - custo em centavos de R$
  * @returns texto formatado para exibição
  */
 export function formatUsageText(inputTokens: number, outputTokens: number, costCents?: number): string {
   if (costCents !== undefined && costCents > 0) {
-    const reais = (costCents / 100).toFixed(2);
-    return `_💸 Valor gasto: R$ ${reais}_`;
+    if (costCents < 1) {
+      return `_💸 Custo: menos de R$ 0,01_`;
+    }
+    const reais = (costCents / 100).toFixed(4).replace(".", ",");
+    return `_💸 Custo desta resposta: R$ ${reais}_`;
   }
-  
   return "";
 }
 

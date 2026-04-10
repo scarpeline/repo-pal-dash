@@ -446,10 +446,35 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </CardContent>
         </Card>
 
+        {/* Como funciona o consumo */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="pt-4 pb-4 space-y-2">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wider">Como seu saldo é consumido</p>
+            <p className="text-xs text-muted-foreground">
+              Cada mensagem enviada à IA desconta um valor do seu saldo em R$. O custo varia conforme o modelo escolhido e o tamanho da conversa.
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {[
+                { label: "Gemini Flash", price: "~R$ 0,002 / msg" },
+                { label: "Llama 4 Scout", price: "~R$ 0,008 / msg" },
+                { label: "DeepSeek Coder", price: "~R$ 0,02 / msg" },
+                { label: "Claude Haiku", price: "~R$ 0,09 / msg" },
+                { label: "Claude Sonnet", price: "~R$ 0,27 / msg" },
+                { label: "Claude Opus", price: "~R$ 0,45 / msg" },
+              ].map(({ label, price }) => (
+                <div key={label} className="flex justify-between text-[11px] bg-background/60 rounded px-2 py-1">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-medium text-foreground">{price}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground pt-1">* Estimativa para mensagens simples. Edições de código com repositório completo consomem mais.</p>
+          </CardContent>
+        </Card>
+
         {/* Histórico */}
         <Card>
-          <CardHeader><CardTitle className="text-lg">Histórico</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader><CardTitle className="text-lg">Histórico</CardTitle></CardHeader>          <CardContent>
             {transactions.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Nenhuma transação registrada.</p>
             ) : (
