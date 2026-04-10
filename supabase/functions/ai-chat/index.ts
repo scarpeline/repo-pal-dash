@@ -563,7 +563,6 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     } catch (dbError) {
       console.error("Database operation error:", dbError);
     }
-    }
 
     console.log(`Response sent to user ${user.id}: ${content.length} chars, cost R$ ${(actualCostCents / 100).toFixed(2)}`);
     

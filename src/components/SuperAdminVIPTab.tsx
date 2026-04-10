@@ -46,7 +46,7 @@ export default function SuperAdminVIPTab() {
     setLoading(true);
     
     // Carregar usuários VIP
-    const { data: vipData } = await supabase
+    const { data: vipData } = await (supabase as any)
       .from("profiles")
       .select(`
         id, email, full_name, is_vip, vip_markup_percent, vip_notes,
@@ -64,7 +64,7 @@ export default function SuperAdminVIPTab() {
     }
     
     // Carregar todos os usuários para o select
-    const { data: allData } = await supabase
+    const { data: allData } = await (supabase as any)
       .from("profiles")
       .select("id, email, full_name, is_vip")
       .order("email");
@@ -95,7 +95,7 @@ export default function SuperAdminVIPTab() {
     
     try {
       // Atualizar usuário
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("profiles")
         .update({
           is_vip: true,
@@ -107,7 +107,7 @@ export default function SuperAdminVIPTab() {
       if (error) throw error;
       
       // Registrar no log de auditoria
-      await supabase.from("vip_changes_log").insert({
+      await (supabase as any).from("vip_changes_log").insert({
         user_id: selectedUserId,
         changed_by: (await supabase.auth.getUser()).data.user?.id,
         old_is_vip: false,
@@ -132,7 +132,7 @@ export default function SuperAdminVIPTab() {
     const markup = parseFloat(markupPercent) || 0;
     
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("profiles")
         .update({
           vip_markup_percent: markup,
@@ -143,7 +143,7 @@ export default function SuperAdminVIPTab() {
       if (error) throw error;
       
       // Log de auditoria
-      await supabase.from("vip_changes_log").insert({
+      await (supabase as any).from("vip_changes_log").insert({
         user_id: user.id,
         changed_by: (await supabase.auth.getUser()).data.user?.id,
         old_is_vip: true,
@@ -167,7 +167,7 @@ export default function SuperAdminVIPTab() {
     try {
       const user = vipUsers.find(u => u.id === userId);
       
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("profiles")
         .update({
           is_vip: false,
@@ -178,7 +178,7 @@ export default function SuperAdminVIPTab() {
       if (error) throw error;
       
       // Log de auditoria
-      await supabase.from("vip_changes_log").insert({
+      await (supabase as any).from("vip_changes_log").insert({
         user_id: userId,
         changed_by: (await supabase.auth.getUser()).data.user?.id,
         old_is_vip: true,
