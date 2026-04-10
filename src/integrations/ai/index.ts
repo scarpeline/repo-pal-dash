@@ -76,7 +76,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     characteristics: {
       codingStrength: 8,
       reasoningStrength: 8,
-      speed: 10, // Mais rápido!
+      speed: 10,
       costEfficiency: 8,
       contextWindow: 128000,
       supportsStreaming: true,
@@ -85,23 +85,42 @@ export const AI_PROVIDERS: AIProvider[] = [
     pricing: { inputPer1M: 0.59, outputPer1M: 0.79 },
   },
   {
-    name: "Mistral AI",
-    id: "mistral",
-    baseUrl: "https://api.mistral.ai/v1",
-    apiKeyEnv: "MISTRAL_API_KEY",
-    models: ["codestral-latest", "mistral-small-latest", "mistral-medium-latest"],
-    defaultModel: "codestral-latest",
+    name: "Claude Sonnet (Anthropic)",
+    id: "claude-sonnet",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    models: ["claude-sonnet-4-5", "claude-3-5-sonnet-20241022"],
+    defaultModel: "claude-3-5-sonnet-20241022",
     enabled: false,
     characteristics: {
-      codingStrength: 10, // Melhor para código!
-      reasoningStrength: 8,
-      speed: 8,
-      costEfficiency: 9,
-      contextWindow: 32000,
+      codingStrength: 10,
+      reasoningStrength: 10,
+      speed: 7,
+      costEfficiency: 6,
+      contextWindow: 200000,
       supportsStreaming: true,
-      bestFor: ["code", "backend", "structured"],
+      bestFor: ["code", "analysis", "reasoning", "creative"],
     },
-    pricing: { inputPer1M: 0.20, outputPer1M: 0.60 },
+    pricing: { inputPer1M: 3.00, outputPer1M: 15.00 },
+  },
+  {
+    name: "Claude Opus (Anthropic)",
+    id: "claude-opus",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    models: ["claude-opus-4-5", "claude-3-opus-20240229"],
+    defaultModel: "claude-3-opus-20240229",
+    enabled: false,
+    characteristics: {
+      codingStrength: 10,
+      reasoningStrength: 10,
+      speed: 5,
+      costEfficiency: 4,
+      contextWindow: 200000,
+      supportsStreaming: true,
+      bestFor: ["complex", "reasoning", "research", "expert"],
+    },
+    pricing: { inputPer1M: 15.00, outputPer1M: 75.00 },
   },
   {
     name: "Kimi (Moonshot)",
@@ -220,10 +239,16 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
     recommendedProvider = AI_PROVIDERS.find(p => p.id === "gemini") || AI_PROVIDERS[0];
     reasoning = "Tarefa simples: Gemini (gratuito e rápido)";
   }
-  // REGRA 2: Código backend estruturado → Mistral
+  // REGRA 2: Código backend complexo → Claude Sonnet
   else if (isBackend && isCode) {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "mistral") || recommendedProvider;
-    reasoning = "Código backend: Mistral AI (melhor estruturação)";
+    const claude = AI_PROVIDERS.find(p => p.id === "claude-sonnet");
+    if (claude?.enabled) {
+      recommendedProvider = claude;
+      reasoning = "Código backend: Claude Sonnet (melhor raciocínio)";
+    } else {
+      recommendedProvider = AI_PROVIDERS.find(p => p.id === "deepseek") || recommendedProvider;
+      reasoning = "Código backend: DeepSeek Coder";
+    }
   }
   // REGRA 3: Código geral → DeepSeek
   else if (isCode) {
@@ -248,12 +273,18 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
       reasoning = "Contexto longo: Gemini Pro (1M tokens)";
     }
   }
-  // REGRA 6: Análise complexa → Groq Llama 70B
+  // REGRA 6: Análise complexa → Claude Opus
   else if (complexity === "complex" && isAnalysis) {
-    const groq = AI_PROVIDERS.find(p => p.id === "groq");
-    if (groq?.enabled) {
-      recommendedProvider = groq;
-      reasoning = "Análise complexa: Groq Llama 70B";
+    const opus = AI_PROVIDERS.find(p => p.id === "claude-opus");
+    if (opus?.enabled) {
+      recommendedProvider = opus;
+      reasoning = "Análise complexa: Claude Opus (máximo raciocínio)";
+    } else {
+      const groq = AI_PROVIDERS.find(p => p.id === "groq");
+      if (groq?.enabled) {
+        recommendedProvider = groq;
+        reasoning = "Análise complexa: Groq Llama 70B";
+      }
     }
   }
   
@@ -336,7 +367,8 @@ export async function sendMessageToAI(
       return sendToGemini(messages, apiKey, provider);
     case "deepseek":
     case "groq":
-    case "mistral":
+    case "claude-sonnet":
+    case "claude-opus":
     case "kimi":
     case "openrouter":
     case "openai":

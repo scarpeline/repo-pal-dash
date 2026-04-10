@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
     const kimiApiKey = Deno.env.get("KIMI_API_KEY");
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
     const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
+    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
     const systemPrompt = `Você é o IAProgramador AI, um assistente de programação integrado a um editor de código online.
 Você ajuda a analisar, editar e melhorar código. Responda sempre em português brasileiro.
@@ -222,6 +223,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const isKimi = selectedModel.includes("moonshot") || selectedModel.includes("kimi");
     const isGroq = selectedModel.includes("groq") || selectedModel.includes("llama") || selectedModel.includes("mixtral");
     const isOpenRouter = selectedModel === "openrouter" || selectedModel.includes("/");
+    const isClaude = selectedModel.includes("claude");
 
     let content = "";
     let providerName = "Gemini";
@@ -286,7 +288,6 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     // OpenRouter — acesso a centenas de modelos
     else if (isOpenRouter && openrouterApiKey) {
       providerName = "OpenRouter";
-      // Se o modelo selecionado for só "openrouter", usa o melhor modelo gratuito
       const model = selectedModel === "openrouter"
         ? "deepseek/deepseek-chat:free"
         : selectedModel;
@@ -308,6 +309,32 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       if (!res.ok) throw new Error(`OpenRouter error: ${await res.text()}`);
       const data = await res.json();
       content = data.choices?.[0]?.message?.content || "";
+    }
+    // Claude (Anthropic) — Sonnet e Opus
+    else if (isClaude && anthropicApiKey) {
+      const isOpus = selectedModel.includes("opus");
+      providerName = isOpus ? "Claude Opus" : "Claude Sonnet";
+      const model = isOpus ? "claude-3-opus-20240229" : "claude-3-5-sonnet-20241022";
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages: messages.map((m: any) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error(`Claude error: ${await res.text()}`);
+      const data = await res.json();
+      content = data.content?.[0]?.text || "";
     }
     // Gemini (default)
     else {

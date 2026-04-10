@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Zap, Code, Sparkles, Bot, Cpu, Network } from "lucide-react";
+import { Brain, Zap, Code, Sparkles, Cpu, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,7 +26,8 @@ const providerIcons: Record<string, React.ReactNode> = {
   gemini: <Sparkles className="w-4 h-4 text-blue-400" />,
   deepseek: <Code className="w-4 h-4 text-purple-400" />,
   groq: <Zap className="w-4 h-4 text-yellow-400" />,
-  mistral: <Bot className="w-4 h-4 text-green-400" />,
+  "claude-sonnet": <Brain className="w-4 h-4 text-orange-400" />,
+  "claude-opus": <Brain className="w-4 h-4 text-red-500" />,
   kimi: <Brain className="w-4 h-4 text-red-400" />,
   openrouter: <Network className="w-4 h-4 text-orange-400" />,
   openai: <Cpu className="w-4 h-4 text-emerald-400" />,
@@ -139,7 +140,7 @@ export function AISelector({
         <DropdownMenuSeparator />
         <div className="px-2 py-1.5 text-xs text-muted-foreground space-y-1">
           <p>💡 <strong>Modo Inteligente recomendado</strong></p>
-          <p>🎯 Backend → Mistral | 🚀 Rápido → Groq | 💻 Código → DeepSeek</p>
+          <p>🎯 Complexo → Claude Opus | 🚀 Rápido → Groq | 💻 Código → DeepSeek</p>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
