@@ -5,14 +5,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AISelector } from "./AISelector";
+import { AI_PROVIDERS } from "@/integrations/ai";
 
 const AI_MODELS = [
   { id: "auto", label: "🧠 Modo Inteligente", desc: "Escolhe a melhor IA automaticamente" },
-  { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", desc: "Rápido e eficiente" },
-  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "Equilibrado" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", desc: "Mais preciso" },
-  { id: "openai/gpt-5-mini", label: "GPT-5 Mini", desc: "OpenAI rápido" },
-  { id: "openai/gpt-5", label: "GPT-5", desc: "OpenAI avançado" },
+  ...AI_PROVIDERS.map(p => ({
+    id: p.id,
+    label: p.name,
+    desc: p.characteristics.bestFor.slice(0, 2).join(", "),
+  })),
 ];
 
 type ChatMsg = { 
