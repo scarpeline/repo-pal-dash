@@ -158,24 +158,57 @@ Deno.serve(async (req) => {
     const selectedModel = model || "google/gemini-3-flash-preview";
     console.log("Selected model:", selectedModel);
 
-    // Fetch pricing for this model
+    // ── Mapear model ID do frontend para o model_id da tabela ai_model_pricing ──
+    const modelIdMap: Record<string, string> = {
+      "auto":           "google/gemini-2.5-flash",
+      "gemini":         "google/gemini-2.5-flash",
+      "deepseek":       "deepseek/deepseek-coder",
+      "groq":           "groq/llama-4-scout",
+      "groq-8b":        "groq/llama-3.1-8b",
+      "gpt-oss":        "groq/gpt-oss",
+      "kimi":           "moonshot/moonshot-v1-32k",
+      "openrouter":     "openrouter/deepseek-free",
+      "claude-haiku":   "anthropic/claude-haiku-4-5",
+      "claude-sonnet":  "anthropic/claude-sonnet-4-5",
+      "claude-opus":    "anthropic/claude-opus-4-6",
+      "openai":         "openai/gpt-4o-mini",
+    };
+    const pricingModelId = modelIdMap[selectedModel] || selectedModel;
+
+    // Buscar preço de REVENDA configurado no Super Admin
     const { data: pricing } = await supabaseAdmin
       .from("ai_model_pricing")
-      .select("resale_price_input_per_million, resale_price_output_per_million")
-      .eq("model_id", selectedModel)
+      .select("resale_price_input_per_million, resale_price_output_per_million, model_label")
+      .eq("model_id", pricingModelId)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
 
-    // Estimate cost (estimate ~500 input tokens, ~1000 output tokens for a typical chat)
-    const estimatedInputTokens = 500;
-    const estimatedOutputTokens = 1000;
-    const resaleInput = pricing?.resale_price_input_per_million || 30;
-    const resaleOutput = pricing?.resale_price_output_per_million || 120;
+    // Fallback: buscar qualquer modelo ativo se não encontrar o específico
+    const { data: fallbackPricing } = !pricing ? await supabaseAdmin
+      .from("ai_model_pricing")
+      .select("resale_price_input_per_million, resale_price_output_per_million")
+      .eq("is_active", true)
+      .order("resale_price_input_per_million", { ascending: false })
+      .limit(1)
+      .maybeSingle() : { data: null };
+
+    const activePricing = pricing || fallbackPricing;
+
+    // Preço de revenda (o que o usuário paga) — NUNCA usar preço de custo da API
+    // Mínimo de segurança: R$ 0,30/M input e R$ 1,20/M output se não houver config
+    const resaleInput  = activePricing?.resale_price_input_per_million  ?? 30;
+    const resaleOutput = activePricing?.resale_price_output_per_million ?? 120;
+
+    // Estimar tokens de input com base no tamanho real das mensagens
+    const totalInputChars = messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0);
+    const estimatedInputTokens  = Math.max(Math.ceil(totalInputChars / 4), 200);
+    const estimatedOutputTokens = 1000; // estimativa conservadora de output
+
     const estimatedCostCents = Math.ceil(
-      (estimatedInputTokens / 1_000_000) * resaleInput +
+      (estimatedInputTokens  / 1_000_000) * resaleInput +
       (estimatedOutputTokens / 1_000_000) * resaleOutput
     );
-    // Minimum charge: 20 centavos (0,20 BRL)
+    // Mínimo de R$ 0,20 por requisição
     const minCharge = Math.max(estimatedCostCents, 20);
 
     // Check user balance
@@ -393,18 +426,21 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
     
-    // Gemini doesn't return token counts directly, estimate based on characters
-    const inputTokens = estimatedInputTokens;
-    const outputTokens = Math.ceil(content.length / 4) || estimatedOutputTokens;
+    // Tokens reais: input estimado pelo tamanho das mensagens, output pelo tamanho da resposta
+    const inputTokens  = estimatedInputTokens;
+    const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
-    // Calculate actual cost based on real usage
+    // Custo real cobrado do usuário = preço de REVENDA (não custo da API)
+    // Garante que o app nunca leva prejuízo
     const actualCostCents = Math.max(
       Math.ceil(
-        (inputTokens / 1_000_000) * resaleInput +
+        (inputTokens  / 1_000_000) * resaleInput +
         (outputTokens / 1_000_000) * resaleOutput
       ),
-      20
+      20 // mínimo R$ 0,20
     );
+
+    console.log(`Cobrança: ${inputTokens} input + ${outputTokens} output tokens | revenda: ${resaleInput}/${resaleOutput} | custo: R$ ${(actualCostCents/100).toFixed(4)}`);
 
     // Deduct from balance and log usage (fire-and-forget)
     try {
