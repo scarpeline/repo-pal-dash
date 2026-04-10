@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,54 +13,46 @@ export default function GoogleCallback() {
   const [status, setStatus] = useState("Processando login...");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const ran = useRef(false);
 
   useEffect(() => {
+    if (ran.current) return;
+    ran.current = true;
+
     const code = searchParams.get("code");
-    const state = searchParams.get("state");
     const errorParam = searchParams.get("error");
 
-    // Verificar se é popup
-    const isPopup = window.opener !== null;
-
     if (errorParam) {
-      const errorMsg = `Erro do Google: ${errorParam}`;
-      setError(errorMsg);
-      if (isPopup) {
-        setTimeout(() => window.close(), 2000);
-      } else {
-        setTimeout(() => navigate("/?error=" + encodeURIComponent(errorParam), { replace: true }), 2000);
-      }
+      setError(`Erro: ${errorParam}`);
+      setTimeout(() => navigate("/", { replace: true }), 2000);
       return;
     }
 
     if (!code) {
-      const errorMsg = "Código de autorização não encontrado";
-      setError(errorMsg);
-      if (isPopup) {
-        setTimeout(() => window.close(), 2000);
-      } else {
-        setTimeout(() => navigate("/?error=no_code", { replace: true }), 2000);
-      }
+      setError("Código de autorização não encontrado");
+      setTimeout(() => navigate("/", { replace: true }), 2000);
       return;
     }
 
-    async function exchangeCodeAndLogin() {
+    async function exchangeAndLogin() {
       try {
-        setStatus("Trocando código por token...");
+        setStatus("Obtendo dados do Google...");
 
-        // Trocar código por token na Edge Function
-        const tokenRes = await fetch(`https://${projectId}.supabase.co/functions/v1/google-oauth`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            code,
-            redirect_uri: `${window.location.origin}/google/callback`,
-          }),
-        });
+        const tokenRes = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/google-oauth`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code,
+              redirect_uri: `${window.location.origin}/google/callback`,
+            }),
+          }
+        );
 
         if (!tokenRes.ok) {
-          const errorData = await tokenRes.json().catch(() => ({ error: "Erro desconhecido" }));
-          throw new Error(errorData.error || `Erro ${tokenRes.status}`);
+          const err = await tokenRes.json().catch(() => ({ error: "Erro desconhecido" }));
+          throw new Error(err.error || `Erro ${tokenRes.status}`);
         }
 
         const { user: googleUser } = await tokenRes.json();
@@ -69,121 +61,105 @@ export default function GoogleCallback() {
           throw new Error("Email não retornado pelo Google");
         }
 
-        setStatus("Verificando usuário...");
+        setStatus("Autenticando...");
 
-        // Verificar se usuário já existe
-        const { data: existingUser } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", googleUser.email)
-          .maybeSingle();
+        // Senha determinística baseada no ID do Google
+        const password = `Goog_${googleUser.id}_oauth`;
 
-        let authUser;
-
-        if (existingUser) {
-          // Usuário existe - fazer login
-          setStatus("Fazendo login...");
-          
-          // Gerar token de acesso temporário
-          const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: googleUser.email,
-            password: `google_oauth_${googleUser.id}`, // Senha temporária baseada no ID do Google
-          });
-
-          if (signInError) {
-            // Se falhou, tentar criar novo usuário ou usar magic link
-            const { data: magicLinkData, error: magicError } = await supabase.auth.signInWithOtp({
-              email: googleUser.email,
-              options: {
-                shouldCreateUser: false,
-              },
-            });
-
-            if (magicError) {
-              throw new Error("Não foi possível autenticar. Tente criar conta manualmente.");
-            }
-          }
-          
-          authUser = authData?.user;
-        } else {
-          // Criar novo usuário
-          setStatus("Criando conta...");
-          
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: googleUser.email,
-            password: `google_oauth_${googleUser.id}`,
-            options: {
-              data: {
-                full_name: googleUser.name,
-                avatar_url: googleUser.picture,
-                provider: "google",
-              },
-            },
-          });
-
-          if (signUpError && !signUpError.message.includes("User already registered")) {
-            throw signUpError;
-          }
-
-          authUser = signUpData?.user;
-        }
-
-        if (!authUser) {
-          throw new Error("Não foi possível autenticar usuário");
-        }
-
-        // Atualizar perfil com dados do Google
-        await supabase.from("profiles").upsert({
-          id: authUser.id,
+        // Tentar login primeiro
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: googleUser.email,
-          full_name: googleUser.name,
-          avatar_url: googleUser.picture,
-          updated_at: new Date().toISOString(),
+          password,
         });
 
-        setStatus("Login realizado!");
-        setSuccess(true);
-        toast.success("Bem-vindo! Login com Google realizado.");
+        if (!signInError && signInData.session) {
+          // Login bem sucedido — atualizar perfil
+          await supabase.from("profiles").upsert({
+            id: signInData.user.id,
+            email: googleUser.email,
+            full_name: googleUser.name,
+            avatar_url: googleUser.picture,
+            updated_at: new Date().toISOString(),
+          });
 
-        // Notificar janela principal
-        try {
-          if ("BroadcastChannel" in window) {
-            const channel = new BroadcastChannel("google-oauth");
-            channel.postMessage({ 
-              type: "google-connected", 
-              user: googleUser,
-            });
-            channel.close();
-          } else if ((window as any).opener) {
-            (window as any).opener.postMessage({ 
-              type: "google-connected", 
-              user: googleUser,
-            }, "*");
-          }
-        } catch (e) {
-          // Ignora erros de postMessage
+          setStatus("Login realizado!");
+          setSuccess(true);
+          toast.success(`Bem-vindo, ${googleUser.name}!`);
+          setTimeout(() => navigate("/", { replace: true }), 1000);
+          return;
         }
 
-        if (isPopup) {
-          setTimeout(() => window.close(), 1500);
+        // Login falhou — criar conta nova
+        setStatus("Criando conta...");
+
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: googleUser.email,
+          password,
+          options: {
+            data: {
+              full_name: googleUser.name,
+              avatar_url: googleUser.picture,
+              provider: "google",
+            },
+          },
+        });
+
+        if (signUpError) {
+          // Usuário já existe mas senha diferente — tentar com senha antiga
+          const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({
+            email: googleUser.email,
+            password: `google_oauth_${googleUser.id}`,
+          });
+
+          if (!retryError && retryData.session) {
+            // Atualizar senha para o novo padrão
+            await supabase.auth.updateUser({ password });
+            await supabase.from("profiles").upsert({
+              id: retryData.user.id,
+              email: googleUser.email,
+              full_name: googleUser.name,
+              avatar_url: googleUser.picture,
+              updated_at: new Date().toISOString(),
+            });
+            setStatus("Login realizado!");
+            setSuccess(true);
+            toast.success(`Bem-vindo, ${googleUser.name}!`);
+            setTimeout(() => navigate("/", { replace: true }), 1000);
+            return;
+          }
+
+          throw new Error("Não foi possível autenticar. Tente criar conta manualmente.");
+        }
+
+        if (signUpData.session) {
+          // Cadastro com sessão imediata (email confirm desativado)
+          await supabase.from("profiles").upsert({
+            id: signUpData.user!.id,
+            email: googleUser.email,
+            full_name: googleUser.name,
+            avatar_url: googleUser.picture,
+            updated_at: new Date().toISOString(),
+          });
+          setStatus("Conta criada!");
+          setSuccess(true);
+          toast.success(`Bem-vindo, ${googleUser.name}!`);
+          setTimeout(() => navigate("/", { replace: true }), 1000);
         } else {
-          setTimeout(() => navigate("/", { replace: true }), 1500);
+          // Email confirm ativado — avisar usuário
+          setError("Confirme seu email para ativar a conta, depois faça login normalmente.");
+          toast.info("Verifique seu email para confirmar a conta.");
+          setTimeout(() => navigate("/", { replace: true }), 4000);
         }
       } catch (err: any) {
         console.error("Google callback error:", err);
-        const errorMsg = err.message || "Erro ao processar login com Google";
-        setError(errorMsg);
-        toast.error(errorMsg);
-        
-        if (isPopup) {
-          setTimeout(() => window.close(), 3000);
-        } else {
-          setTimeout(() => navigate(`/?error=${encodeURIComponent(errorMsg)}`, { replace: true }), 3000);
-        }
+        const msg = err.message || "Erro ao processar login com Google";
+        setError(msg);
+        toast.error(msg);
+        setTimeout(() => navigate("/", { replace: true }), 3000);
       }
     }
 
-    exchangeCodeAndLogin();
+    exchangeAndLogin();
   }, [searchParams, navigate]);
 
   return (

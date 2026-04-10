@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,8 +28,7 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado!");
-        // Redirect para home após login
-        setTimeout(() => navigate("/", { replace: true }), 1000);
+        setTimeout(() => navigate("/", { replace: true }), 500);
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -41,19 +39,26 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        
-        // Verificar se precisa de confirmação de email
-        if (data?.user && data.user.identities && data.user.identities.length === 0) {
-          toast.success("Conta criada! Verifique seu email para confirmar o cadastro.");
-        } else if (data?.session) {
-          // Login automático se não precisar de confirmação
-          toast.success("Conta criada com sucesso! Bem-vindo!");
-          // Redirect para home após cadastro com login automático
-          setTimeout(() => navigate("/", { replace: true }), 1000);
+
+        if (data?.session) {
+          // Confirmação desativada — sessão imediata
+          toast.success("Conta criada! Bem-vindo!");
+          setTimeout(() => navigate("/", { replace: true }), 500);
+        } else if (data?.user && data.user.identities?.length === 0) {
+          // Usuário já existe — tentar login direto
+          const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginError) throw new Error("Email já cadastrado. Verifique sua senha.");
+          toast.success("Login realizado!");
+          setTimeout(() => navigate("/", { replace: true }), 500);
         } else {
-          toast.success("Conta criada! Verifique seu email para ativar.");
-          // Redirect para home mesmo sem login automático
-          setTimeout(() => navigate("/", { replace: true }), 1500);
+          // Confirmação ativada — tentar login mesmo assim
+          const { data: loginData } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginData?.session) {
+            toast.success("Conta criada! Bem-vindo!");
+            setTimeout(() => navigate("/", { replace: true }), 500);
+          } else {
+            toast.info("Conta criada! Verifique seu email para ativar, depois faça login.");
+          }
         }
       }
     } catch (err: any) {
@@ -67,35 +72,25 @@ const Auth = () => {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      // Verificar se Google OAuth está configurado
       const configRes = await fetch(
         `https://${projectId}.supabase.co/functions/v1/google-oauth?action=get_client_id`
       );
-
-      if (!configRes.ok) {
-        const errorData = await configRes.json().catch(() => ({ error: "Erro desconhecido" }));
-        throw new Error(errorData.error || "Google OAuth não configurado");
-      }
+      if (!configRes.ok) throw new Error("Google OAuth não configurado no servidor");
 
       const { client_id: clientId } = await configRes.json();
+      if (!clientId) throw new Error("Client ID do Google não encontrado");
 
-      if (!clientId) {
-        throw new Error("Google OAuth não configurado. Adicione GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET nas Configurações (Secrets).");
-      }
-
-      // Gerar state para segurança
       const state = Math.random().toString(36).substring(7);
       localStorage.setItem("google_oauth_state", state);
 
-      // Redirecionar para Google OAuth
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: `${window.location.origin}/google/callback`,
         response_type: "code",
         scope: "openid email profile",
-        state: state,
+        state,
         access_type: "online",
-        prompt: "consent",
+        prompt: "select_account",
       });
 
       window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
