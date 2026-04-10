@@ -283,131 +283,154 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const isOpenRouter = selectedModel === "openrouter" || (selectedModel.includes("/") && !selectedModel.includes("llama-4"));
     const isClaude = selectedModel.includes("claude");
 
-    // ── Roteamento de modelos — ordem de prioridade explícita ──
-    // Cada bloco verifica se a API key está configurada.
-    // Se não estiver, retorna erro claro em vez de cair silenciosamente no Gemini.
+    // ── Roteamento de modelos com fallback inteligente para Gemini ──
+    // Se a API key do modelo solicitado não estiver configurada,
+    // usa Gemini automaticamente e avisa o usuário na resposta.
 
     let content = "";
     let providerName = "Gemini";
+    let usedFallback = false;
+    let requestedModel = selectedModel;
+
+    const tryGeminiFallback = async (motivo: string): Promise<string> => {
+      if (!geminiApiKey) throw new Error("Nenhuma IA disponível. Configure pelo menos GEMINI_API_KEY no Supabase.");
+      usedFallback = true;
+      providerName = "Gemini (fallback)";
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+      const geminiContents = messages.map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
+      const response = await fetchWithTimeout(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 4096 } }),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        if (response.status === 429) throw new Error("Rate limit excedido no Gemini. Aguarde alguns segundos.");
+        throw new Error(`Gemini error ${response.status}: ${errText.substring(0, 200)}`);
+      }
+      const aiResult = await response.json();
+      const text = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      return `⚠️ _${motivo} — usando Gemini automaticamente._\n\n${text}`;
+    };
 
     // ── Claude (Anthropic) ──
     if (isClaude) {
       if (!anthropicApiKey) {
-        return new Response(JSON.stringify({ error: "Claude não está configurado. A chave ANTHROPIC_API_KEY não foi encontrada. Configure nas variáveis de ambiente do Supabase." }), {
-          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        content = await tryGeminiFallback("Claude não configurado (ANTHROPIC_API_KEY ausente)");
+      } else {
+        const isOpus  = selectedModel.includes("opus");
+        const isHaiku = selectedModel.includes("haiku");
+        providerName = isOpus ? "Claude Opus 4.6" : isHaiku ? "Claude Haiku 4.5" : "Claude Sonnet 4.5";
+        const claudeModel = isOpus ? "claude-opus-4-5" : isHaiku ? "claude-haiku-4-5" : "claude-sonnet-4-5";
+        const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": anthropicApiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model: claudeModel, max_tokens: 4096, system: systemPrompt,
+            messages: messages.map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+          }),
         });
+        if (!res.ok) {
+          const errText = await res.text();
+          content = await tryGeminiFallback(`Claude retornou erro ${res.status}`);
+        } else {
+          const data = await res.json();
+          content = data.content?.[0]?.text || "";
+        }
       }
-      const isOpus  = selectedModel.includes("opus");
-      const isHaiku = selectedModel.includes("haiku");
-      providerName = isOpus ? "Claude Opus 4.6" : isHaiku ? "Claude Haiku 4.5" : "Claude Sonnet 4.5";
-      // Modelos atuais da Anthropic (abril 2026)
-      const claudeModel = isOpus ? "claude-opus-4-5" : isHaiku ? "claude-haiku-4-5" : "claude-sonnet-4-5";
-      const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: claudeModel,
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: messages.map((m: any) => ({
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
-          })),
-        }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Claude (${claudeModel}) error ${res.status}: ${errText.substring(0, 300)}`);
-      }
-      const data = await res.json();
-      content = data.content?.[0]?.text || "";
     }
     // ── DeepSeek ──
     else if (isDeepSeek) {
       if (!deepseekApiKey) {
-        return new Response(JSON.stringify({ error: "DeepSeek não está configurado. Configure DEEPSEEK_API_KEY nas variáveis de ambiente do Supabase." }), {
-          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        content = await tryGeminiFallback("DeepSeek não configurado (DEEPSEEK_API_KEY ausente)");
+      } else {
+        providerName = "DeepSeek";
+        const dsModel = selectedModel.includes("reasoner") ? "deepseek-reasoner" :
+                        selectedModel.includes("coder")    ? "deepseek-coder"    : "deepseek-chat";
+        const res = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${deepseekApiKey}` },
+          body: JSON.stringify({ model: dsModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
         });
+        if (!res.ok) {
+          content = await tryGeminiFallback(`DeepSeek retornou erro ${res.status}`);
+        } else {
+          const data = await res.json();
+          content = data.choices?.[0]?.message?.content || "";
+        }
       }
-      providerName = "DeepSeek";
-      const dsModel = selectedModel.includes("reasoner") ? "deepseek-reasoner" :
-                      selectedModel.includes("coder")    ? "deepseek-coder"    : "deepseek-chat";
-      const res = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${deepseekApiKey}` },
-        body: JSON.stringify({ model: dsModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-      });
-      if (!res.ok) throw new Error(`DeepSeek error ${res.status}: ${(await res.text()).substring(0, 300)}`);
-      const data = await res.json();
-      content = data.choices?.[0]?.message?.content || "";
     }
     // ── Kimi (Moonshot) ──
     else if (isKimi) {
       if (!kimiApiKey) {
-        return new Response(JSON.stringify({ error: "Kimi não está configurado. Configure KIMI_API_KEY nas variáveis de ambiente do Supabase." }), {
-          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        content = await tryGeminiFallback("Kimi não configurado (KIMI_API_KEY ausente)");
+      } else {
+        providerName = "Kimi";
+        const kimiModel = selectedModel.includes("128k") ? "moonshot-v1-128k" :
+                          selectedModel.includes("32k")  ? "moonshot-v1-32k"  : "moonshot-v1-8k";
+        const res = await fetchWithTimeout("https://api.moonshot.cn/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${kimiApiKey}` },
+          body: JSON.stringify({ model: kimiModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
         });
+        if (!res.ok) {
+          content = await tryGeminiFallback(`Kimi retornou erro ${res.status}`);
+        } else {
+          const data = await res.json();
+          content = data.choices?.[0]?.message?.content || "";
+        }
       }
-      providerName = "Kimi";
-      const kimiModel = selectedModel.includes("128k") ? "moonshot-v1-128k" :
-                        selectedModel.includes("32k")  ? "moonshot-v1-32k"  : "moonshot-v1-8k";
-      const res = await fetchWithTimeout("https://api.moonshot.cn/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${kimiApiKey}` },
-        body: JSON.stringify({ model: kimiModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-      });
-      if (!res.ok) throw new Error(`Kimi error ${res.status}: ${(await res.text()).substring(0, 300)}`);
-      const data = await res.json();
-      content = data.choices?.[0]?.message?.content || "";
     }
-    // ── Groq (Llama 4 Scout / Llama 3.1 8B / GPT OSS) ──
+    // ── Groq ──
     else if (isGroq) {
       if (!groqApiKey) {
-        return new Response(JSON.stringify({ error: "Groq não está configurado. Configure GROQ_API_KEY nas variáveis de ambiente do Supabase." }), {
-          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        content = await tryGeminiFallback("Groq não configurado (GROQ_API_KEY ausente)");
+      } else {
+        const isGptOss = selectedModel === "gpt-oss";
+        const is8b     = selectedModel === "groq-8b" || selectedModel.includes("8b");
+        providerName   = isGptOss ? "GPT OSS (Groq)" : is8b ? "Llama 3.1 8B" : "Llama 4 Scout";
+        const groqModel = isGptOss ? "openai/gpt-4o-mini" :
+                          is8b     ? "llama-3.1-8b-instant" :
+                                     "meta-llama/llama-4-scout-17b-16e-instruct";
+        const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
+          body: JSON.stringify({ model: groqModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
         });
+        if (!res.ok) {
+          content = await tryGeminiFallback(`Groq retornou erro ${res.status}`);
+        } else {
+          const data = await res.json();
+          content = data.choices?.[0]?.message?.content || "";
+        }
       }
-      const isGptOss = selectedModel === "gpt-oss";
-      const is8b     = selectedModel === "groq-8b" || selectedModel.includes("8b");
-      providerName   = isGptOss ? "GPT OSS (Groq)" : is8b ? "Llama 3.1 8B" : "Llama 4 Scout";
-      const groqModel = isGptOss ? "openai/gpt-4o-mini" :
-                        is8b     ? "llama-3.1-8b-instant" :
-                                   "meta-llama/llama-4-scout-17b-16e-instruct";
-      const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
-        body: JSON.stringify({ model: groqModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-      });
-      if (!res.ok) throw new Error(`Groq error ${res.status}: ${(await res.text()).substring(0, 300)}`);
-      const data = await res.json();
-      content = data.choices?.[0]?.message?.content || "";
     }
     // ── OpenRouter ──
     else if (isOpenRouter) {
       if (!openrouterApiKey) {
-        return new Response(JSON.stringify({ error: "OpenRouter não está configurado. Configure OPENROUTER_API_KEY nas variáveis de ambiente do Supabase." }), {
-          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        content = await tryGeminiFallback("OpenRouter não configurado (OPENROUTER_API_KEY ausente)");
+      } else {
+        providerName = "OpenRouter";
+        const orModel = selectedModel === "openrouter" ? "deepseek/deepseek-chat:free" : selectedModel;
+        const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json", "Authorization": `Bearer ${openrouterApiKey}`,
+            "HTTP-Referer": "https://iaprogramador.online", "X-Title": "IAProgramador",
+          },
+          body: JSON.stringify({ model: orModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
         });
+        if (!res.ok) {
+          content = await tryGeminiFallback(`OpenRouter retornou erro ${res.status}`);
+        } else {
+          const data = await res.json();
+          content = data.choices?.[0]?.message?.content || "";
+        }
       }
-      providerName = "OpenRouter";
-      const orModel = selectedModel === "openrouter" ? "deepseek/deepseek-chat:free" : selectedModel;
-      const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openrouterApiKey}`,
-          "HTTP-Referer": "https://iaprogramador.online",
-          "X-Title": "IAProgramador",
-        },
-        body: JSON.stringify({ model: orModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-      });
-      if (!res.ok) throw new Error(`OpenRouter error ${res.status}: ${(await res.text()).substring(0, 300)}`);
-      const data = await res.json();
-      content = data.choices?.[0]?.message?.content || "";
     }
     // ── Gemini (padrão) ──
     else {
@@ -417,9 +440,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         });
       }
       providerName = "Gemini";
-      // Usar gemini-2.0-flash (modelo atual e gratuito)
-      const geminiModel = selectedModel.includes("pro") ? "gemini-2.0-flash" : "gemini-2.0-flash";
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
       const geminiContents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
