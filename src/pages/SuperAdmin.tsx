@@ -102,8 +102,10 @@ const SuperAdmin = () => {
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-balance-check`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check-ai-balances", messages: [] }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
