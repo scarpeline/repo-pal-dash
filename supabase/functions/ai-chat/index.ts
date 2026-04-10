@@ -468,8 +468,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
-    // Custo real cobrado do usuário = preço de REVENDA (não custo da API)
-    // Garante que o app nunca leva prejuízo
+    // Custo real cobrado do usuário = preço de REVENDA
     const actualCostCents = Math.max(
       Math.ceil(
         (inputTokens  / 1_000_000) * resaleInput +
@@ -478,16 +477,35 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       20 // mínimo R$ 0,20
     );
 
-    console.log(`Cobrança: ${inputTokens} input + ${outputTokens} output tokens | revenda: ${resaleInput}/${resaleOutput} | custo: R$ ${(actualCostCents/100).toFixed(4)}`);
+    // Custo real da API (o que a plataforma paga ao provedor)
+    const { data: apiPricing } = await supabaseAdmin
+      .from("ai_model_pricing")
+      .select("api_cost_input_per_million, api_cost_output_per_million")
+      .eq("model_id", pricingModelId)
+      .eq("is_active", true)
+      .maybeSingle();
 
-    // Deduct from balance and log usage (fire-and-forget)
+    const apiCostInput  = apiPricing?.api_cost_input_per_million  ?? 0;
+    const apiCostOutput = apiPricing?.api_cost_output_per_million ?? 0;
+    const apiCostCents  = Math.ceil(
+      (inputTokens  / 1_000_000) * apiCostInput +
+      (outputTokens / 1_000_000) * apiCostOutput
+    );
+
+    // Lucro da plataforma = revenda - custo API (mínimo 0)
+    const platformProfitCents = Math.max(actualCostCents - apiCostCents, 0);
+
+    // Comissão do afiliado = 30% do lucro da plataforma
+    const affiliateCommissionCents = Math.floor(platformProfitCents * 0.30);
+
+    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | revenda: R$${(actualCostCents/100).toFixed(4)} | custo API: R$${(apiCostCents/100).toFixed(4)} | lucro: R$${(platformProfitCents/100).toFixed(4)} | comissão afiliado: R$${(affiliateCommissionCents/100).toFixed(4)}`);
+
+    // Debitar saldo do usuário e registrar uso
     try {
-      const [balanceUpdate, usageInsert] = await Promise.all([
+      await Promise.all([
         supabaseAdmin.from("balances").update({
           balance_cents: currentBalance - actualCostCents,
-          total_spent_cents: (balance as any).total_spent_cents
-            ? (balance as any).total_spent_cents + actualCostCents
-            : actualCostCents,
+          total_spent_cents: ((balance as any).total_spent_cents || 0) + actualCostCents,
           updated_at: new Date().toISOString(),
         }).eq("user_id", user.id),
         supabaseAdmin.from("token_usage").insert({
@@ -498,16 +516,53 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
           cost_cents: actualCostCents,
         }),
       ]);
-      
-      if (balanceUpdate.error) {
-        console.error("Balance update error:", balanceUpdate.error);
-      }
-      if (usageInsert.error) {
-        console.error("Token usage insert error:", usageInsert.error);
+
+      // Comissão de afiliado sobre o LUCRO (30%) — fire and forget
+      if (affiliateCommissionCents > 0) {
+        const { data: userProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("referred_by")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (userProfile?.referred_by && userProfile.referred_by !== user.id) {
+          const affiliateId = userProfile.referred_by;
+
+          const { data: affBal } = await supabaseAdmin
+            .from("balances")
+            .select("balance_cents, total_deposited_cents")
+            .eq("user_id", affiliateId)
+            .maybeSingle();
+
+          if (affBal) {
+            await Promise.all([
+              supabaseAdmin.from("balances").update({
+                balance_cents: (affBal as any).balance_cents + affiliateCommissionCents,
+                total_deposited_cents: (affBal as any).total_deposited_cents + affiliateCommissionCents,
+                updated_at: new Date().toISOString(),
+              }).eq("user_id", affiliateId),
+              supabaseAdmin.from("transactions").insert({
+                user_id: affiliateId,
+                type: "commission",
+                amount_cents: affiliateCommissionCents,
+                description: `Comissão 30% do lucro — uso de IA (${providerName})`,
+                payment_method: "affiliate",
+                payment_gateway: "platform",
+                status: "confirmed",
+              }),
+              supabaseAdmin.from("affiliate_commissions").insert({
+                affiliate_user_id: affiliateId,
+                referred_user_id: user.id,
+                commission_cents: affiliateCommissionCents,
+                status: "confirmed",
+              }),
+            ]);
+          }
+        }
       }
     } catch (dbError) {
       console.error("Database operation error:", dbError);
-      // Não falhar a requisição se o DB falhar, mas logar o erro
+    }
     }
 
     console.log(`Response sent to user ${user.id}: ${content.length} chars, cost R$ ${(actualCostCents / 100).toFixed(2)}`);

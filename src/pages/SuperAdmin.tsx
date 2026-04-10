@@ -78,6 +78,9 @@ const SuperAdmin = () => {
   const [pkgAsaasLinkId, setPkgAsaasLinkId] = useState("");
   const [pkgStripePriceId, setPkgStripePriceId] = useState("");
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
+  const [showCredit, setShowCredit] = useState(true);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitPercent, setSplitPercent] = useState("30");
 
   // Configurações de WhatsApp
   const [rechargeWhatsappLink, setRechargeWhatsappLink] = useState("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
@@ -170,6 +173,17 @@ const SuperAdmin = () => {
     // Fetch app settings
     const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
+
+    // Fetch show_credit setting
+    const { data: creditSetting } = await supabase.from("app_settings").select("value").eq("key", "show_credit").maybeSingle();
+    if (creditSetting) setShowCredit(creditSetting.value !== "false");
+
+    // Fetch split settings
+    const { data: splitSettings } = await supabase.from("app_settings").select("key, value").in("key", ["split_enabled", "split_percent"]);
+    splitSettings?.forEach((s: any) => {
+      if (s.key === "split_enabled") setSplitEnabled(s.value === "true");
+      if (s.key === "split_percent") setSplitPercent(s.value || "30");
+    });
 
     // Fetch WhatsApp settings
     const { data: whatsappSettings } = await supabase
@@ -1325,6 +1339,26 @@ const SuperAdmin = () => {
                 <CardDescription>Gerencie o gateway de pagamento e outras preferências globais.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+
+                {/* Toggle: Feito por O.Scarpeline */}
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Exibir "Feito por: O.Scarpeline"</p>
+                    <p className="text-xs text-muted-foreground">Controla a exibição do crédito no cabeçalho do editor.</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const newVal = !showCredit;
+                      setShowCredit(newVal);
+                      await supabase.from("app_settings").upsert({ key: "show_credit", value: newVal.toString() as any }, { onConflict: "key" });
+                      toast.success(newVal ? "Crédito exibido!" : "Crédito ocultado!");
+                    }}
+                    className={`w-12 h-6 rounded-full transition-colors ${showCredit ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <div className={`w-5 h-5 bg-background rounded-full transition-transform mx-0.5 ${showCredit ? "translate-x-6" : "translate-x-0"}`} />
+                  </button>
+                </div>
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Gateway de Pagamento Primário</h3>
@@ -1508,6 +1542,68 @@ const SuperAdmin = () => {
                 </div>
 
                 <div className="border-t pt-6">
+                  {/* Split de Pagamento */}
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm flex items-center gap-2">
+                          Split de Pagamento (Afiliados)
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${splitEnabled ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"}`}>
+                            {splitEnabled ? "ATIVO" : "INATIVO"}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Quando ativo, divide automaticamente cada PIX recebido com o afiliado no momento do depósito.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newVal = !splitEnabled;
+                          setSplitEnabled(newVal);
+                          await supabase.from("app_settings").upsert({ key: "split_enabled", value: newVal.toString() as any }, { onConflict: "key" });
+                          toast.success(newVal ? "Split ativado!" : "Split desativado!");
+                        }}
+                        className={`w-12 h-6 rounded-full transition-colors shrink-0 ${splitEnabled ? "bg-green-500" : "bg-muted-foreground/30"}`}
+                      >
+                        <div className={`w-5 h-5 bg-background rounded-full transition-transform mx-0.5 ${splitEnabled ? "translate-x-6" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground block mb-1">% de split para o afiliado</label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={splitPercent}
+                            onChange={(e) => setSplitPercent(e.target.value)}
+                            className="w-24 h-8 text-sm"
+                          />
+                          <span className="text-sm text-muted-foreground">%</span>
+                          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
+                            await supabase.from("app_settings").upsert({ key: "split_percent", value: splitPercent as any }, { onConflict: "key" });
+                            toast.success(`Split configurado para ${splitPercent}%`);
+                          }}>
+                            Salvar %
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 space-y-1">
+                      <p className="text-xs font-semibold text-yellow-600">⚠️ Atenção antes de ativar:</p>
+                      <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                        <li>O split é calculado sobre o <strong>depósito total</strong>, não sobre o lucro</li>
+                        <li>O afiliado precisa ter uma <strong>conta Asaas cadastrada</strong> (wallet ID)</li>
+                        <li>Requer configurar o <strong>wallet_id</strong> de cada afiliado no perfil</li>
+                        <li>Atualmente o sistema paga comissão sobre o <strong>lucro real</strong> — mais justo</li>
+                        <li>Ative apenas se migrar o modelo de comissão para % do depósito</li>
+                      </ul>
+                    </div>
+                  </div>
+
                   <h3 className="text-lg font-semibold mb-4 text-destructive">Zona de Perigo</h3>
                   <p className="text-xs text-muted-foreground mb-4">Ações irreversíveis que impactam dados sensíveis.</p>
                   <Button variant="destructive" onClick={async () => {

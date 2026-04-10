@@ -111,61 +111,8 @@ async function creditUserBalance(
     });
   }
 
-  // Comissão de afiliado 30% — creditada apenas quando pagamento confirmado
-  const { data: userProfile } = await supabase
-    .from("profiles")
-    .select("referred_by")
-    .eq("id", userId)
-    .single();
-
-  if (userProfile?.referred_by && userProfile.referred_by !== userId) {
-    const commissionCents = Math.floor(amountCents * 0.3);
-
-    // Verificar se comissão já foi registrada para este pagamento
-    const { data: existingComm } = await supabase
-      .from("affiliate_commissions")
-      .select("id")
-      .eq("referred_user_id", userId)
-      .eq("status", "confirmed")
-      .maybeSingle();
-
-    if (!existingComm) {
-      await supabase.from("affiliate_commissions").insert({
-        affiliate_user_id: userProfile.referred_by,
-        referred_user_id: userId,
-        commission_cents: commissionCents,
-        status: "confirmed",
-      });
-
-      await supabase.from("transactions").insert({
-        user_id: userProfile.referred_by,
-        type: "commission",
-        amount_cents: commissionCents,
-        description: "Comissão 30% de depósito",
-        payment_method: "affiliate",
-        payment_gateway: "asaas",
-        status: "confirmed",
-      });
-
-      const { data: affBal } = await supabase
-        .from("balances")
-        .select("balance_cents, total_deposited_cents")
-        .eq("user_id", userProfile.referred_by)
-        .single();
-
-      if (affBal) {
-        const ab = affBal as any;
-        await supabase
-          .from("balances")
-          .update({
-            balance_cents: ab.balance_cents + commissionCents,
-            total_deposited_cents: ab.total_deposited_cents + commissionCents,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", userProfile.referred_by);
-      }
-    }
-  }
+  // Comissão de afiliado é calculada no uso da IA (30% do lucro),
+  // não no depósito. Aqui apenas registramos o depósito limpo.
 
   // Atualizar lead_captures
   await supabase
@@ -467,12 +414,41 @@ Deno.serve(async (req) => {
         customer: customerId,
         billingType: "PIX",
         value: amountBrl,
-        dueDate: new Date(Date.now() + 86400000)
-          .toISOString()
-          .split("T")[0],
+        dueDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
         description: `IAProgramador - Crédito R$ ${amountBrl.toFixed(2)}`,
         externalReference: `${user.id}:${amount_cents}${package_id ? `:${package_id}` : ""}`,
       };
+
+      // ── Split de pagamento (se ativado no Super Admin) ──
+      const { data: splitEnabledSetting } = await supabase
+        .from("app_settings").select("value").eq("key", "split_enabled").maybeSingle();
+      const { data: splitPercentSetting } = await supabase
+        .from("app_settings").select("value").eq("key", "split_percent").maybeSingle();
+
+      if (splitEnabledSetting?.value === "true") {
+        // Buscar wallet_id do afiliado que indicou este usuário
+        const { data: userProfile } = await supabase
+          .from("profiles").select("referred_by").eq("id", user.id).maybeSingle();
+
+        if (userProfile?.referred_by && userProfile.referred_by !== user.id) {
+          const { data: affiliateProfile } = await supabase
+            .from("profiles").select("asaas_wallet_id").eq("id", userProfile.referred_by).maybeSingle();
+
+          const walletId = (affiliateProfile as any)?.asaas_wallet_id;
+          const splitPct = parseFloat(splitPercentSetting?.value || "30");
+
+          if (walletId && splitPct > 0 && splitPct <= 50) {
+            const splitValue = parseFloat((amountBrl * splitPct / 100).toFixed(2));
+            paymentBody.split = [{
+              walletId,
+              fixedValue: splitValue,
+            }];
+            console.log(`Split ativado: ${splitPct}% (R$ ${splitValue}) para wallet ${walletId}`);
+          } else {
+            console.log("Split ativado mas afiliado sem asaas_wallet_id configurado — ignorando split");
+          }
+        }
+      }
 
       const paymentData = await asaasFetch(baseUrl, "/payments", apiKey, {
         method: "POST",
@@ -711,6 +687,86 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
+    }
+
+    // ── Tokenizar cartão (sem expor API key no frontend) ──
+    if (action === "tokenize-card") {
+      const { customer_name, customer_cpf, card_number, card_expiry_month, card_expiry_year, card_cvv, card_holder_name } = payload;
+
+      if (!card_number || !card_expiry_month || !card_expiry_year || !card_cvv || !card_holder_name) {
+        return new Response(JSON.stringify({ error: "Dados do cartão incompletos" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Buscar ou criar cliente Asaas
+      let customerId: string | null = null;
+      const { data: existingProfile } = await supabase
+        .from("profiles").select("asaas_customer_id").eq("id", user.id).single();
+
+      if ((existingProfile as any)?.asaas_customer_id) {
+        customerId = (existingProfile as any).asaas_customer_id;
+      } else {
+        const cpfClean = customer_cpf?.replace(/\D/g, "") || "";
+        if (cpfClean.length !== 11) {
+          return new Response(JSON.stringify({ error: "CPF obrigatório para tokenizar cartão" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const customerRes = await asaasFetch(baseUrl, "/customers", apiKey!, {
+          method: "POST",
+          body: JSON.stringify({
+            name: customer_name || "IA Programador Cliente",
+            email: user.email,
+            cpfCnpj: cpfClean,
+            externalReference: user.id,
+          }),
+        });
+        customerId = customerRes.id || null;
+        if (!customerId) {
+          const findRes = await asaasFetch(baseUrl, `/customers?externalReference=${user.id}`, apiKey!);
+          customerId = findRes.data?.[0]?.id || null;
+        }
+        if (customerId) {
+          await supabase.from("profiles").update({ asaas_customer_id: customerId } as any).eq("id", user.id);
+        }
+      }
+
+      if (!customerId) {
+        return new Response(JSON.stringify({ error: "Erro ao criar cliente Asaas" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Tokenizar via Asaas
+      const tokenRes = await asaasFetch(baseUrl, "/creditCard/tokenize", apiKey!, {
+        method: "POST",
+        body: JSON.stringify({
+          customer: customerId,
+          creditCard: {
+            holderName: card_holder_name,
+            number: card_number,
+            expiryMonth: card_expiry_month,
+            expiryYear: card_expiry_year,
+            ccv: card_cvv,
+          },
+          creditCardHolderInfo: {
+            name: customer_name || card_holder_name,
+            email: user.email,
+            cpfCnpj: customer_cpf?.replace(/\D/g, "") || "",
+          },
+        }),
+      });
+
+      if (tokenRes.error || !tokenRes.creditCardToken) {
+        return new Response(JSON.stringify({ error: tokenRes.error || "Erro ao tokenizar cartão" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ card_token: tokenRes.creditCardToken }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ error: "Invalid action" }), {
