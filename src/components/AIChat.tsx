@@ -310,20 +310,6 @@ const AIChat = ({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header com seletor de IA */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Chat IA</span>
-            <span className="text-[10px] text-muted-foreground">
-              {isThinking ? 'Processando...' : 'Pronto para ajudar'}
-            </span>
-          </div>
-        </div>
-      </div>
       
       {/* Área de mensagens */}
       <div className="flex-1 overflow-auto p-3 space-y-3">
