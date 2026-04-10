@@ -1664,7 +1664,7 @@ const SuperAdmin = () => {
                     ].map(({ id, name, icon, color }) => {
                       const info = aiBalances[id];
                       const hasBalance = info?.balance !== null;
-                      const isLow = info?.low === true;
+                      const isLow = false;
                       const hasError = !!info?.error;
                       return (
                         <Card key={id} className={`border ${isLow ? "border-yellow-500/60 bg-yellow-500/5" : hasBalance ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}`}>
