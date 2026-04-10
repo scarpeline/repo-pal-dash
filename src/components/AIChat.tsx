@@ -323,17 +323,6 @@ const AIChat = ({
             </span>
           </div>
         </div>
-        <AISelector
-          selectedProvider={selectedModel}
-          onProviderChange={(provider) => {
-            setSelectedModel(provider.id);
-            onProviderChange?.(provider.id);
-          }}
-          autoMode={selectedModel === "auto"}
-          onAutoModeChange={(enabled) => {
-            if (enabled) setSelectedModel("auto");
-          }}
-        />
       </div>
       
       {/* Área de mensagens */}

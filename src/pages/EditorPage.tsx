@@ -738,23 +738,6 @@ const EditorPage = () => {
               )}
             </div>
 
-            {/* Status Bar */}
-            <div className="h-8 bg-card border border-border rounded-lg shadow-sm flex items-center justify-between px-4 text-sm text-muted-foreground shrink-0 mt-auto">
-              <div className="flex items-center gap-4">
-                {!bottomOpen && (
-                  <>
-                    <button onClick={() => { setBottomOpen(true); setBottomTab("chat"); }} className="hover:text-primary transition-colors flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Abrir Chat</button>
-                    <button onClick={() => { setBottomOpen(true); setBottomTab("terminal"); }} className="hover:text-primary transition-colors flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5" /> Abrir Terminal</button>
-                  </>
-                )}
-                {ghUser && <span className="text-[hsl(var(--success))] font-medium">● @{ghUser.login}</span>}
-              </div>
-              <div className="flex items-center gap-3">
-                {activeFile?.dirty && <span className="flex items-center gap-1 text-[hsl(var(--warning))] font-medium"><Save className="w-3 h-3" /> Modificado não salvo</span>}
-                {activeFile?.name && <span className="px-2 py-0.5 bg-muted/40 rounded">{activeFile.name}</span>}
-                <span>UTF-8</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
