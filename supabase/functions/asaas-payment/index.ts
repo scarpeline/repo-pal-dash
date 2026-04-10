@@ -111,7 +111,7 @@ async function creditUserBalance(
     });
   }
 
-  // Comissão de afiliado 30%
+  // Comissão de afiliado 30% — creditada apenas quando pagamento confirmado
   const { data: userProfile } = await supabase
     .from("profiles")
     .select("referred_by")
@@ -121,39 +121,49 @@ async function creditUserBalance(
   if (userProfile?.referred_by && userProfile.referred_by !== userId) {
     const commissionCents = Math.floor(amountCents * 0.3);
 
-    await supabase.from("affiliate_commissions").insert({
-      affiliate_user_id: userProfile.referred_by,
-      referred_user_id: userId,
-      commission_cents: commissionCents,
-      status: "pending",
-    });
+    // Verificar se comissão já foi registrada para este pagamento
+    const { data: existingComm } = await supabase
+      .from("affiliate_commissions")
+      .select("id")
+      .eq("referred_user_id", userId)
+      .eq("status", "confirmed")
+      .maybeSingle();
 
-    await supabase.from("transactions").insert({
-      user_id: userProfile.referred_by,
-      type: "commission",
-      amount_cents: commissionCents,
-      description: "Comissão 30% de depósito",
-      payment_method: "affiliate",
-      payment_gateway: "asaas",
-      status: "confirmed",
-    });
+    if (!existingComm) {
+      await supabase.from("affiliate_commissions").insert({
+        affiliate_user_id: userProfile.referred_by,
+        referred_user_id: userId,
+        commission_cents: commissionCents,
+        status: "confirmed",
+      });
 
-    const { data: affBal } = await supabase
-      .from("balances")
-      .select("balance_cents, total_deposited_cents")
-      .eq("user_id", userProfile.referred_by)
-      .single();
+      await supabase.from("transactions").insert({
+        user_id: userProfile.referred_by,
+        type: "commission",
+        amount_cents: commissionCents,
+        description: "Comissão 30% de depósito",
+        payment_method: "affiliate",
+        payment_gateway: "asaas",
+        status: "confirmed",
+      });
 
-    if (affBal) {
-      const ab = affBal as any;
-      await supabase
+      const { data: affBal } = await supabase
         .from("balances")
-        .update({
-          balance_cents: ab.balance_cents + commissionCents,
-          total_deposited_cents: ab.total_deposited_cents + commissionCents,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userProfile.referred_by);
+        .select("balance_cents, total_deposited_cents")
+        .eq("user_id", userProfile.referred_by)
+        .single();
+
+      if (affBal) {
+        const ab = affBal as any;
+        await supabase
+          .from("balances")
+          .update({
+            balance_cents: ab.balance_cents + commissionCents,
+            total_deposited_cents: ab.total_deposited_cents + commissionCents,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userProfile.referred_by);
+      }
     }
   }
 
@@ -209,6 +219,19 @@ Deno.serve(async (req) => {
 
     // ── Webhook from Asaas ──
     if (action === "webhook") {
+      // Validar assinatura do webhook Asaas
+      const webhookToken = Deno.env.get("ASAAS_WEBHOOK_TOKEN");
+      if (webhookToken) {
+        const receivedToken = req.headers.get("asaas-access-token") || req.headers.get("access_token") || "";
+        if (receivedToken !== webhookToken) {
+          console.warn("Webhook Asaas: token inválido recebido");
+          return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
       const event = payload.event;
 
       if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
@@ -383,8 +406,20 @@ Deno.serve(async (req) => {
       if ((existingProfile as any)?.asaas_customer_id) {
         customerId = (existingProfile as any).asaas_customer_id;
       } else {
-        // CPF genérico válido para clientes sem CPF cadastrado
-        const cpfToUse = customer_cpf || "00000000191";
+        // CPF obrigatório para criar cliente no Asaas
+        if (!customer_cpf) {
+          return new Response(
+            JSON.stringify({ error: "CPF obrigatório para processar o pagamento." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const cpfToUse = customer_cpf.replace(/\D/g, "");
+        if (cpfToUse.length !== 11) {
+          return new Response(
+            JSON.stringify({ error: "CPF inválido. Informe um CPF com 11 dígitos." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         const customerRes = await asaasFetch(baseUrl, "/customers", apiKey, {
           method: "POST",
           body: JSON.stringify({
@@ -579,12 +614,19 @@ Deno.serve(async (req) => {
       }
 
       let customerId: string | null = null;
+      const cpfToUse = customer_cpf ? customer_cpf.replace(/\D/g, "") : "";
+      if (!cpfToUse || cpfToUse.length !== 11) {
+        return new Response(
+          JSON.stringify({ error: "CPF obrigatório para pagamento com cartão." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       const customerRes = await asaasFetch(baseUrl, "/customers", apiKey, {
         method: "POST",
         body: JSON.stringify({
           name: customer_name || user.email?.split("@")[0] || "Cliente",
           email: user.email,
-          cpfCnpj: customer_cpf || "00000000191",
+          cpfCnpj: cpfToUse,
           externalReference: user.id,
         }),
       });

@@ -43,6 +43,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Rate limiting: máx 30 requisições por minuto por usuário ──
+    const windowStart = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentCount } = await supabaseAdmin
+      .from("token_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", windowStart);
+
+    if ((recentCount ?? 0) >= 30) {
+      return new Response(
+        JSON.stringify({ error: "Muitas requisições. Aguarde um momento antes de tentar novamente." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const body = await req.json();
     const { messages, fileContent, fileName, repoName, branch, model } = body;
 
@@ -196,6 +210,13 @@ Deno.serve(async (req) => {
     const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
+    // Helper com timeout de 30s para todas as chamadas de IA
+    const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 30_000) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+    };
+
     const systemPrompt = `Você é o IAProgramador AI, um assistente de programação integrado a um editor de código online.
 Você ajuda a analisar, editar e melhorar código. Responda sempre em português brasileiro.
 Quando sugerir alterações de código, use blocos de código com a linguagem apropriada.
@@ -235,7 +256,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       providerName = "DeepSeek";
       const model = selectedModel.includes("reasoner") ? "deepseek-reasoner" : 
                     selectedModel.includes("coder") ? "deepseek-coder" : "deepseek-chat";
-      const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      const res = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${deepseekApiKey}` },
         body: JSON.stringify({
@@ -254,7 +275,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       providerName = "Kimi";
       const model = selectedModel.includes("128k") ? "moonshot-v1-128k" :
                     selectedModel.includes("32k") ? "moonshot-v1-32k" : "moonshot-v1-8k";
-      const res = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+      const res = await fetchWithTimeout("https://api.moonshot.cn/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${kimiApiKey}` },
         body: JSON.stringify({
@@ -276,7 +297,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       const model = isGptOss ? "openai/gpt-4o-mini" :
                     is8b ? "llama-3.1-8b-instant" :
                     "meta-llama/llama-4-scout-17b-16e-instruct";
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
         body: JSON.stringify({
@@ -296,7 +317,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       const model = selectedModel === "openrouter"
         ? "deepseek/deepseek-chat:free"
         : selectedModel;
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -321,7 +342,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       const isHaiku = selectedModel.includes("haiku");
       providerName = isOpus ? "Claude Opus 4.6" : isHaiku ? "Claude Haiku 4.5" : "Claude Sonnet 4.5";
       const model = isOpus ? "claude-opus-4-6" : isHaiku ? "claude-haiku-4-5" : "claude-sonnet-4-5";
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -358,7 +379,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         parts: [{ text: m.content }],
       }));
       geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
-      const response = await fetch(geminiUrl, {
+      const response = await fetchWithTimeout(geminiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 2048 } }),

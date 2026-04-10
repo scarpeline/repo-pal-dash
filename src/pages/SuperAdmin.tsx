@@ -126,7 +126,7 @@ const SuperAdmin = () => {
   const [verificationMode, setVerificationMode] = useState<"code" | "password">("code");
 
   useEffect(() => {
-    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "escarpelineparticular2@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
+    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -226,10 +226,12 @@ const SuperAdmin = () => {
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
     if (isBlocked) {
-      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "user" as any);
+      // Desbloquear: remove a role "blocked"
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked" as any);
       toast.success("Usuário desbloqueado com sucesso!");
     } else {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "user" } as any);
+      // Bloquear: insere a role "blocked"
+      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" } as any);
       toast.success("Usuário bloqueado do acesso à IA!");
     }
     fetchAll();
@@ -514,7 +516,7 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "escarpelineparticular2@gmail.com", "empresasescarpeline@gmail.com"];
+  const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
   const isAdminEmail = ADMIN_EMAILS.includes(user?.email || "");
   const hasAccess = isAdmin || isAdminEmail;
 
@@ -539,6 +541,7 @@ const SuperAdmin = () => {
       const token = (await supabase.auth.getSession()).data.session?.access_token;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       
+      const adminEmail = user?.email || ADMIN_EMAILS[0] || "";
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
         method: "POST",
         headers: { 
@@ -547,7 +550,7 @@ const SuperAdmin = () => {
         },
         body: JSON.stringify({
           action: "send-admin-code",
-          email: "escarpelineparticular@gmail.com",
+          email: adminEmail,
           code: code,
           userEmail: user?.email,
           timestamp: new Date().toISOString(),
@@ -555,11 +558,10 @@ const SuperAdmin = () => {
       });
       
       if (!res.ok) {
-        // Fallback: show code in toast if email fails
         toast.success(`Código gerado: ${code}`, { duration: 10000 });
         toast.info("Código também foi enviado para o email do Super Admin", { duration: 5000 });
       } else {
-        toast.success("Código de verificação enviado para escarpelineparticular@gmail.com");
+        toast.success(`Código de verificação enviado para ${adminEmail}`);
       }
     } catch (err) {
       console.error("Error sending code:", err);
@@ -595,10 +597,13 @@ const SuperAdmin = () => {
     }
   };
 
-  // Verify with password
+  // Verify with password — senha lida de variável de ambiente (nunca hardcoded)
   const verifyWithPassword = () => {
-    const ADMIN_PASSWORD = "Fati0196";
-    
+    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "";
+    if (!ADMIN_PASSWORD) {
+      toast.error("Senha de admin não configurada. Defina VITE_ADMIN_PASSWORD no .env");
+      return;
+    }
     if (adminPassword === ADMIN_PASSWORD) {
       setIsVerified(true);
       sessionStorage.setItem("superadmin_verified", "true");
@@ -678,7 +683,7 @@ const SuperAdmin = () => {
                         onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
                       />
                       <p className="text-xs text-muted-foreground">
-                        O código foi enviado para: <strong>escarpelineparticular@gmail.com</strong>
+                        O código foi enviado para: <strong>{user?.email}</strong>
                       </p>
                     </div>
                     <Button 
@@ -713,7 +718,7 @@ const SuperAdmin = () => {
                     onKeyDown={(e) => e.key === "Enter" && verifyWithPassword()}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Emails autorizados: <strong>escarpelineparticular@gmail.com</strong> e <strong>escarpelineparticular2@gmail.com</strong>
+                    Acesso restrito a emails autorizados via <code>VITE_ADMIN_EMAILS</code>.
                   </p>
                 </div>
                 <Button 
@@ -1453,7 +1458,19 @@ const SuperAdmin = () => {
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-semibold mb-4 text-destructive">Zona de Perigo</h3>
                   <p className="text-xs text-muted-foreground mb-4">Ações irreversíveis que impactam dados sensíveis.</p>
-                  <Button variant="destructive" onClick={() => { if(confirm("Deseja realmente limpar todos os logs de transação?")) toast.error("Função não implementada por segurança."); }}>
+                  <Button variant="destructive" onClick={async () => {
+                    if (!confirm("Deseja realmente limpar TODOS os logs de transação? Esta ação não pode ser desfeita.")) return;
+                    const secondConfirm = prompt('Digite "CONFIRMAR" para prosseguir:');
+                    if (secondConfirm !== "CONFIRMAR") { toast.error("Operação cancelada."); return; }
+                    try {
+                      const { error } = await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                      if (error) throw error;
+                      toast.success("Histórico de transações limpo com sucesso.");
+                      fetchAll();
+                    } catch (e: any) {
+                      toast.error("Erro ao limpar histórico: " + e.message);
+                    }
+                  }}>
                     Limpar Histórico de Transações
                   </Button>
                 </div>

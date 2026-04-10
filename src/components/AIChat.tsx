@@ -369,10 +369,10 @@ const AIChat = ({
         <div ref={bottomRef} />
       </div>
 
-      {/* Seletor de modelo (dropdown) */}
+      {/* Seletor de modelo (dropdown) — abre para cima, altura máxima */}
       {showModelSelect && (
         <div className="border-t border-border bg-card overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
-          <div className="p-2 space-y-1 max-h-48 overflow-auto">
+          <div className="p-2 space-y-1 overflow-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
             {AI_MODELS.map(m => (
               <button
                 key={m.id}
@@ -431,18 +431,6 @@ const AIChat = ({
               <Send className="w-4 h-4" />
             )}
           </Button>
-        </div>
-        
-        {/* Dicas rápidas */}
-        <div className="flex items-center gap-4 mt-2 px-1">
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors cursor-help" title="Use Shift+Enter para quebrar linha">
-            <Zap className="w-3 h-3" />
-            Shift + Enter para nova linha
-          </span>
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors cursor-help" title="Código aparece em blocos colapsáveis">
-            <Code2 className="w-3 h-3" />
-            Código em blocos colapsáveis
-          </span>
         </div>
       </form>
     </div>

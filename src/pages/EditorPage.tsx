@@ -300,11 +300,13 @@ const EditorPage = () => {
       // Streaming do conteúdo da resposta
       if (result.message) {
         setStreamingContent(result.message);
-        // Simular streaming gradual
-        for (let i = 0; i <= result.message.length; i += 10) {
+        // Streaming em chunks para performance
+        const chunkSize = Math.max(20, Math.floor(result.message.length / 40));
+        for (let i = 0; i <= result.message.length; i += chunkSize) {
           setStreamingContent(result.message.slice(0, i));
-          await new Promise(r => setTimeout(r, 10));
+          await new Promise(r => setTimeout(r, 12));
         }
+        setStreamingContent(result.message);
       }
       
       if (result.modifications.length === 0) {
@@ -441,14 +443,16 @@ const EditorPage = () => {
       const aiContent = data.content || "Sem resposta do modelo.";
       const provider = data.provider || model || "IA";
       
-      // Simular streaming gradual
+      // Streaming da resposta em chunks eficientes
       setCurrentActivity(["✅ Resposta recebida", "📝 Formatando..."]);
       setStreamingContent(aiContent);
       
-      for (let i = 0; i <= aiContent.length; i += 15) {
+      const chunkSize = Math.max(30, Math.floor(aiContent.length / 30));
+      for (let i = 0; i <= aiContent.length; i += chunkSize) {
         setStreamingContent(aiContent.slice(0, i));
-        await new Promise(r => setTimeout(r, 8));
+        await new Promise(r => setTimeout(r, 10));
       }
+      setStreamingContent(aiContent);
       
       const usageInfo = data.usage
         ? `\n\n${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
@@ -644,7 +648,31 @@ const EditorPage = () => {
                 renderFileTree(files)
               )}
               {sidebarTab === "search" && (
-                <div className="p-3"><input placeholder="Buscar..." className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none" /></div>
+                <div className="p-3 flex flex-col gap-2">
+                  <input
+                    placeholder="Buscar arquivo..."
+                    className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/20"
+                    onChange={(e) => {
+                      const q = e.target.value.toLowerCase();
+                      if (!q) return;
+                      const matches = files.filter(f => f.path.toLowerCase().includes(q));
+                      // Render results inline
+                      const container = e.target.nextElementSibling as HTMLElement;
+                      if (container) {
+                        container.innerHTML = matches.slice(0, 20).map(f =>
+                          `<div class="px-2 py-1.5 text-xs font-mono text-muted-foreground hover:bg-muted/50 rounded cursor-pointer truncate" data-path="${f.path}">${f.path}</div>`
+                        ).join("") || '<div class="text-xs text-muted-foreground px-2 py-2">Nenhum resultado</div>';
+                        container.querySelectorAll("[data-path]").forEach(el => {
+                          el.addEventListener("click", () => {
+                            const node = files.find(f => f.path === el.getAttribute("data-path"));
+                            if (node) handleFileSelect(node);
+                          });
+                        });
+                      }
+                    }}
+                  />
+                  <div className="space-y-0.5" />
+                </div>
               )}
             </div>
           </div>

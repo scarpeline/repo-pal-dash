@@ -164,11 +164,18 @@ Deno.serve(async (req) => {
     }
 
     // Handle regular notifications
-    const { user_ids, title, message } = body;
+    const { userId, user_ids: rawUserIds, title, message } = body;
 
-    if (!user_ids || !title || !message) {
+    // Aceita tanto userId (string) quanto user_ids (array) para compatibilidade
+    const user_ids: string[] = rawUserIds
+      ? rawUserIds
+      : userId
+        ? [userId]
+        : [];
+
+    if (user_ids.length === 0 || !title || !message) {
       return new Response(
-        JSON.stringify({ error: "Missing user_ids, title, or message" }),
+        JSON.stringify({ error: "Missing userId/user_ids, title, or message" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
