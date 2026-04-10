@@ -89,18 +89,18 @@ export const AI_PROVIDERS: AIProvider[] = [
     pricing: { inputPer1M: 0.11, outputPer1M: 0.34 },
   },
   {
-    name: "Claude Sonnet (Anthropic)",
+    name: "Claude Sonnet 4.5",
     id: "claude-sonnet",
     baseUrl: "https://api.anthropic.com/v1",
     apiKeyEnv: "ANTHROPIC_API_KEY",
-    models: ["claude-sonnet-4-5", "claude-3-5-sonnet-20241022"],
-    defaultModel: "claude-3-5-sonnet-20241022",
+    models: ["claude-sonnet-4-5"],
+    defaultModel: "claude-sonnet-4-5",
     enabled: false,
     characteristics: {
       codingStrength: 10,
       reasoningStrength: 10,
-      speed: 7,
-      costEfficiency: 6,
+      speed: 8,
+      costEfficiency: 7,
       contextWindow: 200000,
       supportsStreaming: true,
       bestFor: ["code", "analysis", "reasoning", "creative"],
@@ -108,12 +108,31 @@ export const AI_PROVIDERS: AIProvider[] = [
     pricing: { inputPer1M: 3.00, outputPer1M: 15.00 },
   },
   {
-    name: "Claude Opus (Anthropic)",
+    name: "Claude Haiku 4.5",
+    id: "claude-haiku",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    models: ["claude-haiku-4-5"],
+    defaultModel: "claude-haiku-4-5",
+    enabled: false,
+    characteristics: {
+      codingStrength: 8,
+      reasoningStrength: 8,
+      speed: 10,
+      costEfficiency: 9,
+      contextWindow: 200000,
+      supportsStreaming: true,
+      bestFor: ["fast", "chat", "simple", "code"],
+    },
+    pricing: { inputPer1M: 1.00, outputPer1M: 5.00 },
+  },
+  {
+    name: "Claude Opus 4.6",
     id: "claude-opus",
     baseUrl: "https://api.anthropic.com/v1",
     apiKeyEnv: "ANTHROPIC_API_KEY",
-    models: ["claude-opus-4-5", "claude-3-opus-20240229"],
-    defaultModel: "claude-3-opus-20240229",
+    models: ["claude-opus-4-6"],
+    defaultModel: "claude-opus-4-6",
     enabled: false,
     characteristics: {
       codingStrength: 10,
@@ -124,7 +143,7 @@ export const AI_PROVIDERS: AIProvider[] = [
       supportsStreaming: true,
       bestFor: ["complex", "reasoning", "research", "expert"],
     },
-    pricing: { inputPer1M: 15.00, outputPer1M: 75.00 },
+    pricing: { inputPer1M: 5.00, outputPer1M: 25.00 },
   },
   {
     name: "Kimi (Moonshot)",
@@ -267,7 +286,7 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
     const claude = AI_PROVIDERS.find(p => p.id === "claude-sonnet");
     if (claude?.enabled) {
       recommendedProvider = claude;
-      reasoning = "Código backend: Claude Sonnet (melhor raciocínio)";
+      reasoning = "Código backend: Claude Sonnet 4.5 (melhor raciocínio)";
     } else {
       recommendedProvider = AI_PROVIDERS.find(p => p.id === "deepseek") || recommendedProvider;
       reasoning = "Código backend: DeepSeek Coder";
@@ -301,12 +320,12 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
     const opus = AI_PROVIDERS.find(p => p.id === "claude-opus");
     if (opus?.enabled) {
       recommendedProvider = opus;
-      reasoning = "Análise complexa: Claude Opus (máximo raciocínio)";
+      reasoning = "Análise complexa: Claude Opus 4.6 (máximo raciocínio)";
     } else {
       const groq = AI_PROVIDERS.find(p => p.id === "groq");
       if (groq?.enabled) {
         recommendedProvider = groq;
-        reasoning = "Análise complexa: Groq Llama 70B";
+        reasoning = "Análise complexa: Groq Llama 4 Scout";
       }
     }
   }

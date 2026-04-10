@@ -315,11 +315,12 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       const data = await res.json();
       content = data.choices?.[0]?.message?.content || "";
     }
-    // Claude (Anthropic) — Sonnet e Opus
+    // Claude (Anthropic) — Haiku, Sonnet e Opus
     else if (isClaude && anthropicApiKey) {
       const isOpus = selectedModel.includes("opus");
-      providerName = isOpus ? "Claude Opus" : "Claude Sonnet";
-      const model = isOpus ? "claude-3-opus-20240229" : "claude-3-5-sonnet-20241022";
+      const isHaiku = selectedModel.includes("haiku");
+      providerName = isOpus ? "Claude Opus 4.6" : isHaiku ? "Claude Haiku 4.5" : "Claude Sonnet 4.5";
+      const model = isOpus ? "claude-opus-4-6" : isHaiku ? "claude-haiku-4-5" : "claude-sonnet-4-5";
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
