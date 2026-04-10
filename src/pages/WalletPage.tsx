@@ -52,6 +52,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [extensionButtonEnabled, setExtensionButtonEnabled] = useState(true);
   const [extensionButtonText, setExtensionButtonText] = useState("🛒 Comprar Extensão/Licença");
   const [pixModal, setPixModal] = useState<PixData | null>(null);
+  const [cpf, setCpf] = useState("");
   const [copied, setCopied] = useState(false);
   const [paid, setPaid] = useState(false);
   const pixPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -176,6 +177,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           amount_cents: pkg.price_brl,
           customer_email: user.email,
           customer_name: user.user_metadata?.full_name || user.email,
+          customer_cpf: cpf.replace(/\D/g, "") || undefined,
           package_id: pkg.id,
         }),
       });
@@ -211,7 +213,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/asaas-payment?action=create-pix`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ amount_cents: amountCents, customer_email: user.email, customer_name: user.user_metadata?.full_name || user.email }),
+        body: JSON.stringify({ amount_cents: amountCents, customer_email: user.email, customer_name: user.user_metadata?.full_name || user.email, customer_cpf: cpf.replace(/\D/g, "") || undefined }),
       });
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data = await res.json();
@@ -357,6 +359,24 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             </CardContent>
           </Card>
         )}
+
+        {/* CPF opcional */}
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <label className="text-xs text-muted-foreground block mb-1">CPF (opcional — melhora a emissão do PIX)</label>
+            <input
+              type="text"
+              placeholder="000.000.000-00"
+              value={cpf}
+              maxLength={14}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                setCpf(v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"));
+              }}
+              className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </CardContent>
+        </Card>
 
         {/* Pacotes */}
         {packages.length > 0 && (

@@ -383,12 +383,14 @@ Deno.serve(async (req) => {
       if ((existingProfile as any)?.asaas_customer_id) {
         customerId = (existingProfile as any).asaas_customer_id;
       } else {
+        // CPF genérico válido para clientes sem CPF cadastrado
+        const cpfToUse = customer_cpf || "00000000191";
         const customerRes = await asaasFetch(baseUrl, "/customers", apiKey, {
           method: "POST",
           body: JSON.stringify({
-            name: customer_name || user.email,
+            name: customer_name || user.email?.split("@")[0] || "Cliente",
             email: customer_email || user.email,
-            cpfCnpj: customer_cpf || "00000000000",
+            cpfCnpj: cpfToUse,
             externalReference: user.id,
           }),
         });
@@ -580,9 +582,9 @@ Deno.serve(async (req) => {
       const customerRes = await asaasFetch(baseUrl, "/customers", apiKey, {
         method: "POST",
         body: JSON.stringify({
-          name: customer_name || user.email,
+          name: customer_name || user.email?.split("@")[0] || "Cliente",
           email: user.email,
-          cpfCnpj: customer_cpf,
+          cpfCnpj: customer_cpf || "00000000191",
           externalReference: user.id,
         }),
       });
