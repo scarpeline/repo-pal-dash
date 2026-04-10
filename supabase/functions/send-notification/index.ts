@@ -37,6 +37,45 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Handle password verification before admin role check
+    // This must be accessible to admin-email users who haven't been verified yet
+    if (req.method === "POST") {
+      const clonedReq = req.clone();
+      try {
+        const preBody = await clonedReq.json();
+        if (preBody.action === "verify-admin-password") {
+          const ADMIN_EMAILS = [
+            "escarpelineparticular@gmail.com",
+            "escarpelineparticular2@gmail.com",
+            "empresasescarpeline@gmail.com",
+          ];
+          
+          if (!ADMIN_EMAILS.includes(user.email || "")) {
+            return new Response(JSON.stringify({ error: "Forbidden" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          
+          const adminPassword = Deno.env.get("SUPER_ADMIN_PASSWORD");
+          if (!adminPassword) {
+            return new Response(
+              JSON.stringify({ verified: false, error: "SUPER_ADMIN_PASSWORD not configured in environment secrets." }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          const verified = preBody.password === adminPassword;
+          return new Response(
+            JSON.stringify({ verified }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch {
+        // Not JSON or no action field - continue to normal flow
+      }
+    }
+
     const { data: adminRole, error: roleError } = await supabase
       .from("user_roles")
       .select("id")
