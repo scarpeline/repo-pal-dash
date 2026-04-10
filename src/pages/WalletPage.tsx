@@ -378,71 +378,71 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </CardContent>
         </Card>
 
-        {/* Pacotes */}
-        {packages.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5" /> Escolha um Pacote
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Pacotes + Recarga unificados */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Adicionar saldo</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+
+            {/* Pacotes minimalistas */}
+            {packages.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium px-1">Pacotes</p>
                 {packages.map((pkg) => (
                   <button
                     key={pkg.id}
                     disabled={!!loading}
                     onClick={() => handleBuy(pkg)}
-                    className={`border rounded-xl p-4 text-left transition-all relative group
-                      ${pixModal && !paid ? "border-primary bg-primary/5" : "border-border hover:border-primary hover:bg-primary/5"}
-                      disabled:opacity-50`}
+                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 relative"
                   >
-                    <p className="font-bold text-foreground">{pkg.name}</p>
-                    {pkg.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{pkg.description}</p>}
-                    <div className="flex items-end justify-between mt-3">
-                      <p className="text-xl font-bold text-primary">{formatBRL(pkg.price_brl)}</p>
-                      <Badge variant="outline" className="text-[10px]">{formatCreditsAsBRL(pkg.credits_amount)}</Badge>
+                    <span className="text-sm text-foreground">{pkg.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-primary">{formatBRL(pkg.price_brl)}</span>
+                      {loading === pkg.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
                     </div>
-                    {loading === pkg.id && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl">
-                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      </div>
-                    )}
-                    {pkg.checkout_url && <span className="absolute top-2 right-2 text-[9px] bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5">Link</span>}
-                    {pkg.stripe_price_id && !pkg.checkout_url && <span className="absolute top-2 right-2 text-[9px] bg-purple-100 text-purple-700 rounded-full px-1.5 py-0.5">Stripe</span>}
                   </button>
                 ))}
               </div>
+            )}
 
-              <div className="pt-2 border-t space-y-2">
-                {extensionButtonEnabled && (
-                  <Button variant="outline" className="w-full gap-2 border-blue-500/30 hover:bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                    onClick={() => window.open(extensionWhatsappLink, "_blank")}>
-                    <ExternalLink className="h-4 w-4" /> {extensionButtonText}
-                  </Button>
-                )}
-                <Button variant="ghost" className="w-full gap-2 text-muted-foreground"
-                  onClick={() => window.open("https://w.app/o-scarpeline", "_blank")}>
-                  <MessageSquare className="h-4 w-4" /> Falar com responsável
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Recarga personalizada */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recarga Personalizada (PIX)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {[1000, 2000, 3000, 5000, 10000].map((v) => (
-                <Button key={v} variant="outline" disabled={!!loading} onClick={() => handleCustomPix(v)} className="font-semibold">
-                  {loading === "custom" ? <Loader2 className="w-4 h-4 animate-spin" /> : formatBRL(v)}
-                </Button>
-              ))}
+            {/* Divisor */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+              <div className="relative flex justify-center"><span className="bg-card px-3 text-[11px] text-muted-foreground">ou valor avulso</span></div>
             </div>
+
+            {/* Seletor de valor personalizado */}
+            <div className="space-y-2">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium px-1">PIX avulso</p>
+              <div className="flex flex-wrap gap-2">
+                {[1000, 2000, 3000, 5000, 10000].map((v) => (
+                  <button
+                    key={v}
+                    disabled={!!loading}
+                    onClick={() => handleCustomPix(v)}
+                    className="px-3 py-1.5 rounded-md border border-border text-sm font-medium hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50"
+                  >
+                    {loading === "custom" ? <Loader2 className="w-3 h-3 animate-spin" /> : formatBRL(v)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Links extras */}
+            <div className="pt-1 border-t flex flex-col gap-0.5">
+              {extensionButtonEnabled && (
+                <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground hover:text-foreground justify-start text-xs h-8"
+                  onClick={() => window.open(extensionWhatsappLink, "_blank")}>
+                  <ExternalLink className="h-3 w-3" /> {extensionButtonText}
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground justify-start text-xs h-8"
+                onClick={() => window.open("https://w.app/o-scarpeline", "_blank")}>
+                <MessageSquare className="h-3 w-3" /> Falar com responsável
+              </Button>
+            </div>
+
           </CardContent>
         </Card>
 
