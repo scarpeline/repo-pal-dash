@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Users, Calculator, Bell, Send, DollarSign, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Users, Calculator, Bell, Send, DollarSign, CheckCircle, Clock, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const RECHARGE_VALUES = [700, 1000, 1500, 2000, 3000, 5000, 7000];
 
@@ -20,6 +21,7 @@ function formatBRL(cents: number) {
 
 export default function AdminPage({ onBack }: { onBack: () => void }) {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [costPerReal, setCostPerReal] = useState("0.50");
   const [selectedUser, setSelectedUser] = useState("");
@@ -109,6 +111,14 @@ export default function AdminPage({ onBack }: { onBack: () => void }) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-2xl font-bold text-foreground">Super Admin</h1>
+          <Button
+            variant="outline"
+            className="ml-auto gap-2"
+            onClick={() => navigate("/email-campaigns")}
+          >
+            <Mail className="h-4 w-4" />
+            Campanhas de Email
+          </Button>
         </div>
 
         <Tabs defaultValue="calculator">

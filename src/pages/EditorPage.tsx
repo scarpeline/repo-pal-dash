@@ -103,6 +103,7 @@ const EditorPage = () => {
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [streamingProvider, setStreamingProvider] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<string>("auto");
+  const [showCredit, setShowCredit] = useState(true);
   const [searchParams] = useSearchParams();
   const mainContentRef = useRef<HTMLDivElement>(null);
 

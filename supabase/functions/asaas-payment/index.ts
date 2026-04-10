@@ -319,9 +319,9 @@ Deno.serve(async (req) => {
     if (action === "create-pix") {
       const { amount_cents, customer_name, customer_cpf, customer_email, package_id } = payload;
 
-      if (!amount_cents || amount_cents < 500) {
+      if (!amount_cents || amount_cents < 1000) {
         return new Response(
-          JSON.stringify({ error: "Valor mínimo: R$ 5,00" }),
+          JSON.stringify({ error: "Valor mínimo: R$ 10,00" }),
           {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -569,9 +569,9 @@ Deno.serve(async (req) => {
     if (action === "create-card") {
       const { amount_cents, customer_cpf, customer_name, card_token, package_id } = payload;
 
-      if (!amount_cents || amount_cents < 500) {
+      if (!amount_cents || amount_cents < 1000) {
         return new Response(
-          JSON.stringify({ error: "Valor mínimo: R$ 5,00" }),
+          JSON.stringify({ error: "Valor mínimo: R$ 10,00" }),
           {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

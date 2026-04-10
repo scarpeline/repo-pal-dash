@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { InstallPWA } from "@/components/InstallPWA";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import GlobalCTA from "@/components/GlobalCTA";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import GitHubCallback from "./pages/GitHubCallback";
@@ -14,6 +15,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import WalletPage from "./pages/WalletPage";
 import AffiliatePage from "./pages/AffiliatePage";
 import RepoFullAccess from "./pages/RepoFullAccess";
+import EmailCampaignPage from "./pages/EmailCampaignPage";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,7 @@ const App = () => (
     <TooltipProvider>
       <Sonner />
       <InstallPWA />
+      <GlobalCTA />
       <BrowserRouter>
         <AuthProvider>
           <LanguageProvider>
@@ -34,6 +37,7 @@ const App = () => (
               <Route path="/super-admin2026ok" element={<SuperAdmin />} />
               <Route path="/wallet" element={<WalletPage />} />
               <Route path="/affiliate" element={<AffiliatePage />} />
+              <Route path="/email-campaigns" element={<EmailCampaignPage />} />
               <Route path="/repo-access" element={<RepoFullAccess />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

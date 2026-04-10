@@ -248,7 +248,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const handleCardPayment = async () => {
     if (!session || !user) return;
     const amountCents = Math.round(parseFloat(cardAmount.replace(",", ".")) * 100);
-    if (!amountCents || amountCents < 500) { toast.error("Valor mínimo: R$ 5,00"); return; }
+    if (!amountCents || amountCents < 1000) { toast.error("Valor mínimo: R$ 10,00"); return; }
     if (!cardName.trim()) { toast.error("Informe o nome no cartão"); return; }
     if (cardNumber.replace(/\s/g, "").length < 16) { toast.error("Número do cartão inválido"); return; }
     if (!cardExpiry.includes("/") || cardExpiry.length < 5) { toast.error("Validade inválida (MM/AA)"); return; }

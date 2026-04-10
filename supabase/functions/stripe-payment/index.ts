@@ -153,9 +153,9 @@ Deno.serve(async (req) => {
 
       const { price_id, package_id, amount_cents, credits } = body;
 
-      if (!amount_cents || amount_cents < 100) {
+      if (!amount_cents || amount_cents < 1000) {
         return new Response(
-          JSON.stringify({ error: "Valor mínimo: R$ 1,00" }),
+          JSON.stringify({ error: "Valor mínimo: R$ 10,00" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
