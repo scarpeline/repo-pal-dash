@@ -69,10 +69,10 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action } = body;
+    const bodyAction = body.action;
 
     // Handle admin verification code
-    if (action === "send-admin-code") {
+    if (bodyAction === "send-admin-code") {
       const { email, code, userEmail, timestamp } = body;
       
       if (!email || !code) {
