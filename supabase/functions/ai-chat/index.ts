@@ -221,8 +221,10 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     // Determinar qual provider usar baseado no modelo selecionado
     const isDeepSeek = selectedModel.includes("deepseek");
     const isKimi = selectedModel.includes("moonshot") || selectedModel.includes("kimi");
-    const isGroq = selectedModel.includes("groq") || selectedModel.includes("llama") || selectedModel.includes("mixtral");
-    const isOpenRouter = selectedModel === "openrouter" || selectedModel.includes("/");
+    const isGroq = selectedModel === "groq" || selectedModel === "gpt-oss" ||
+                   selectedModel.includes("llama") || selectedModel.includes("mixtral") ||
+                   selectedModel.includes("groq");
+    const isOpenRouter = selectedModel === "openrouter" || (selectedModel.includes("/") && !selectedModel.includes("llama-4"));
     const isClaude = selectedModel.includes("claude");
 
     let content = "";
@@ -266,11 +268,14 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       const data = await res.json();
       content = data.choices?.[0]?.message?.content || "";
     }
-    // Groq
+    // Groq — Llama 4 Scout, Llama 3.1 8B, GPT OSS
     else if (isGroq && groqApiKey) {
-      providerName = "Groq";
-      const model = selectedModel.includes("8b") ? "llama-3.1-8b-instant" :
-                    selectedModel.includes("mixtral") ? "mixtral-8x7b-32768" : "llama-3.3-70b-versatile";
+      const isGptOss = selectedModel === "gpt-oss";
+      const is8b = selectedModel.includes("8b");
+      providerName = isGptOss ? "GPT OSS (Groq)" : is8b ? "Groq Llama 3.1 8B" : "Groq Llama 4 Scout";
+      const model = isGptOss ? "openai/gpt-4o-mini" :
+                    is8b ? "llama-3.1-8b-instant" :
+                    "meta-llama/llama-4-scout-17b-16e-instruct";
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
