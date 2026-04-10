@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle,
-  Package, Loader2, ExternalLink, CreditCard, MessageSquare, RefreshCw
+  Package, Loader2, ExternalLink, CreditCard, MessageSquare,
+  RefreshCw, Copy, Check, X
 } from "lucide-react";
-import { formatCredits, formatCreditsAsBRL } from "@/utils/credits";
+import { formatCreditsAsBRL } from "@/utils/credits";
 import { toast } from "sonner";
 
 function formatBRL(cents: number) {
@@ -27,6 +28,15 @@ interface PackageItem {
   asaas_payment_link_id?: string;
 }
 
+interface PixData {
+  qr: string | null;
+  copy: string | null;
+  url: string | null;
+  payment_id?: string | null;
+  amount_cents: number;
+  package_name?: string;
+}
+
 export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -35,104 +45,47 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null); // packageId or "custom"
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
-  
-  // Configurações de recarga via WhatsApp
-  const [rechargeWhatsappLink, setRechargeWhatsappLink] = useState<string>("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
-  const [rechargeButtonEnabled, setRechargeButtonEnabled] = useState<boolean>(true);
-  const [rechargeButtonText, setRechargeButtonText] = useState<string>("💬 Falar no WhatsApp para Recarga");
-  const [extensionWhatsappLink, setExtensionWhatsappLink] = useState<string>("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
-  const [extensionButtonEnabled, setExtensionButtonEnabled] = useState<boolean>(true);
-  const [extensionButtonText, setExtensionButtonText] = useState<string>("🛒 Comprar Extensão/Licença");
-  const [pixData, setPixData] = useState<{
-    qr: string | null;
-    copy: string | null;
-    url: string | null;
-    payment_id?: string | null;
-  } | null>(null);
+  const [extensionWhatsappLink, setExtensionWhatsappLink] = useState("https://wa.me/5514991611225");
+  const [extensionButtonEnabled, setExtensionButtonEnabled] = useState(true);
+  const [extensionButtonText, setExtensionButtonText] = useState("🛒 Comprar Extensão/Licença");
+  const [pixModal, setPixModal] = useState<PixData | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [paid, setPaid] = useState(false);
   const pixPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-  // Verificar sucesso/cancelamento de checkout Stripe ao voltar
   useEffect(() => {
     const successParam = searchParams.get("success");
     const sessionId = searchParams.get("session_id");
     const canceled = searchParams.get("canceled");
-
-    if (canceled) {
-      toast.error("Pagamento cancelado.");
-      return;
-    }
-
-    if (successParam === "true" && sessionId) {
-      verifyStripeSession(sessionId);
-    }
+    if (canceled) { toast.error("Pagamento cancelado."); return; }
+    if (successParam === "true" && sessionId) verifyStripeSession(sessionId);
   }, []);
 
   useEffect(() => {
     loadData();
     loadPackages();
-    return () => {
-      if (pixPollRef.current) clearInterval(pixPollRef.current);
-    };
+    return () => { if (pixPollRef.current) clearInterval(pixPollRef.current); };
   }, []);
 
   const loadPackages = async () => {
-    const { data } = await supabase
-      .from("packages")
-      .select("*")
-      .eq("is_active", true)
-      .order("price_brl");
+    const { data } = await supabase.from("packages").select("*").eq("is_active", true).order("price_brl");
     if (data) setPackages(data as any[]);
 
-    // Carregar gateway primário
-    const { data: settings } = await supabase
-      .from("app_settings")
-      .select("*")
-      .eq("key", "primary_gateway")
-      .single();
+    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
     if (settings) setPrimaryGateway(settings.value as any);
 
-    // Carregar configurações de recarga WhatsApp
-    const { data: whatsappSettings } = await supabase
-      .from("app_settings")
-      .select("*")
-      .in("key", [
-        "recharge_whatsapp_link",
-        "recharge_button_enabled", 
-        "recharge_button_text",
-        "extension_whatsapp_link",
-        "extension_button_enabled",
-        "extension_button_text"
-      ]);
-    
-    if (whatsappSettings) {
-      whatsappSettings.forEach((setting) => {
-        switch (setting.key) {
-          case "recharge_whatsapp_link":
-            setRechargeWhatsappLink(setting.value);
-            break;
-          case "recharge_button_enabled":
-            setRechargeButtonEnabled(setting.value === "true");
-            break;
-          case "recharge_button_text":
-            setRechargeButtonText(setting.value);
-            break;
-          case "extension_whatsapp_link":
-            setExtensionWhatsappLink(setting.value);
-            break;
-          case "extension_button_enabled":
-            setExtensionButtonEnabled(setting.value === "true");
-            break;
-          case "extension_button_text":
-            setExtensionButtonText(setting.value);
-            break;
-        }
-      });
-    }
+    const { data: ws } = await supabase.from("app_settings").select("*").in("key", [
+      "extension_whatsapp_link", "extension_button_enabled", "extension_button_text"
+    ]);
+    ws?.forEach((s: any) => {
+      if (s.key === "extension_whatsapp_link") setExtensionWhatsappLink(s.value);
+      if (s.key === "extension_button_enabled") setExtensionButtonEnabled(s.value === "true");
+      if (s.key === "extension_button_text") setExtensionButtonText(s.value);
+    });
   };
 
   const loadData = async () => {
@@ -147,178 +100,151 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
       ]);
-      const balData = await balRes.json();
-      const txData = await txRes.json();
-      setBalance(balData.balance);
-      setTransactions(txData.transactions || []);
-    } catch (e) {
-      console.error("Erro ao carregar dados da carteira", e);
-    } finally {
-      setRefreshingBalance(false);
-    }
+      setBalance((await balRes.json()).balance);
+      setTransactions((await txRes.json()).transactions || []);
+    } catch (e) { console.error(e); }
+    setRefreshingBalance(false);
   };
 
   const verifyStripeSession = async (sessionId: string) => {
     if (!session) return;
     try {
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/stripe-payment?action=verify-session`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ session_id: sessionId }),
-        }
-      );
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/stripe-payment?action=verify-session`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
       const data = await res.json();
-      if (data.paid) {
-        toast.success("🎉 Pagamento confirmado! Seu saldo foi atualizado.");
-        loadData();
-      }
-    } catch (e) {
-      console.error("Erro ao verificar sessão Stripe", e);
-    }
+      if (data.paid) { toast.success("🎉 Pagamento confirmado! Saldo atualizado."); loadData(); }
+    } catch (e) { console.error(e); }
   };
 
   const startPixPolling = (paymentId: string) => {
     if (pixPollRef.current) clearInterval(pixPollRef.current);
     let attempts = 0;
-    const maxAttempts = 60; // 5 min
-
     pixPollRef.current = setInterval(async () => {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(pixPollRef.current!);
-        return;
-      }
-      if (!session) return;
+      if (++attempts > 60 || !session) { clearInterval(pixPollRef.current!); return; }
       try {
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=check-payment`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ payment_id: paymentId }),
-          }
-        );
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/asaas-payment?action=check-payment`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ payment_id: paymentId }),
+        });
         const data = await res.json();
         if (data.status === "CONFIRMED" || data.status === "RECEIVED") {
           clearInterval(pixPollRef.current!);
+          setPaid(true);
           toast.success("🎉 Pagamento PIX confirmado! Saldo atualizado.");
-          setPixData(null);
           loadData();
         }
-      } catch (e) {
-        // silently ignore polling errors
-      }
-    }, 5000); // poll a cada 5 segundos
+      } catch (_) {}
+    }, 5000);
   };
 
-  const handleRecharge = async (amountInCents: number, packageId?: string) => {
+  const handleBuy = async (pkg: PackageItem) => {
     if (!session || !user) return;
-    setLoading(true);
-    setPixData(null);
+    setLoading(pkg.id);
+    setPixModal(null);
+    setPaid(false);
     if (pixPollRef.current) clearInterval(pixPollRef.current);
 
-    const pkg = packages.find((p) => p.id === packageId);
-
-    // 1. Link de checkout manual (Asaas Link externo definido no admin)
-    if (pkg?.checkout_url) {
-      setPixData({
-        qr: null,
-        copy: pkg.checkout_url,
-        url: pkg.checkout_url,
-      });
-      setLoading(false);
-      toast.info("Link de pagamento gerado!");
-      return;
-    }
-
     try {
-      // 2. Stripe — se for o gateway primário e o pacote tiver price_id
-      if (primaryGateway === "stripe") {
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/stripe-payment?action=create-checkout`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              price_id: pkg?.stripe_price_id || undefined,
-              package_id: packageId,
-              amount_cents: amountInCents,
-              credits: pkg?.credits_amount || amountInCents,
-            }),
-          }
-        );
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-          return;
-        }
-        throw new Error(data.error || "Erro ao iniciar checkout Stripe");
+      // Checkout URL manual
+      if (pkg.checkout_url) {
+        window.open(pkg.checkout_url, "_blank");
+        setLoading(null);
+        return;
       }
 
-      // 3. Asaas — PIX dinâmico (padrão)
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=create-pix`,
-        {
+      // Stripe
+      if (primaryGateway === "stripe" && pkg.stripe_price_id) {
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/stripe-payment?action=create-checkout`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            amount_cents: amountInCents,
-            customer_email: user.email,
-            customer_name: user.user_metadata?.full_name || user.email,
-            package_id: packageId,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Erro na Function (${res.status}): ${errorText}`);
-      }
-
-      const data = await res.json();
-
-      if (data.error) {
-        toast.error(data.error);
-      } else {
-        setPixData({
-          qr: data.pix_qr_code,
-          copy: data.pix_copy_paste,
-          url: data.invoice_url,
-          payment_id: data.payment_id,
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ price_id: pkg.stripe_price_id, package_id: pkg.id, amount_cents: pkg.price_brl, credits: pkg.credits_amount }),
         });
-        toast.success("QR Code PIX gerado! Aguardando pagamento...");
-        loadData();
-        if (data.payment_id) {
-          startPixPolling(data.payment_id);
-        }
+        const data = await res.json();
+        if (data.url) { window.location.href = data.url; return; }
+        throw new Error(data.error || "Erro Stripe");
       }
+
+      // Asaas PIX
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/asaas-payment?action=create-pix`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount_cents: pkg.price_brl,
+          customer_email: user.email,
+          customer_name: user.user_metadata?.full_name || user.email,
+          package_id: pkg.id,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Erro ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setPixModal({
+        qr: data.pix_qr_code,
+        copy: data.pix_copy_paste,
+        url: data.invoice_url,
+        payment_id: data.payment_id,
+        amount_cents: pkg.price_brl,
+        package_name: pkg.name,
+      });
+
+      if (data.payment_id) startPixPolling(data.payment_id);
     } catch (err: any) {
-      console.error("Erro handleRecharge:", err);
-      toast.error(err.message || "Erro ao conectar com o servidor de pagamentos");
-    } finally {
-      setLoading(false);
+      toast.error(err.message || "Erro ao gerar pagamento");
     }
+    setLoading(null);
   };
 
-  const copyPix = () => {
-    if (pixData?.copy) {
-      navigator.clipboard.writeText(pixData.copy);
-      toast.success(pixData.qr ? "Código PIX copiado!" : "Link de checkout copiado!");
+  const handleCustomPix = async (amountCents: number) => {
+    if (!session || !user) return;
+    setLoading("custom");
+    setPixModal(null);
+    setPaid(false);
+    if (pixPollRef.current) clearInterval(pixPollRef.current);
+
+    try {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/asaas-payment?action=create-pix`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ amount_cents: amountCents, customer_email: user.email, customer_name: user.user_metadata?.full_name || user.email }),
+      });
+      if (!res.ok) throw new Error(`Erro ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setPixModal({
+        qr: data.pix_qr_code,
+        copy: data.pix_copy_paste,
+        url: data.invoice_url,
+        payment_id: data.payment_id,
+        amount_cents: amountCents,
+        package_name: `Recarga ${formatBRL(amountCents)}`,
+      });
+
+      if (data.payment_id) startPixPolling(data.payment_id);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar PIX");
     }
+    setLoading(null);
+  };
+
+  const copyPix = async () => {
+    if (!pixModal?.copy) return;
+    await navigator.clipboard.writeText(pixModal.copy);
+    setCopied(true);
+    toast.success("Código PIX copiado!");
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  const closeModal = () => {
+    setPixModal(null);
+    setPaid(false);
+    if (pixPollRef.current) clearInterval(pixPollRef.current);
   };
 
   const statusIcon = (status: string) => {
@@ -327,24 +253,14 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     return <XCircle className="h-4 w-4 text-destructive" />;
   };
 
-  const gatewayBadge = (gateway: string) => {
-    if (gateway === "stripe")
-      return <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200">Stripe</Badge>;
-    if (gateway === "asaas")
-      return <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200">Asaas</Badge>;
-    return null;
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto p-6 space-y-6">
+
+        {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={goBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Wallet className="h-6 w-6" /> Carteira
-          </h1>
+          <Button variant="ghost" size="icon" onClick={goBack}><ArrowLeft className="h-5 w-5" /></Button>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Wallet className="h-6 w-6" /> Carteira</h1>
           <div className="ml-auto">
             <Button variant="ghost" size="icon" onClick={loadData} disabled={refreshingBalance}>
               <RefreshCw className={`h-4 w-4 ${refreshingBalance ? "animate-spin" : ""}`} />
@@ -352,36 +268,95 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </div>
         </div>
 
-        {/* Gateway Badge */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Gateway ativo:</span>
-          {primaryGateway === "stripe" ? (
-            <Badge variant="outline" className="gap-1 bg-purple-50 text-purple-700 border-purple-200">
-              <CreditCard className="h-3 w-3" /> Stripe (Cartão Internacional)
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
-              <QrCode className="h-3 w-3" /> Asaas (PIX / Boleto)
-            </Badge>
-          )}
-        </div>
-
         {/* Saldo */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Saldo Atual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground mb-1">Saldo disponível</p>
+            <p className="text-4xl font-bold text-primary">
               {balance ? formatBRL(balance.balance_cents) : "R$ 0,00"}
             </p>
-            {balance && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Saldo disponível para uso na IA
-              </p>
-            )}
           </CardContent>
         </Card>
+
+        {/* Modal PIX inline */}
+        {pixModal && (
+          <Card className={`border-2 ${paid ? "border-green-500 bg-green-500/5" : "border-primary/40 bg-primary/5"} relative`}>
+            <button onClick={closeModal} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                {paid ? (
+                  <><CheckCircle className="w-5 h-5 text-green-500" /> Pagamento Confirmado!</>
+                ) : (
+                  <><QrCode className="w-5 h-5 text-primary" /> Pague com PIX — {pixModal.package_name}</>
+                )}
+              </CardTitle>
+              <p className="text-2xl font-bold text-primary">{formatBRL(pixModal.amount_cents)}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {paid ? (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
+                  <p className="font-semibold text-green-600">Saldo adicionado com sucesso!</p>
+                  <Button className="mt-4" onClick={closeModal}>Fechar</Button>
+                </div>
+              ) : (
+                <>
+                  {/* QR Code */}
+                  <div className="flex justify-center">
+                    {pixModal.qr ? (
+                      <img
+                        src={`data:image/png;base64,${pixModal.qr}`}
+                        alt="QR Code PIX"
+                        className="w-52 h-52 rounded-xl border-4 border-white shadow-lg"
+                      />
+                    ) : pixModal.url ? (
+                      <div className="bg-white p-3 rounded-xl shadow-lg">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixModal.url)}`}
+                          alt="QR Code"
+                          className="w-48 h-48"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Instruções */}
+                  <div className="bg-muted rounded-lg p-3 text-xs text-muted-foreground space-y-1">
+                    <p>1. Abra o app do seu banco</p>
+                    <p>2. Escolha pagar com PIX → QR Code ou Copia e Cola</p>
+                    <p>3. Escaneie o QR Code ou cole o código abaixo</p>
+                    <p>4. Confirme o pagamento — o saldo é creditado automaticamente</p>
+                  </div>
+
+                  {/* Botões */}
+                  <div className="space-y-2">
+                    {pixModal.copy && (
+                      <Button className="w-full gap-2" onClick={copyPix} variant={copied ? "outline" : "default"}>
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? "Copiado!" : "Copiar código PIX (Copia e Cola)"}
+                      </Button>
+                    )}
+                    {pixModal.url && (
+                      <Button variant="outline" className="w-full gap-2" onClick={() => window.open(pixModal.url!, "_blank")}>
+                        <ExternalLink className="w-4 h-4" /> Abrir fatura no Asaas
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Status polling */}
+                  {pixModal.payment_id && (
+                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Aguardando confirmação do pagamento...
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pacotes */}
         {packages.length > 0 && (
@@ -396,57 +371,38 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
                 {packages.map((pkg) => (
                   <button
                     key={pkg.id}
-                    disabled={loading}
-                    onClick={() => handleRecharge(pkg.price_brl, pkg.id)}
-                    className="border border-border rounded-lg p-4 hover:border-primary hover:bg-primary/5 transition-all text-left disabled:opacity-50 group relative"
+                    disabled={!!loading}
+                    onClick={() => handleBuy(pkg)}
+                    className={`border rounded-xl p-4 text-left transition-all relative group
+                      ${pixModal && !paid ? "border-primary bg-primary/5" : "border-border hover:border-primary hover:bg-primary/5"}
+                      disabled:opacity-50`}
                   >
-                    <p className="text-sm font-bold text-foreground">{pkg.name}</p>
-                    {pkg.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{pkg.description}</p>
-                    )}
-                    <div className="flex items-end justify-between mt-4">
+                    <p className="font-bold text-foreground">{pkg.name}</p>
+                    {pkg.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{pkg.description}</p>}
+                    <div className="flex items-end justify-between mt-3">
                       <p className="text-xl font-bold text-primary">{formatBRL(pkg.price_brl)}</p>
-                      <Badge variant="outline" className="text-[10px]">
-                        {formatCreditsAsBRL(pkg.credits_amount)}
-                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">{formatCreditsAsBRL(pkg.credits_amount)}</Badge>
                     </div>
-                    {pkg.checkout_url && (
-                      <span className="absolute top-2 right-2 text-[9px] bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5">
-                        Link
-                      </span>
-                    )}
-                    {pkg.stripe_price_id && !pkg.checkout_url && (
-                      <span className="absolute top-2 right-2 text-[9px] bg-purple-100 text-purple-700 rounded-full px-1.5 py-0.5">
-                        Stripe
-                      </span>
-                    )}
-                    {loading && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-lg">
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                    {loading === pkg.id && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-xl">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
                       </div>
                     )}
+                    {pkg.checkout_url && <span className="absolute top-2 right-2 text-[9px] bg-blue-100 text-blue-700 rounded-full px-1.5 py-0.5">Link</span>}
+                    {pkg.stripe_price_id && !pkg.checkout_url && <span className="absolute top-2 right-2 text-[9px] bg-purple-100 text-purple-700 rounded-full px-1.5 py-0.5">Stripe</span>}
                   </button>
                 ))}
               </div>
 
-              <div className="pt-2 border-t border-border space-y-2">
-                {/* Botão de Comprar Extensão */}
+              <div className="pt-2 border-t space-y-2">
                 {extensionButtonEnabled && (
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500 text-blue-600 dark:text-blue-400"
-                    onClick={() => window.open(extensionWhatsappLink, "_blank")}
-                  >
+                  <Button variant="outline" className="w-full gap-2 border-blue-500/30 hover:bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                    onClick={() => window.open(extensionWhatsappLink, "_blank")}>
                     <ExternalLink className="h-4 w-4" /> {extensionButtonText}
                   </Button>
                 )}
-                
-                {/* Botão de falar com responsável */}
-                <Button
-                  variant="ghost"
-                  className="w-full gap-2 text-muted-foreground hover:text-foreground"
-                  onClick={() => window.open("https://w.app/o-scarpeline", "_blank")}
-                >
+                <Button variant="ghost" className="w-full gap-2 text-muted-foreground"
+                  onClick={() => window.open("https://w.app/o-scarpeline", "_blank")}>
                   <MessageSquare className="h-4 w-4" /> Falar com responsável
                 </Button>
               </div>
@@ -454,124 +410,44 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </Card>
         )}
 
-        {/* Recarga via PIX avulso */}
+        {/* Recarga personalizada */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
-              {primaryGateway === "stripe" ? "Recarga Personalizada (Stripe)" : "Recarga Personalizada (PIX)"}
-            </CardTitle>
+            <CardTitle className="text-lg">Recarga Personalizada (PIX)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {[1000, 2000, 3000, 5000, 10000].map((v) => (
-                <Button
-                  key={v}
-                  variant="outline"
-                  disabled={loading}
-                  onClick={() => handleRecharge(v)}
-                  className="text-sm font-semibold"
-                >
-                  {formatBRL(v)}
+                <Button key={v} variant="outline" disabled={!!loading} onClick={() => handleCustomPix(v)} className="font-semibold">
+                  {loading === "custom" ? <Loader2 className="w-4 h-4 animate-spin" /> : formatBRL(v)}
                 </Button>
               ))}
             </div>
-
-            {/* Exibição do PIX / Link */}
-            {pixData && (
-              <div className="space-y-3 pt-4 border-t border-border">
-                <div className="flex justify-center">
-                  <QrCode className="h-6 w-6 text-muted-foreground" />
-                </div>
-
-                {pixData.payment_id && (
-                  <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Verificando pagamento automaticamente...
-                  </div>
-                )}
-
-                <div className="flex justify-center flex-col items-center gap-3">
-                  {pixData.qr ? (
-                    <img
-                      src={`data:image/png;base64,${pixData.qr}`}
-                      alt="QR Code PIX"
-                      className="w-48 h-48 rounded-lg border border-border"
-                    />
-                  ) : pixData.url ? (
-                    <div className="bg-white p-2 rounded-lg border border-border">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixData.url)}`}
-                        alt="QR Code Checkout"
-                        className="w-40 h-40"
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="w-full space-y-2">
-                    <Button variant="secondary" className="w-full" onClick={copyPix}>
-                      {pixData.qr ? "Copiar código PIX" : "Copiar Link de Pagamento"}
-                    </Button>
-
-                    {pixData.url && (
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2"
-                        onClick={() => window.open(pixData.url!, "_blank")}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        {pixData.qr ? "Pagar no Checkout Asaas" : "Ir para Checkout Seguro"}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         {/* Histórico */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Histórico de Transações</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Histórico</CardTitle></CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Nenhuma transação registrada.
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma transação registrada.</p>
             ) : (
               <div className="space-y-3">
                 {transactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                  >
+                  <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div className="flex items-center gap-3">
                       {statusIcon(tx.status)}
                       <div>
-                        <p className="text-sm font-medium text-foreground">{tx.description}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(tx.created_at).toLocaleString("pt-BR")}
-                          </p>
-                          {gatewayBadge(tx.payment_gateway)}
-                        </div>
+                        <p className="text-sm font-medium">{tx.description}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(tx.created_at).toLocaleString("pt-BR")}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p
-                        className={`text-sm font-bold ${
-                          tx.type === "deposit" || tx.type === "commission"
-                            ? "text-green-500"
-                            : "text-destructive"
-                        }`}
-                      >
-                        {tx.type === "deposit" || tx.type === "commission" ? "+" : "-"}
-                        {formatBRL(tx.amount_cents)}
+                      <p className={`text-sm font-bold ${tx.type === "deposit" || tx.type === "commission" ? "text-green-500" : "text-destructive"}`}>
+                        {tx.type === "deposit" || tx.type === "commission" ? "+" : "-"}{formatBRL(tx.amount_cents)}
                       </p>
-                      <Badge variant="outline" className="text-[9px] uppercase">
-                        {tx.status}
-                      </Badge>
+                      <Badge variant="outline" className="text-[9px] uppercase">{tx.status}</Badge>
                     </div>
                   </div>
                 ))}
@@ -579,6 +455,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             )}
           </CardContent>
         </Card>
+
       </div>
     </div>
   );
