@@ -8,15 +8,15 @@
   "theme_color": "#22c55e",
   "icons": [
     {
-      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/W0BBV8Ucd5X8aOF533hC26sQDeM2/social-images/social-1775339955350-ChatGPT_Image_3_de_abr._de_2026,_00_01_23.webp",
+      "src": "/logo-iaprogramador.png",
       "sizes": "192x192",
-      "type": "image/webp",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/W0BBV8Ucd5X8aOF533hC26sQDeM2/social-images/social-1775339955350-ChatGPT_Image_3_de_abr._de_2026,_00_01_23.webp",
+      "src": "/logo-iaprogramador.png",
       "sizes": "512x512",
-      "type": "image/webp",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]
