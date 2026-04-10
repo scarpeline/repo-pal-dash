@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
-  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink
+  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink, LogOut
 } from "lucide-react";
 import { formatCreditsAsBRL } from "@/utils/credits";
 
@@ -48,7 +49,9 @@ interface ModelPricing {
 }
 
 const SuperAdmin = () => {
-  const { isAdmin, loading: authLoading, user } = useAuth();
+  const { isAdmin, loading: authLoading, user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
@@ -102,15 +105,27 @@ const SuperAdmin = () => {
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const token = (await supabase.auth.getSession()).data.session?.access_token;
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-balance-check`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "check-ai-balances", messages: [] }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
       const data = await res.json();
       setAiBalances(data.balances);
       setAiBalancesCheckedAt(data.checkedAt);
+
+      // Alertar saldos baixos
+      const low = Object.entries(data.balances as Record<string, any>)
+        .filter(([, v]) => v.low)
+        .map(([k]) => k);
+      if (low.length > 0) {
+        toast.warning(`⚠️ Saldo baixo: ${low.join(", ")}. Recarregue antes de acabar.`);
+      } else {
+        toast.success("Saldos sincronizados com sucesso!");
+      }
     } catch (e: any) {
       toast.error("Erro ao buscar saldos: " + e.message);
     }
@@ -200,6 +215,18 @@ const SuperAdmin = () => {
       if (!calcModel && (pricingRes.data as any[]).length > 0) setCalcModel((pricingRes.data as any[])[0].model_id);
     }
     setLoading(false);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+    toast.success("Dados atualizados!");
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
   };
 
   const handleAddCredit = async () => {
@@ -758,10 +785,35 @@ const SuperAdmin = () => {
             <p className="text-sm text-muted-foreground">Painel de administração IAProgramador</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}><X className="w-4 h-4 mr-1" /> Voltar</Button>
-            <Button variant="outline" size="sm" onClick={fetchAll}><RefreshCw className="w-4 h-4" /> Atualizar</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/")}><X className="w-4 h-4 mr-1" /> Voltar</Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCw className={`w-4 h-4 mr-1 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Atualizando..." : "Atualizar"}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-1" /> Sair
+            </Button>
           </div>
         </div>
+
+        {/* Alerta de saldos baixos */}
+        {aiBalances && Object.entries(aiBalances).some(([, v]: any) => v.low) && (
+          <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/40 rounded-lg px-4 py-3">
+            <span className="text-yellow-500 text-lg">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-yellow-500">Saldo baixo detectado</p>
+              <p className="text-xs text-muted-foreground">
+                {Object.entries(aiBalances)
+                  .filter(([, v]: any) => v.low)
+                  .map(([k, v]: any) => `${k} (${v.balance} ${v.currency})`)
+                  .join(" · ")}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" className="border-yellow-500/40 text-yellow-500 hover:bg-yellow-500/10" onClick={fetchAiBalances}>
+              <RefreshCw className="w-3 h-3 mr-1" /> Verificar
+            </Button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1506,16 +1558,20 @@ const SuperAdmin = () => {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
-                      { id: "gemini", name: "Gemini (Google)", icon: "✨", color: "text-blue-400" },
-                      { id: "deepseek", name: "DeepSeek", icon: "💻", color: "text-purple-400" },
-                      { id: "kimi", name: "Kimi (Moonshot)", icon: "🧠", color: "text-red-400" },
-                      { id: "groq", name: "Groq (Ultra Rápido)", icon: "⚡", color: "text-yellow-400" },
+                      { id: "gemini",      name: "Gemini (Google)",       icon: "✨", color: "text-blue-400" },
+                      { id: "deepseek",    name: "DeepSeek",              icon: "💻", color: "text-purple-400" },
+                      { id: "kimi",        name: "Kimi (Moonshot)",       icon: "🧠", color: "text-red-400" },
+                      { id: "groq",        name: "Groq (Llama 4 Scout)",  icon: "⚡", color: "text-yellow-400" },
+                      { id: "anthropic",   name: "Anthropic (Claude)",    icon: "🤖", color: "text-orange-400" },
+                      { id: "openrouter",  name: "OpenRouter",            icon: "🌐", color: "text-green-400" },
+                      { id: "openai",      name: "OpenAI (GPT-4o mini)",  icon: "🔮", color: "text-cyan-400" },
                     ].map(({ id, name, icon, color }) => {
                       const info = aiBalances[id];
                       const hasBalance = info?.balance !== null;
+                      const isLow = info?.low === true;
                       const hasError = !!info?.error;
                       return (
-                        <Card key={id} className={`border ${hasBalance ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}`}>
+                        <Card key={id} className={`border ${isLow ? "border-yellow-500/60 bg-yellow-500/5" : hasBalance ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}`}>
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
@@ -1525,8 +1581,9 @@ const SuperAdmin = () => {
                                   <p className="text-xs text-muted-foreground">{info?.currency || "USD"}</p>
                                 </div>
                               </div>
-                              <Badge variant={hasBalance ? "default" : "destructive"}>
-                                {hasBalance ? "✓ Ativo" : "✗ Erro"}
+                              <Badge variant={isLow ? "outline" : hasBalance ? "default" : "destructive"}
+                                className={isLow ? "border-yellow-500 text-yellow-500" : ""}>
+                                {isLow ? "⚠️ Baixo" : hasBalance ? "✓ Ativo" : "✗ Erro"}
                               </Badge>
                             </div>
                             <div className="mt-2">
@@ -1539,6 +1596,9 @@ const SuperAdmin = () => {
                                 </p>
                               ) : (
                                 <p className="text-sm text-destructive">{info?.error || "Sem informação"}</p>
+                              )}
+                              {isLow && (
+                                <p className="text-xs text-yellow-500 mt-1 font-medium">⚠️ Saldo baixo — recarregue em breve</p>
                               )}
                             </div>
                           </CardContent>
