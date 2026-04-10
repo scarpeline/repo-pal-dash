@@ -92,6 +92,29 @@ const SuperAdmin = () => {
   // Remarketing filter
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
+  // AI Balances
+  const [aiBalances, setAiBalances] = useState<Record<string, { balance: string | null; error: string | null; currency: string }> | null>(null);
+  const [loadingAiBalances, setLoadingAiBalances] = useState(false);
+  const [aiBalancesCheckedAt, setAiBalancesCheckedAt] = useState<string | null>(null);
+
+  const fetchAiBalances = async () => {
+    setLoadingAiBalances(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-balance-check`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setAiBalances(data.balances);
+      setAiBalancesCheckedAt(data.checkedAt);
+    } catch (e: any) {
+      toast.error("Erro ao buscar saldos: " + e.message);
+    }
+    setLoadingAiBalances(false);
+  };
+
   // Admin verification
   const [verificationCode, setVerificationCode] = useState("");
   const [inputCode, setInputCode] = useState("");
@@ -752,6 +775,7 @@ const SuperAdmin = () => {
             <TabsTrigger value="credits">Créditos</TabsTrigger>
             <TabsTrigger value="notifications">Notificações</TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2"><Settings className="w-4 h-4" /> Configurações</TabsTrigger>
+            <TabsTrigger value="ai-balances" className="flex items-center gap-2"><Cpu className="w-4 h-4" /> Saldos IA</TabsTrigger>
           </TabsList>
 
           {/* Users */}
@@ -1434,6 +1458,80 @@ const SuperAdmin = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          {/* AI Balances */}
+          <TabsContent value="ai-balances">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Saldos das IAs</CardTitle>
+                  <CardDescription>
+                    Saldo disponível em cada provedor de IA configurado.
+                    {aiBalancesCheckedAt && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        Atualizado: {new Date(aiBalancesCheckedAt).toLocaleString("pt-BR")}
+                      </span>
+                    )}
+                  </CardDescription>
+                </div>
+                <Button onClick={fetchAiBalances} disabled={loadingAiBalances} className="gap-2">
+                  {loadingAiBalances ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {loadingAiBalances ? "Verificando..." : "Sincronizar Saldos"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {!aiBalances ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Cpu className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <p>Clique em "Sincronizar Saldos" para verificar o saldo de cada IA.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { id: "gemini", name: "Gemini (Google)", icon: "✨", color: "text-blue-400" },
+                      { id: "deepseek", name: "DeepSeek", icon: "💻", color: "text-purple-400" },
+                      { id: "kimi", name: "Kimi (Moonshot)", icon: "🧠", color: "text-red-400" },
+                      { id: "groq", name: "Groq (Ultra Rápido)", icon: "⚡", color: "text-yellow-400" },
+                    ].map(({ id, name, icon, color }) => {
+                      const info = aiBalances[id];
+                      const hasBalance = info?.balance !== null;
+                      const hasError = !!info?.error;
+                      return (
+                        <Card key={id} className={`border ${hasBalance ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl">{icon}</span>
+                                <div>
+                                  <p className={`font-semibold ${color}`}>{name}</p>
+                                  <p className="text-xs text-muted-foreground">{info?.currency || "USD"}</p>
+                                </div>
+                              </div>
+                              <Badge variant={hasBalance ? "default" : "destructive"}>
+                                {hasBalance ? "✓ Ativo" : "✗ Erro"}
+                              </Badge>
+                            </div>
+                            <div className="mt-2">
+                              {hasBalance ? (
+                                <p className="text-xl font-bold text-foreground">
+                                  {info.balance}
+                                  {info.currency && !info.balance?.includes("válida") && !info.balance?.includes("Gratuito") && (
+                                    <span className="text-sm font-normal text-muted-foreground ml-1">{info.currency}</span>
+                                  )}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-destructive">{info?.error || "Sem informação"}</p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
         </Tabs>
       </div>
     </div>
