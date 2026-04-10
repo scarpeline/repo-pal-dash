@@ -47,7 +47,7 @@ export function AISelector({
   useEffect(() => {
     // DeepSeek e Kimi têm API keys configuradas no Supabase Secrets
     // Gemini sempre habilitado, os demais dependem de keys no frontend (não usadas aqui)
-    const alwaysEnabled = ["gemini", "deepseek", "kimi"];
+    const alwaysEnabled = ["gemini", "deepseek", "kimi", "openrouter"];
     const updated = providers.map(p => ({
       ...p,
       enabled: alwaysEnabled.includes(p.id) ? true : !!import.meta.env[p.apiKeyEnv],

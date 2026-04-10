@@ -193,6 +193,7 @@ Deno.serve(async (req) => {
     const deepseekApiKey = Deno.env.get("DEEPSEEK_API_KEY");
     const kimiApiKey = Deno.env.get("KIMI_API_KEY");
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
 
     const systemPrompt = `Você é o IAProgramador AI, um assistente de programação integrado a um editor de código online.
 Você ajuda a analisar, editar e melhorar código. Responda sempre em português brasileiro.
@@ -220,6 +221,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const isDeepSeek = selectedModel.includes("deepseek");
     const isKimi = selectedModel.includes("moonshot") || selectedModel.includes("kimi");
     const isGroq = selectedModel.includes("groq") || selectedModel.includes("llama") || selectedModel.includes("mixtral");
+    const isOpenRouter = selectedModel === "openrouter" || selectedModel.includes("/");
 
     let content = "";
     let providerName = "Gemini";
@@ -278,6 +280,32 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         }),
       });
       if (!res.ok) throw new Error(`Groq error: ${await res.text()}`);
+      const data = await res.json();
+      content = data.choices?.[0]?.message?.content || "";
+    }
+    // OpenRouter — acesso a centenas de modelos
+    else if (isOpenRouter && openrouterApiKey) {
+      providerName = "OpenRouter";
+      // Se o modelo selecionado for só "openrouter", usa o melhor modelo gratuito
+      const model = selectedModel === "openrouter"
+        ? "deepseek/deepseek-chat:free"
+        : selectedModel;
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openrouterApiKey}`,
+          "HTTP-Referer": "https://iaprogramador.online",
+          "X-Title": "IAProgramador",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      });
+      if (!res.ok) throw new Error(`OpenRouter error: ${await res.text()}`);
       const data = await res.json();
       content = data.choices?.[0]?.message?.content || "";
     }
