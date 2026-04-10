@@ -4,9 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Wallet, QrCode, ArrowLeft, Clock, CheckCircle, XCircle,
+  Wallet, QrCode, ArrowLeft, CheckCircle,
   Package, Loader2, ExternalLink, CreditCard, MessageSquare,
   RefreshCw, Copy, Check, X
 } from "lucide-react";
@@ -57,6 +56,17 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [paid, setPaid] = useState(false);
   const pixPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  // Cartão de crédito
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [cardAmount, setCardAmount] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [cardCpf, setCardCpf] = useState("");
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardPaid, setCardPaid] = useState(false);
 
   useEffect(() => {
     const successParam = searchParams.get("success");
@@ -235,6 +245,79 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     setLoading(null);
   };
 
+  const handleCardPayment = async () => {
+    if (!session || !user) return;
+    const amountCents = Math.round(parseFloat(cardAmount.replace(",", ".")) * 100);
+    if (!amountCents || amountCents < 500) { toast.error("Valor mínimo: R$ 5,00"); return; }
+    if (!cardName.trim()) { toast.error("Informe o nome no cartão"); return; }
+    if (cardNumber.replace(/\s/g, "").length < 16) { toast.error("Número do cartão inválido"); return; }
+    if (!cardExpiry.includes("/") || cardExpiry.length < 5) { toast.error("Validade inválida (MM/AA)"); return; }
+    if (cardCvv.length < 3) { toast.error("CVV inválido"); return; }
+    const cpfClean = cardCpf.replace(/\D/g, "");
+    if (cpfClean.length !== 11) { toast.error("CPF obrigatório para pagamento com cartão"); return; }
+
+    setCardLoading(true);
+    try {
+      // Tokenizar cartão via Asaas (sandbox ou produção)
+      const asaasMode = "sandbox"; // troque para "production" em produção
+      const asaasTokenUrl = asaasMode === "sandbox"
+        ? "https://sandbox.asaas.com/api/v3/creditCard/tokenize"
+        : "https://api.asaas.com/v3/creditCard/tokenize";
+
+      // Tokenização via edge function para não expor a API key no frontend
+      const tokenRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=tokenize-card`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer_name: cardName,
+            customer_cpf: cpfClean,
+            card_number: cardNumber.replace(/\s/g, ""),
+            card_expiry_month: cardExpiry.split("/")[0],
+            card_expiry_year: "20" + cardExpiry.split("/")[1],
+            card_cvv: cardCvv,
+            card_holder_name: cardName,
+          }),
+        }
+      );
+
+      const tokenData = await tokenRes.json();
+      if (tokenData.error || !tokenData.card_token) {
+        throw new Error(tokenData.error || "Erro ao tokenizar cartão");
+      }
+
+      // Cobrar com o token
+      const payRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/asaas-payment?action=create-card`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount_cents: amountCents,
+            customer_name: cardName,
+            customer_cpf: cpfClean,
+            card_token: tokenData.card_token,
+          }),
+        }
+      );
+
+      const payData = await payRes.json();
+      if (payData.error) throw new Error(payData.error);
+
+      if (payData.status === "CONFIRMED") {
+        setCardPaid(true);
+        toast.success("🎉 Pagamento confirmado! Saldo adicionado.");
+        loadData();
+      } else {
+        toast.info("Pagamento em processamento. Aguarde a confirmação.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro no pagamento com cartão");
+    }
+    setCardLoading(false);
+  };
+
   const copyPix = async () => {
     if (!pixModal?.copy) return;
     await navigator.clipboard.writeText(pixModal.copy);
@@ -251,8 +334,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
 
   const statusIcon = (status: string) => {
     if (status === "confirmed") return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (status === "pending") return <Clock className="h-4 w-4 text-yellow-500" />;
-    return <XCircle className="h-4 w-4 text-destructive" />;
+    return null;
   };
 
   return (
@@ -360,7 +442,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </Card>
         )}
 
-        {/* CPF opcional */}
+        {/* CPF opcional para PIX */}
         <Card>
           <CardContent className="pt-4 pb-4">
             <label className="text-xs text-muted-foreground block mb-1">CPF (opcional — melhora a emissão do PIX)</label>
@@ -376,6 +458,140 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
               className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             />
           </CardContent>
+        </Card>
+
+        {/* Formulário de Cartão de Crédito */}
+        <Card>
+          <CardHeader className="pb-2">
+            <button
+              className="flex items-center justify-between w-full text-left"
+              onClick={() => { setShowCardForm(!showCardForm); setCardPaid(false); }}
+            >
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-primary" /> Pagar com Cartão de Crédito
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">{showCardForm ? "▲ Fechar" : "▼ Abrir"}</span>
+            </button>
+          </CardHeader>
+
+          {showCardForm && (
+            <CardContent className="space-y-3 pt-0">
+              {cardPaid ? (
+                <div className="text-center py-6">
+                  <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-3" />
+                  <p className="font-semibold text-green-600">Pagamento confirmado!</p>
+                  <p className="text-sm text-muted-foreground mt-1">Saldo adicionado com sucesso.</p>
+                  <Button className="mt-4" onClick={() => { setShowCardForm(false); setCardPaid(false); }}>Fechar</Button>
+                </div>
+              ) : (
+                <>
+                  {/* Vendedor */}
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Vendedor:</span>
+                    <span className="text-xs font-semibold text-foreground">IA Programador</span>
+                  </div>
+
+                  {/* Valor */}
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Valor (R$) *</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 30,00"
+                      value={cardAmount}
+                      onChange={(e) => setCardAmount(e.target.value.replace(/[^0-9,]/g, ""))}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  {/* Nome no cartão */}
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Nome no cartão *</label>
+                    <input
+                      type="text"
+                      placeholder="NOME SOBRENOME"
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value.toUpperCase())}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  {/* Número do cartão */}
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Número do cartão *</label>
+                    <input
+                      type="text"
+                      placeholder="0000 0000 0000 0000"
+                      value={cardNumber}
+                      maxLength={19}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, "").slice(0, 16);
+                        setCardNumber(v.replace(/(\d{4})(?=\d)/g, "$1 "));
+                      }}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 font-mono tracking-widest"
+                    />
+                  </div>
+
+                  {/* Validade + CVV */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Validade (MM/AA) *</label>
+                      <input
+                        type="text"
+                        placeholder="MM/AA"
+                        value={cardExpiry}
+                        maxLength={5}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                          setCardExpiry(v.length > 2 ? v.slice(0, 2) + "/" + v.slice(2) : v);
+                        }}
+                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">CVV *</label>
+                      <input
+                        type="text"
+                        placeholder="000"
+                        value={cardCvv}
+                        maxLength={4}
+                        onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* CPF */}
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">CPF do titular *</label>
+                    <input
+                      type="text"
+                      placeholder="000.000.000-00"
+                      value={cardCpf}
+                      maxLength={14}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                        setCardCpf(v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"));
+                      }}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full gap-2"
+                    onClick={handleCardPayment}
+                    disabled={cardLoading}
+                  >
+                    {cardLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                    {cardLoading ? "Processando..." : `Pagar ${cardAmount ? `R$ ${cardAmount}` : ""}`}
+                  </Button>
+
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    🔒 Pagamento seguro via Asaas · Dados criptografados
+                  </p>
+                </>
+              )}
+            </CardContent>
+          )}
         </Card>
 
         {/* Pacotes + Recarga unificados */}
@@ -409,23 +625,40 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
             {/* Divisor */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-              <div className="relative flex justify-center"><span className="bg-card px-3 text-[11px] text-muted-foreground">ou valor avulso</span></div>
+              <div className="relative flex justify-center"><span className="bg-card px-3 text-[11px] text-muted-foreground">ou valor personalizado</span></div>
             </div>
 
-            {/* Seletor de valor personalizado */}
+            {/* Campo de valor livre para PIX */}
             <div className="space-y-2">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium px-1">PIX avulso</p>
-              <div className="flex flex-wrap gap-2">
-                {[1000, 2000, 3000, 5000, 10000].map((v) => (
-                  <button
-                    key={v}
-                    disabled={!!loading}
-                    onClick={() => handleCustomPix(v)}
-                    className="px-3 py-1.5 rounded-md border border-border text-sm font-medium hover:border-primary hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50"
-                  >
-                    {loading === "custom" ? <Loader2 className="w-3 h-3 animate-spin" /> : formatBRL(v)}
-                  </button>
-                ))}
+              <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium px-1">PIX — valor à sua escolha</p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    id="custom-pix-amount"
+                    className="w-full bg-muted border border-border rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                    onChange={(e) => {
+                      // Permite apenas números e vírgula
+                      e.target.value = e.target.value.replace(/[^0-9,]/g, "");
+                    }}
+                  />
+                </div>
+                <Button
+                  disabled={!!loading}
+                  onClick={() => {
+                    const input = document.getElementById("custom-pix-amount") as HTMLInputElement;
+                    const val = parseFloat((input?.value || "0").replace(",", "."));
+                    if (!val || val < 5) { toast.error("Valor mínimo: R$ 5,00"); return; }
+                    handleCustomPix(Math.round(val * 100));
+                  }}
+                  className="gap-1.5 shrink-0"
+                >
+                  {loading === "custom" ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
+                  Gerar PIX
+                </Button>
               </div>
             </div>
 
@@ -446,58 +679,31 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
           </CardContent>
         </Card>
 
-        {/* Como funciona o consumo */}
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-4 pb-4 space-y-2">
-            <p className="text-xs font-semibold text-primary uppercase tracking-wider">Como seu saldo é consumido</p>
-            <p className="text-xs text-muted-foreground">
-              Cada mensagem enviada à IA desconta um valor do seu saldo em R$. O custo varia conforme o modelo escolhido e o tamanho da conversa.
-            </p>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {[
-                { label: "Gemini Flash", price: "~R$ 0,002 / msg" },
-                { label: "Llama 4 Scout", price: "~R$ 0,008 / msg" },
-                { label: "DeepSeek Coder", price: "~R$ 0,02 / msg" },
-                { label: "Claude Haiku", price: "~R$ 0,09 / msg" },
-                { label: "Claude Sonnet", price: "~R$ 0,27 / msg" },
-                { label: "Claude Opus", price: "~R$ 0,45 / msg" },
-              ].map(({ label, price }) => (
-                <div key={label} className="flex justify-between text-[11px] bg-background/60 rounded px-2 py-1">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-medium text-foreground">{price}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-muted-foreground pt-1">* Estimativa para mensagens simples. Edições de código com repositório completo consomem mais.</p>
-          </CardContent>
-        </Card>
-
-        {/* Histórico */}
+        {/* Histórico — apenas depósitos confirmados */}
         <Card>
-          <CardHeader><CardTitle className="text-lg">Histórico</CardTitle></CardHeader>          <CardContent>
-            {transactions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma transação registrada.</p>
-            ) : (
-              <div className="space-y-3">
-                {transactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div className="flex items-center gap-3">
-                      {statusIcon(tx.status)}
-                      <div>
-                        <p className="text-sm font-medium">{tx.description}</p>
-                        <p className="text-[10px] text-muted-foreground">{new Date(tx.created_at).toLocaleString("pt-BR")}</p>
+          <CardHeader><CardTitle className="text-lg">Histórico</CardTitle></CardHeader>
+          <CardContent>
+            {(() => {
+              const confirmed = transactions.filter(tx => tx.type === "deposit" && tx.status === "confirmed");
+              return confirmed.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum depósito confirmado ainda.</p>
+              ) : (
+                <div className="space-y-3">
+                  {confirmed.map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <div>
+                          <p className="text-sm font-medium">{tx.description}</p>
+                          <p className="text-[10px] text-muted-foreground">{new Date(tx.created_at).toLocaleString("pt-BR")}</p>
+                        </div>
                       </div>
+                      <p className="text-sm font-bold text-green-500">+{formatBRL(tx.amount_cents)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-bold ${tx.type === "deposit" || tx.type === "commission" ? "text-green-500" : "text-destructive"}`}>
-                        {tx.type === "deposit" || tx.type === "commission" ? "+" : "-"}{formatBRL(tx.amount_cents)}
-                      </p>
-                      <Badge variant="outline" className="text-[9px] uppercase">{tx.status}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 

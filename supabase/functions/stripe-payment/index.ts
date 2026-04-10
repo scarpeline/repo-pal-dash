@@ -50,48 +50,8 @@ async function creditUserBalance(
     status: "confirmed",
   });
 
-  // Comissão afiliado 30%
-  const { data: userProfile } = await supabase
-    .from("profiles")
-    .select("referred_by")
-    .eq("id", userId)
-    .single();
-
-  if (userProfile?.referred_by && userProfile.referred_by !== userId) {
-    const commissionCents = Math.floor(amountCents * 0.3);
-
-    await supabase.from("affiliate_commissions").insert({
-      affiliate_user_id: userProfile.referred_by,
-      referred_user_id: userId,
-      commission_cents: commissionCents,
-      status: "pending",
-    });
-
-    await supabase.from("transactions").insert({
-      user_id: userProfile.referred_by,
-      type: "commission",
-      amount_cents: commissionCents,
-      description: "Comissão 30% de depósito (Stripe)",
-      payment_method: "affiliate",
-      payment_gateway: "stripe",
-      status: "confirmed",
-    });
-
-    const { data: affBal } = await supabase
-      .from("balances")
-      .select("balance_cents, total_deposited_cents")
-      .eq("user_id", userProfile.referred_by)
-      .single();
-
-    if (affBal) {
-      const ab = affBal as any;
-      await supabase.from("balances").update({
-        balance_cents: ab.balance_cents + commissionCents,
-        total_deposited_cents: ab.total_deposited_cents + commissionCents,
-        updated_at: new Date().toISOString(),
-      }).eq("user_id", userProfile.referred_by);
-    }
-  }
+  // Comissão afiliado é calculada no uso da IA (30% do lucro real),
+  // não no depósito. Stripe apenas registra o depósito limpo.
 
   // Atualizar lead_captures
   await supabase.from("lead_captures").update({
