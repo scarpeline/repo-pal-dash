@@ -195,9 +195,11 @@ Deno.serve(async (req) => {
     const activePricing = pricing || fallbackPricing;
 
     // Preço de revenda (o que o usuário paga) — NUNCA usar preço de custo da API
-    // Mínimo de segurança: R$ 0,30/M input e R$ 1,20/M output se não houver config
-    const resaleInput  = activePricing?.resale_price_input_per_million  ?? 30;
-    const resaleOutput = activePricing?.resale_price_output_per_million ?? 120;
+    // Fallback seguro: valores conservadores que garantem lucro mesmo sem config na tabela
+    // Gemini/OpenRouter grátis → cobramos taxa de serviço mínima
+    // Para modelos pagos: fallback alto para não causar prejuízo
+    const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;  // R$0,005/1M — seguro
+    const resaleOutput = activePricing?.resale_price_output_per_million ?? 2000; // R$0,020/1M — seguro
 
     // Estimar tokens de input com base no tamanho real das mensagens
     const totalInputChars = messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0);
