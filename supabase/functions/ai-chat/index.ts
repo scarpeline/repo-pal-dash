@@ -221,7 +221,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     // Determinar qual provider usar baseado no modelo selecionado
     const isDeepSeek = selectedModel.includes("deepseek");
     const isKimi = selectedModel.includes("moonshot") || selectedModel.includes("kimi");
-    const isGroq = selectedModel === "groq" || selectedModel === "gpt-oss" ||
+    const isGroq = selectedModel === "groq" || selectedModel === "groq-8b" || selectedModel === "gpt-oss" ||
                    selectedModel.includes("llama") || selectedModel.includes("mixtral") ||
                    selectedModel.includes("groq");
     const isOpenRouter = selectedModel === "openrouter" || (selectedModel.includes("/") && !selectedModel.includes("llama-4"));
@@ -271,8 +271,8 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     // Groq — Llama 4 Scout, Llama 3.1 8B, GPT OSS
     else if (isGroq && groqApiKey) {
       const isGptOss = selectedModel === "gpt-oss";
-      const is8b = selectedModel.includes("8b");
-      providerName = isGptOss ? "GPT OSS (Groq)" : is8b ? "Groq Llama 3.1 8B" : "Groq Llama 4 Scout";
+      const is8b = selectedModel === "groq-8b" || selectedModel.includes("8b");
+      providerName = isGptOss ? "GPT OSS (Groq)" : is8b ? "Llama 3.1 8B" : "Llama 4 Scout";
       const model = isGptOss ? "openai/gpt-4o-mini" :
                     is8b ? "llama-3.1-8b-instant" :
                     "meta-llama/llama-4-scout-17b-16e-instruct";

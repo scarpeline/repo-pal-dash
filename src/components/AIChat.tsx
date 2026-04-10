@@ -7,13 +7,27 @@ import { Button } from "@/components/ui/button";
 import { AISelector } from "./AISelector";
 import { AI_PROVIDERS } from "@/integrations/ai";
 
+// Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto", label: "🧠 Modo Inteligente", desc: "Escolhe a melhor IA automaticamente" },
-  ...AI_PROVIDERS.map(p => ({
-    id: p.id,
-    label: p.name,
-    desc: p.characteristics.bestFor.slice(0, 2).join(", "),
-  })),
+  { id: "auto",           label: "🧠 Auto",              desc: "Escolhe a melhor IA automaticamente" },
+  // Gemini
+  { id: "gemini",         label: "Gemini 1.5 Flash",     desc: "Google · Grátis · Rápido" },
+  // DeepSeek
+  { id: "deepseek",       label: "DeepSeek Coder",       desc: "Código · $0,07/M" },
+  // Groq
+  { id: "groq",           label: "Llama 4 Scout",        desc: "Groq · $0,11/M · 694 TPS" },
+  { id: "groq-8b",        label: "Llama 3.1 8B",         desc: "Groq · $0,05/M · Ultra rápido" },
+  { id: "gpt-oss",        label: "GPT OSS 20B",          desc: "Groq · $0,075/M · 1000 TPS" },
+  // Kimi
+  { id: "kimi",           label: "Kimi 32k",             desc: "Moonshot · Contexto longo" },
+  // OpenRouter
+  { id: "openrouter",     label: "OpenRouter Free",      desc: "DeepSeek grátis via OpenRouter" },
+  // Claude
+  { id: "claude-haiku",   label: "Claude Haiku 4.5",     desc: "Anthropic · $1/M · Rápido" },
+  { id: "claude-sonnet",  label: "Claude Sonnet 4.5",    desc: "Anthropic · $3/M · Melhor código" },
+  { id: "claude-opus",    label: "Claude Opus 4.6",      desc: "Anthropic · $5/M · Máxima qualidade" },
+  // OpenAI
+  { id: "openai",         label: "GPT-4o mini",          desc: "OpenAI · $0,15/M" },
 ];
 
 type ChatMsg = { 
