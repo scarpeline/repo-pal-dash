@@ -45,15 +45,14 @@ export function AISelector({
   const [isAuto, setIsAuto] = useState(autoMode);
 
   useEffect(() => {
-    // Verificar quais providers têm API key configurada
-    const checkApiKeys = () => {
-      const updated = providers.map(p => {
-        const hasKey = !!import.meta.env[p.apiKeyEnv];
-        return { ...p, enabled: p.id === "gemini" ? true : hasKey };
-      });
-      setProviders(updated);
-    };
-    checkApiKeys();
+    // DeepSeek e Kimi têm API keys configuradas no Supabase Secrets
+    // Gemini sempre habilitado, os demais dependem de keys no frontend (não usadas aqui)
+    const alwaysEnabled = ["gemini", "deepseek", "kimi"];
+    const updated = providers.map(p => ({
+      ...p,
+      enabled: alwaysEnabled.includes(p.id) ? true : !!import.meta.env[p.apiKeyEnv],
+    }));
+    setProviders(updated);
   }, []);
 
   const handleSelect = (provider: AIProvider) => {

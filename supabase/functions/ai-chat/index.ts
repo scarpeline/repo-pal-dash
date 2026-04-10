@@ -110,12 +110,9 @@ Deno.serve(async (req) => {
     }
 
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) {
-      return new Response(JSON.stringify({ error: "AI not configured - GEMINI_API_KEY missing" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const deepseekApiKey = Deno.env.get("DEEPSEEK_API_KEY");
+    const kimiApiKey = Deno.env.get("KIMI_API_KEY");
+    const groqApiKey = Deno.env.get("GROQ_API_KEY");
 
     const systemPrompt = `Você é o IAProgramador AI, um assistente de programação integrado a um editor de código online.
 Você ajuda a analisar, editar e melhorar código. Responda sempre em português brasileiro.
@@ -139,90 +136,99 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         : ""
     }`;
 
-    // Map model names to Gemini models
-    const geminiModel = selectedModel.includes("flash") 
-      ? "gemini-1.5-flash" 
-      : "gemini-1.5-pro";
-    
-    // Call Gemini API directly
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
-    
-    // Convert messages to Gemini format
-    const geminiContents = messages.map((m: any) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-    
-    // Add system prompt as first user message
-    geminiContents.unshift({
-      role: "user",
-      parts: [{ text: systemPrompt }],
-    });
-    
-    const response = await fetch(geminiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: geminiContents,
-        generationConfig: {
+    // Determinar qual provider usar baseado no modelo selecionado
+    const isDeepSeek = selectedModel.includes("deepseek");
+    const isKimi = selectedModel.includes("moonshot") || selectedModel.includes("kimi");
+    const isGroq = selectedModel.includes("groq") || selectedModel.includes("llama") || selectedModel.includes("mixtral");
+
+    let content = "";
+    let providerName = "Gemini";
+
+    // DeepSeek
+    if (isDeepSeek && deepseekApiKey) {
+      providerName = "DeepSeek";
+      const model = selectedModel.includes("reasoner") ? "deepseek-reasoner" : 
+                    selectedModel.includes("coder") ? "deepseek-coder" : "deepseek-chat";
+      const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${deepseekApiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
           temperature: 0.7,
-          maxOutputTokens: 2048,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Gemini API error:", response.status, errText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit excedido no Gemini. Tente novamente em alguns segundos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 400) {
-        // Erro 400 geralmente é problema com a requisição (ex: modelo inválido)
-        return new Response(JSON.stringify({ error: `Erro na requisição à API Gemini: ${errText.substring(0, 200)}` }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 401 || response.status === 403) {
-        return new Response(JSON.stringify({ error: "API Key do Gemini inválida ou sem permissão. Verifique a configuração GEMINI_API_KEY no Supabase Secrets." }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      // Qualquer outro erro da API Gemini
-      return new Response(JSON.stringify({ error: `Erro na API Gemini (${response.status}): ${errText.substring(0, 200)}. Verifique o console para mais detalhes.` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          max_tokens: 2048,
+        }),
       });
+      if (!res.ok) throw new Error(`DeepSeek error: ${await res.text()}`);
+      const data = await res.json();
+      content = data.choices?.[0]?.message?.content || "";
     }
-
-    const aiResult = await response.json();
-    console.log("Gemini response received:", { 
-      hasCandidates: !!aiResult.candidates,
-      candidateCount: aiResult.candidates?.length,
-      finishReason: aiResult.candidates?.[0]?.finishReason
-    });
-    
-    // Parse Gemini response format
-    const content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    
-    // Verificar se houve erro de safety ou outro problema
-    const finishReason = aiResult.candidates?.[0]?.finishReason;
-    if (finishReason && finishReason !== "STOP") {
-      console.warn("Gemini finish reason:", finishReason, aiResult.candidates?.[0]?.safetyRatings);
-    }
-    
-    if (!content) {
-      console.error("Empty content from Gemini:", aiResult);
-      return new Response(JSON.stringify({ 
-        error: "A IA retornou uma resposta vazia. Tente reformular sua pergunta.",
-        details: finishReason ? `Motivo: ${finishReason}` : undefined
-      }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Kimi
+    else if (isKimi && kimiApiKey) {
+      providerName = "Kimi";
+      const model = selectedModel.includes("128k") ? "moonshot-v1-128k" :
+                    selectedModel.includes("32k") ? "moonshot-v1-32k" : "moonshot-v1-8k";
+      const res = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${kimiApiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
       });
+      if (!res.ok) throw new Error(`Kimi error: ${await res.text()}`);
+      const data = await res.json();
+      content = data.choices?.[0]?.message?.content || "";
+    }
+    // Groq
+    else if (isGroq && groqApiKey) {
+      providerName = "Groq";
+      const model = selectedModel.includes("8b") ? "llama-3.1-8b-instant" :
+                    selectedModel.includes("mixtral") ? "mixtral-8x7b-32768" : "llama-3.3-70b-versatile";
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      });
+      if (!res.ok) throw new Error(`Groq error: ${await res.text()}`);
+      const data = await res.json();
+      content = data.choices?.[0]?.message?.content || "";
+    }
+    // Gemini (default)
+    else {
+      if (!geminiApiKey) {
+        return new Response(JSON.stringify({ error: "AI not configured - GEMINI_API_KEY missing" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      providerName = "Gemini";
+      const geminiModel = selectedModel.includes("pro") ? "gemini-1.5-pro" : "gemini-1.5-flash";
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
+      const geminiContents = messages.map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
+      const response = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 2048 } }),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit excedido no Gemini. Tente novamente." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: `Gemini error (${response.status}): ${errText.substring(0, 200)}` }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const aiResult = await response.json();
+      content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
     
     // Gemini doesn't return token counts directly, estimate based on characters
@@ -272,8 +278,8 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     
     return new Response(JSON.stringify({
       content,
-      provider: "Gemini",
-      model: geminiModel,
+      provider: providerName,
+      model: selectedModel,
       usage: { input_tokens: inputTokens, output_tokens: outputTokens, cost_cents: actualCostCents },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
