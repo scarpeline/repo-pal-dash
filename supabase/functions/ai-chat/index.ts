@@ -347,6 +347,11 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         throw new Error(`HTTP ${res.status}: ${errBody.substring(0, 180)}`);
       }
       const data = await res.json();
+      if (data.error && (data.error.message || data.error.code)) {
+        throw new Error(
+          String(data.error.message || data.error.code || JSON.stringify(data.error)).substring(0, 180),
+        );
+      }
       const text = data.choices?.[0]?.message?.content || "";
       if (!String(text).trim()) throw new Error("Resposta vazia");
       return text;
@@ -417,6 +422,18 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         throw new Error(`Gemini ${response.status}: ${errText.substring(0, 180)}`);
       }
       const aiResult = await response.json();
+      if (aiResult.error) {
+        const em =
+          aiResult.error.message ||
+          aiResult.error.status ||
+          JSON.stringify(aiResult.error);
+        throw new Error(`Gemini: ${String(em).substring(0, 180)}`);
+      }
+      const pf = aiResult.promptFeedback;
+      if (pf?.blockReason) {
+        const brm = pf.blockReasonMessage ? ` (${String(pf.blockReasonMessage)})` : "";
+        throw new Error(`Gemini bloqueado: ${pf.blockReason}${brm}`.substring(0, 180));
+      }
       const text = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
       if (!String(text).trim()) throw new Error("Gemini resposta vazia");
       return text;
@@ -523,15 +540,15 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       }
     };
 
-    /** Ordem após o preferido: rápidos/econômicos primeiro, modelos premium por último. */
+    /** Ordem após o preferido: openai cedo (Lovable/OpenAI costuma existir quando Gemini falha por quota). */
     const FALLBACK_ORDER = [
       "gemini",
+      "openai",
       "groq-8b",
       "groq",
       "deepseek",
       "openrouter",
       "claude-haiku",
-      "openai",
       "kimi",
       "claude-sonnet",
       "claude-opus",
@@ -581,6 +598,8 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       return new Response(
         JSON.stringify({
           error: `Nenhuma IA respondeu após tentar: ${tried.join(", ")}. Último erro: ${lastError}`,
+          tried_models: tried,
+          last_model_error: lastError,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );

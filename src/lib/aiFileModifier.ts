@@ -22,7 +22,7 @@ export class AIFileModifier {
    */
   async processCommand(
     command: string,
-    model: string = "gemini",
+    model: string = "auto",
     onProgress?: (msg: string) => void,
     chatHistory: { role: string; content: string }[] = []
   ): Promise<{ message: string; modifications: FileModification[] }> {
@@ -109,8 +109,16 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        return { message: `❌ Erro da IA: ${errData.error || res.status}`, modifications: [] };
+        const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+        const errStr = String((errData as { error?: string }).error || res.status);
+        const tried = (errData as { tried_models?: string[] }).tried_models;
+        const triedHint =
+          res.status === 503 && tried?.length === 1
+            ? " Configure outras chaves (ex.: LOVABLE_API_KEY) no Supabase para fallback."
+            : tried && tried.length > 1
+              ? ` Tentados: ${tried.join(", ")}.`
+              : "";
+        return { message: `❌ Erro da IA: ${errStr}${triedHint}`, modifications: [] };
       }
 
       const data = await res.json();

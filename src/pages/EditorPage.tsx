@@ -337,7 +337,7 @@ const EditorPage = () => {
 
       const result = await modifier.processCommand(
         message,
-        requestedModel === "auto" ? "gemini" : requestedModel,
+        requestedModel,
         addProgress,
         chatMessages.filter(m => m.role !== "system").slice(-8)
       );
@@ -450,10 +450,10 @@ const EditorPage = () => {
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        const errorMsg = errData.error || `Erro: ${res.status}`;
+        const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+        const errorMsg = (errData as { error?: string }).error || `Erro: ${res.status}`;
 
-        if (res.status === 402 && errData.code === "INSUFFICIENT_BALANCE") {
+        if (res.status === 402 && (errData as { code?: string }).code === "INSUFFICIENT_BALANCE") {
           toast.error("Saldo insuficiente para essa solicitação.");
           setChatMessages(p => [...p, {
             role: "system",
@@ -468,6 +468,24 @@ const EditorPage = () => {
             role: "system",
             content: `⚠️ ${errorMsg}`,
             timestamp: new Date()
+          }]);
+        } else if (res.status === 503) {
+          const tried = (errData as { tried_models?: string[] }).tried_models;
+          const triedLine = tried?.length
+            ? `\n\nModelos tentados no servidor: ${tried.join(", ")}.`
+            : "";
+          const hint =
+            tried?.length === 1
+              ? "\n\nSó há um provedor configurado nas secrets do Supabase. Adicione LOVABLE_API_KEY ou OPENAI_API_KEY (ou Groq, DeepSeek, etc.) para o fallback automático ter para onde alternar."
+              : tried && tried.length > 1
+                ? "\n\nTodas as chaves configuradas falharam nesta rodada. Confira quotas e secrets no painel do Supabase."
+                : "";
+          const fullMsg = `${errorMsg}${triedLine}${hint}`;
+          toast.error("Nenhuma IA respondeu após tentar os provedores disponíveis.");
+          setChatMessages(p => [...p, {
+            role: "system",
+            content: `⚠️ ${fullMsg}`,
+            timestamp: new Date(),
           }]);
         } else {
           toast.error(errorMsg);
