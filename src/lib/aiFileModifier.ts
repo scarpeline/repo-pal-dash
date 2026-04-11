@@ -18,7 +18,7 @@ export class AIFileModifier {
    */
   async processCommand(
     command: string,
-    model: string = "google/gemini-2.5-flash",
+    model: string = "gemini",
     onProgress?: (msg: string) => void,
     chatHistory: { role: string; content: string }[] = []
   ): Promise<{ message: string; modifications: FileModification[] }> {

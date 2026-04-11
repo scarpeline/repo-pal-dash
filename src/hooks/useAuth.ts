@@ -4,14 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 
 interface Profile {
   id: string;
-  email: string;
+  email: string | null;
   full_name: string | null;
   avatar_url: string | null;
   affiliate_code: string | null;
   referral_code: string | null;
   referred_by: string | null;
   pix_key: string | null;
-  pix_key_type: string | null;
 }
 
 interface Balance {
