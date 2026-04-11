@@ -605,7 +605,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       );
     }
 
-    // ── Calculate cost and debit (preço do modelo que efetivamente gerou a resposta, ex. fallback Gemini) ──
+    // ── Calculate cost based on ACTUAL model used (fallback-aware) ──
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
@@ -627,6 +627,22 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       ),
       20
     );
+
+    // ── Re-verificar saldo se houve fallback (preço pode ser diferente) ──
+    if (usedFallback && actualCostCents > minCharge) {
+      if (currentBalance < actualCostCents) {
+        return new Response(
+          JSON.stringify({
+            error: `Saldo insuficiente para o modelo de fallback. Seu saldo: R$ ${(currentBalance / 100).toFixed(2)}. Custo real: R$ ${(actualCostCents / 100).toFixed(2)}.`,
+            code: "INSUFFICIENT_BALANCE_FALLBACK",
+            currentBalance,
+            requiredAmount: actualCostCents,
+            fallback_model: billingShortId,
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     const { data: apiPricing } = await supabaseAdmin
       .from("ai_model_pricing")
