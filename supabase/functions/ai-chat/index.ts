@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
       "deepseek/deepseek-coder": "deepseek",
       "groq/llama-4-scout": "groq",
       "groq/llama-3.1-8b": "groq-8b",
-      "groq/gpt-oss": "gpt-oss",
+      
       "moonshot/moonshot-v1-32k": "kimi",
       "openrouter/deepseek-free": "openrouter",
       "anthropic/claude-haiku-4-5": "claude-haiku",
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
       "deepseek":       "deepseek/deepseek-coder",
       "groq":           "groq/llama-4-scout",
       "groq-8b":        "groq/llama-3.1-8b",
-      "gpt-oss":        "groq/gpt-oss",
+      
       "kimi":           "moonshot/moonshot-v1-32k",
       "openrouter":     "openrouter/deepseek-free",
       "claude-haiku":   "anthropic/claude-haiku-4-5",
@@ -322,7 +322,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         const claudeModelMap: Record<string, string> = {
           "claude-haiku": "claude-haiku-4-5",
           "claude-sonnet": "claude-sonnet-4-5",
-          "claude-opus": "claude-opus-4-5",
+          "claude-opus": "claude-opus-4-6",
         };
         const claudeNameMap: Record<string, string> = {
           "claude-haiku": "Claude Haiku 4.5",
@@ -390,8 +390,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       }
 
       case "groq":
-      case "groq-8b":
-      case "gpt-oss": {
+      case "groq-8b": {
         if (!groqApiKey) {
           content = await tryGeminiFallback("Groq não configurado (GROQ_API_KEY ausente)");
           break;
@@ -399,12 +398,10 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         const groqModelMap: Record<string, string> = {
           "groq": "meta-llama/llama-4-scout-17b-16e-instruct",
           "groq-8b": "llama-3.1-8b-instant",
-          "gpt-oss": "meta-llama/llama-4-scout-17b-16e-instruct", // fallback, gpt-oss not on Groq
         };
         const groqNameMap: Record<string, string> = {
           "groq": "Llama 4 Scout (Groq)",
           "groq-8b": "Llama 3.1 8B (Groq)",
-          "gpt-oss": "Llama 4 Scout (Groq)",
         };
         providerName = groqNameMap[selectedModel] || "Groq";
         try {
