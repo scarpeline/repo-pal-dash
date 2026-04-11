@@ -412,7 +412,7 @@ const EditorPage = () => {
           messages,
           fileContent: activeFile?.content,
           fileName: activeFile?.name,
-          model: model || "google/gemini-3-flash-preview",
+          model: model || "auto",
         }),
       });
 

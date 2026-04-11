@@ -9,18 +9,17 @@ import { AI_PROVIDERS } from "@/integrations/ai";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto",           label: "🧠 Auto",              desc: "Escolhe a melhor IA automaticamente" },
-  { id: "gemini",         label: "Gemini 1.5 Flash",     desc: "Google · Rápido" },
+  { id: "auto",           label: "🧠 Auto (Gemini)",     desc: "Padrão · Rápido e gratuito" },
+  { id: "gemini",         label: "Gemini Flash",          desc: "Google · Rápido" },
   { id: "deepseek",       label: "DeepSeek Coder",       desc: "Especialista em código" },
   { id: "groq",           label: "Llama 4 Scout",        desc: "Groq · Ultra rápido" },
   { id: "groq-8b",        label: "Llama 3.1 8B",         desc: "Groq · Leve e rápido" },
-  { id: "gpt-oss",        label: "GPT OSS 20B",          desc: "Groq · Alta velocidade" },
-  { id: "kimi",           label: "Kimi 32k",             desc: "Contexto longo" },
-  { id: "openrouter",     label: "OpenRouter Free",      desc: "Acesso gratuito" },
-  { id: "claude-haiku",   label: "Claude Haiku 4.5",     desc: "Anthropic · Rápido" },
-  { id: "claude-sonnet",  label: "Claude Sonnet 4.5",    desc: "Anthropic · Melhor código" },
-  { id: "claude-opus",    label: "Claude Opus 4.6",      desc: "Anthropic · Máxima qualidade" },
-  { id: "openai",         label: "GPT-4o mini",          desc: "OpenAI · Versátil" },
+  { id: "kimi",           label: "Kimi 32k",             desc: "Moonshot · Contexto longo" },
+  { id: "openrouter",     label: "OpenRouter Free",      desc: "DeepSeek Free" },
+  { id: "claude-haiku",   label: "Claude Haiku",         desc: "Anthropic · Rápido" },
+  { id: "claude-sonnet",  label: "Claude Sonnet",        desc: "Anthropic · Melhor código" },
+  { id: "claude-opus",    label: "Claude Opus",          desc: "Anthropic · Máxima qualidade" },
+  { id: "openai",         label: "GPT (via Lovable)",    desc: "OpenAI · Versátil" },
 ];
 
 type ChatMsg = { 
