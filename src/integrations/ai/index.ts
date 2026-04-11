@@ -41,7 +41,7 @@ export const AI_PROVIDERS: AIProvider[] = [
       contextWindow: 1000000, supportsStreaming: true,
       bestFor: ["chat", "general", "fast"],
     },
-    pricing: { inputPer1M: 0, outputPer1M: 0 }, // Grátis (tier gratuito)
+    pricing: { inputPer1M: 0.075, outputPer1M: 0.30 },
   },
   {
     name: "DeepSeek",
@@ -149,7 +149,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     pricing: { inputPer1M: 0.50, outputPer1M: 1.50 },
   },
   {
-    name: "OpenRouter (Acesso Universal)",
+    name: "OpenRouter",
     id: "openrouter",
     baseUrl: "https://openrouter.ai/api/v1",
     apiKeyEnv: "OPENROUTER_API_KEY",
@@ -157,11 +157,11 @@ export const AI_PROVIDERS: AIProvider[] = [
     defaultModel: "deepseek/deepseek-chat:free",
     enabled: false,
     characteristics: {
-      codingStrength: 8, reasoningStrength: 8, speed: 7, costEfficiency: 10,
+      codingStrength: 8, reasoningStrength: 8, speed: 7, costEfficiency: 8,
       contextWindow: 64000, supportsStreaming: true,
-      bestFor: ["universal", "free", "experimental"],
+      bestFor: ["universal", "experimental", "roteamento"],
     },
-    pricing: { inputPer1M: 0, outputPer1M: 0 },
+    pricing: { inputPer1M: 0.05, outputPer1M: 0.20 },
   },
   {
     name: "GPT-4o mini (OpenAI)",
@@ -228,10 +228,10 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
   let recommendedProvider = AI_PROVIDERS[0]; // Default: Gemini
   let reasoning = "";
   
-  // REGRA 1: Tarefas simples → Gemini (grátis e rápido)
+  // REGRA 1: Tarefas simples → Gemini (rápido e econômico)
   if (complexity === "simple") {
     recommendedProvider = AI_PROVIDERS.find(p => p.id === "gemini") || AI_PROVIDERS[0];
-    reasoning = "Tarefa simples: Gemini (gratuito e rápido)";
+    reasoning = "Tarefa simples: Gemini Flash (rápido)";
   }
   // REGRA 2: Código backend complexo → Claude Sonnet
   else if (isBackend && isCode) {

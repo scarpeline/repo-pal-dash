@@ -5,6 +5,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Aceita UPPER_SNAKE ou minúsculo (ex.: `openai_api_key` no painel). */
+function envFirst(...names: string[]): string | undefined {
+  for (const n of names) {
+    const v = Deno.env.get(n);
+    if (v !== undefined && String(v).trim() !== "") return v;
+  }
+  return undefined;
+}
+
+/** Modo auto: escolhe modelo conforme contexto (código, tamanho, complexidade) e secrets disponíveis. */
+function pickAutoModel(messages: any[], fileContent?: string): string {
+  const has = (...keys: string[]) => !!envFirst(...keys);
+  const lastUser = String(
+    [...messages].reverse().find((m: any) => m.role === "user")?.content ?? "",
+  );
+  const blob = messages.map((m: any) => (typeof m.content === "string" ? m.content : "")).join("\n");
+  const scan = (lastUser + "\n" + blob).slice(-24_000).toLowerCase();
+
+  const codeScore = [
+    /```/.test(lastUser),
+    /\b(function|const|class|import|export|def |\basync\b|interface|type |\bhook\b)\b/.test(scan),
+    /\.(tsx?|jsx?|vue|py|go|rs)\b/.test(scan),
+    /\b(sql|prisma|supabase|endpoint|api rest|graphql)\b/.test(scan),
+  ].filter(Boolean).length;
+
+  const expert =
+    /\b(refator|arquitetura|segurança|owasp|performance|codebase|projeto inteiro|multi[- ]?arquivo|complex)\b/i.test(
+      lastUser,
+    ) || lastUser.length > 4000 || (fileContent?.length ?? 0) > 14_000;
+
+  const longCtx = (fileContent?.length ?? 0) > 7000 || messages.length > 10 || lastUser.length > 3000;
+
+  const tiny = lastUser.length < 160 && codeScore === 0 && !(fileContent && fileContent.length > 400);
+
+  if (expert && has("ANTHROPIC_API_KEY", "anthropic_api_key")) return "claude-sonnet";
+  if (expert && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
+
+  if (longCtx && has("KIMI_API_KEY", "kimi_api_key")) return "kimi";
+
+  if (codeScore >= 2 && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
+  if (codeScore >= 1 && lastUser.length > 500 && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
+
+  if (tiny && has("GROQ_API_KEY", "groq_api_key")) return "groq-8b";
+  if (tiny && has("GEMINI_API_KEY", "gemini_api_key")) return "gemini";
+
+  if (codeScore >= 1 && has("GROQ_API_KEY", "groq_api_key")) return "groq";
+
+  if (has("GEMINI_API_KEY", "gemini_api_key")) return "gemini";
+  if (has("GROQ_API_KEY", "groq_api_key")) return "groq-8b";
+  if (has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
+  if (has("OPENROUTER_API_KEY", "openrouter_api_key")) return "openrouter";
+  if (has("ANTHROPIC_API_KEY", "anthropic_api_key")) return "claude-haiku";
+  if (has("OPENAI_API_KEY", "openai_api_key") || has("LOVABLE_API_KEY", "lovable_api_key")) return "openai";
+  return "gemini";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -62,10 +118,10 @@ Deno.serve(async (req) => {
 
     // ── Check AI Balances (Super Admin action) ──
     if (body.action === "check-ai-balances") {
-      const geminiKey = Deno.env.get("GEMINI_API_KEY");
-      const deepseekKey = Deno.env.get("DEEPSEEK_API_KEY");
-      const kimiKey = Deno.env.get("KIMI_API_KEY");
-      const groqKey = Deno.env.get("GROQ_API_KEY");
+      const geminiKey = envFirst("GEMINI_API_KEY", "gemini_api_key");
+      const deepseekKey = envFirst("DEEPSEEK_API_KEY", "deepseek_api_key");
+      const kimiKey = envFirst("KIMI_API_KEY", "kimi_api_key");
+      const groqKey = envFirst("GROQ_API_KEY", "groq_api_key");
 
       const results: Record<string, { balance: string | null; error: string | null; currency: string }> = {};
 
@@ -111,7 +167,7 @@ Deno.serve(async (req) => {
       if (geminiKey) {
         try {
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
-          results.gemini = { balance: res.ok ? "Gratuito" : null, error: res.ok ? null : `HTTP ${res.status}`, currency: "USD" };
+          results.gemini = { balance: res.ok ? "Key válida" : null, error: res.ok ? null : `HTTP ${res.status}`, currency: "USD" };
         } catch (e) { results.gemini = { balance: null, error: String(e), currency: "USD" }; }
       } else {
         results.gemini = { balance: null, error: "API key não configurada", currency: "USD" };
@@ -152,16 +208,17 @@ Deno.serve(async (req) => {
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
-    console.log("ai-chat request:", { userId: user.id, rawModel, selectedModel, messageCount: messages?.length });
+    const routedModel = selectedModel === "auto"
+      ? pickAutoModel(messages, fileContent)
+      : selectedModel;
 
-    // ── Map short ID to pricing model_id ──
+    // ── Map short ID to pricing model_id (cada modelo cobra conforme linha em ai_model_pricing) ──
     const modelIdMap: Record<string, string> = {
       "auto":           "google/gemini-2.5-flash",
       "gemini":         "google/gemini-2.5-flash",
       "deepseek":       "deepseek/deepseek-coder",
       "groq":           "groq/llama-4-scout",
       "groq-8b":        "groq/llama-3.1-8b",
-      
       "kimi":           "moonshot/moonshot-v1-32k",
       "openrouter":     "openrouter/deepseek-free",
       "claude-haiku":   "anthropic/claude-haiku-4-5",
@@ -169,9 +226,18 @@ Deno.serve(async (req) => {
       "claude-opus":    "anthropic/claude-opus-4-6",
       "openai":         "openai/gpt-4o-mini",
     };
-    const pricingModelId = modelIdMap[selectedModel] || "google/gemini-2.5-flash";
+    const pricingModelId = modelIdMap[routedModel] || "google/gemini-2.5-flash";
 
-    // Fetch resale pricing
+    console.log("ai-chat request:", {
+      userId: user.id,
+      rawModel,
+      selectedModel,
+      routedModel,
+      auto: selectedModel === "auto",
+      messageCount: messages?.length,
+    });
+
+    // Fetch resale pricing do modelo que será chamado (não usar “o mais caro” como fallback)
     const { data: pricing } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("resale_price_input_per_million, resale_price_output_per_million, model_label")
@@ -179,13 +245,14 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .maybeSingle();
 
-    const { data: fallbackPricing } = !pricing ? await supabaseAdmin
-      .from("ai_model_pricing")
-      .select("resale_price_input_per_million, resale_price_output_per_million")
-      .eq("is_active", true)
-      .order("resale_price_input_per_million", { ascending: false })
-      .limit(1)
-      .maybeSingle() : { data: null };
+    const { data: fallbackPricing } = !pricing
+      ? await supabaseAdmin
+        .from("ai_model_pricing")
+        .select("resale_price_input_per_million, resale_price_output_per_million")
+        .eq("model_id", "google/gemini-2.5-flash")
+        .eq("is_active", true)
+        .maybeSingle()
+      : { data: null };
 
     const activePricing = pricing || fallbackPricing;
     const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;
@@ -221,12 +288,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    const deepseekApiKey = Deno.env.get("DEEPSEEK_API_KEY");
-    const kimiApiKey = Deno.env.get("KIMI_API_KEY");
-    const groqApiKey = Deno.env.get("GROQ_API_KEY");
-    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const geminiApiKey = envFirst("GEMINI_API_KEY", "gemini_api_key");
+    const deepseekApiKey = envFirst("DEEPSEEK_API_KEY", "deepseek_api_key");
+    const kimiApiKey = envFirst("KIMI_API_KEY", "kimi_api_key");
+    const groqApiKey = envFirst("GROQ_API_KEY", "groq_api_key");
+    const openrouterApiKey = envFirst("OPENROUTER_API_KEY", "openrouter_api_key");
+    const anthropicApiKey = envFirst("ANTHROPIC_API_KEY", "anthropic_api_key");
+    const openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key");
+    const lovableGatewayKey = envFirst("LOVABLE_API_KEY", "lovable_api_key");
 
     const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 30_000) => {
       const controller = new AbortController();
@@ -256,42 +325,12 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         : ""
     }`;
 
-    // ── ROUTING: use short IDs exclusively ──
-    let content = "";
-    let providerName = "Gemini";
-    let usedFallback = false;
-
-    const tryGeminiFallback = async (motivo: string): Promise<string> => {
-      if (!geminiApiKey) throw new Error("Nenhuma IA disponível. Configure GEMINI_API_KEY.");
-      usedFallback = true;
-      providerName = "Gemini (fallback)";
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
-      const geminiContents = messages.map((m: any) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-      geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
-      const response = await fetchWithTimeout(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 4096 } }),
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        if (response.status === 429) throw new Error("Rate limit excedido no Gemini. Aguarde alguns segundos.");
-        throw new Error(`Gemini error ${response.status}: ${errText.substring(0, 200)}`);
-      }
-      const aiResult = await response.json();
-      const text = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      return `⚠️ _${motivo} — usando Gemini automaticamente._\n\n${text}`;
-    };
-
-    // Helper for OpenAI-compatible APIs
+    // ── APIs compatíveis OpenAI (chat/completions) ──
     const callOpenAICompatible = async (
       url: string,
       apiKey: string,
       modelName: string,
-      extraHeaders: Record<string, string> = {}
+      extraHeaders: Record<string, string> = {},
     ): Promise<string> => {
       const res = await fetchWithTimeout(url, {
         method: "POST",
@@ -304,199 +343,268 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         }),
       });
       if (!res.ok) {
-        throw new Error(`API error ${res.status}`);
+        const errBody = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errBody.substring(0, 180)}`);
       }
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || "";
+      const text = data.choices?.[0]?.message?.content || "";
+      if (!String(text).trim()) throw new Error("Resposta vazia");
+      return text;
     };
 
-    // ── Route by short ID ──
-    switch (selectedModel) {
-      case "claude-haiku":
-      case "claude-sonnet":
-      case "claude-opus": {
-        if (!anthropicApiKey) {
-          content = await tryGeminiFallback("Claude não configurado (ANTHROPIC_API_KEY ausente)");
-          break;
-        }
-        const claudeModelMap: Record<string, string> = {
-          "claude-haiku": "claude-haiku-4-5",
-          "claude-sonnet": "claude-sonnet-4-5",
-          "claude-opus": "claude-opus-4-6",
-        };
-        const claudeNameMap: Record<string, string> = {
-          "claude-haiku": "Claude Haiku 4.5",
-          "claude-sonnet": "Claude Sonnet 4.5",
-          "claude-opus": "Claude Opus 4.5",
-        };
-        providerName = claudeNameMap[selectedModel] || "Claude";
-        try {
-          const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-api-key": anthropicApiKey, "anthropic-version": "2023-06-01" },
-            body: JSON.stringify({
-              model: claudeModelMap[selectedModel],
-              max_tokens: 4096,
-              system: systemPrompt,
-              messages: messages.map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
-            }),
-          });
-          if (!res.ok) {
-            content = await tryGeminiFallback(`Claude retornou erro ${res.status}`);
-          } else {
-            const data = await res.json();
-            content = data.content?.[0]?.text || "";
-          }
-        } catch (e) {
-          content = await tryGeminiFallback(`Claude erro: ${e}`);
-        }
-        break;
-      }
+    const modelDisplayName: Record<string, string> = {
+      gemini: "Gemini",
+      "groq-8b": "Llama 3.1 8B (Groq)",
+      groq: "Llama 4 Scout (Groq)",
+      deepseek: "DeepSeek",
+      openrouter: "OpenRouter",
+      "claude-haiku": "Claude Haiku 4.5",
+      "claude-sonnet": "Claude Sonnet 4.5",
+      "claude-opus": "Claude Opus 4.5",
+      kimi: "Kimi",
+      openai: "GPT-4o mini",
+    };
 
-      case "deepseek": {
-        if (!deepseekApiKey) {
-          content = await tryGeminiFallback("DeepSeek não configurado (DEEPSEEK_API_KEY ausente)");
-          break;
-        }
-        providerName = "DeepSeek";
-        try {
-          content = await callOpenAICompatible(
+    const claudeApiModel: Record<string, string> = {
+      "claude-haiku": "claude-haiku-4-5",
+      "claude-sonnet": "claude-sonnet-4-5",
+      "claude-opus": "claude-opus-4-6",
+    };
+
+    const canAttempt = (mid: string): boolean => {
+      switch (mid) {
+        case "gemini":
+          return !!geminiApiKey;
+        case "deepseek":
+          return !!deepseekApiKey;
+        case "kimi":
+          return !!kimiApiKey;
+        case "groq":
+        case "groq-8b":
+          return !!groqApiKey;
+        case "openrouter":
+          return !!openrouterApiKey;
+        case "claude-haiku":
+        case "claude-sonnet":
+        case "claude-opus":
+          return !!anthropicApiKey;
+        case "openai":
+          return !!(openaiDirectKey || lovableGatewayKey);
+        default:
+          return false;
+      }
+    };
+
+    const runGemini = async (): Promise<string> => {
+      if (!geminiApiKey) throw new Error("Gemini sem chave");
+      const geminiUrl =
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+      const geminiContents = messages.map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
+      const response = await fetchWithTimeout(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: geminiContents,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+        }),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini ${response.status}: ${errText.substring(0, 180)}`);
+      }
+      const aiResult = await response.json();
+      const text = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (!String(text).trim()) throw new Error("Gemini resposta vazia");
+      return text;
+    };
+
+    const runClaude = async (mid: string): Promise<string> => {
+      if (!anthropicApiKey) throw new Error("Claude sem chave");
+      const apiModel = claudeApiModel[mid];
+      if (!apiModel) throw new Error("Claude modelo inválido");
+      const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: apiModel,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: messages.map((m: any) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`Claude ${res.status}: ${t.substring(0, 180)}`);
+      }
+      const data = await res.json();
+      const text = data.content?.[0]?.text || "";
+      if (!String(text).trim()) throw new Error("Claude resposta vazia");
+      return text;
+    };
+
+    const runGroq = async (mid: "groq" | "groq-8b"): Promise<string> => {
+      if (!groqApiKey) throw new Error("Groq sem chave");
+      const groqModelMap: Record<string, string> = {
+        groq: "meta-llama/llama-4-scout-17b-16e-instruct",
+        "groq-8b": "llama-3.1-8b-instant",
+      };
+      return callOpenAICompatible(
+        "https://api.groq.com/openai/v1/chat/completions",
+        groqApiKey,
+        groqModelMap[mid],
+      );
+    };
+
+    const runOpenAI = async (): Promise<string> => {
+      if (openaiDirectKey) {
+        return callOpenAICompatible(
+          "https://api.openai.com/v1/chat/completions",
+          openaiDirectKey,
+          "gpt-4o-mini",
+        );
+      }
+      if (lovableGatewayKey) {
+        return callOpenAICompatible(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          lovableGatewayKey,
+          "openai/gpt-4o-mini",
+        );
+      }
+      throw new Error("OpenAI sem chave");
+    };
+
+    const runOne = async (mid: string): Promise<string> => {
+      switch (mid) {
+        case "gemini":
+          return await runGemini();
+        case "deepseek":
+          return await callOpenAICompatible(
             "https://api.deepseek.com/v1/chat/completions",
-            deepseekApiKey,
-            "deepseek-coder"
+            deepseekApiKey!,
+            "deepseek-coder",
           );
-        } catch (e) {
-          content = await tryGeminiFallback(`DeepSeek erro: ${e}`);
-        }
-        break;
-      }
-
-      case "kimi": {
-        if (!kimiApiKey) {
-          content = await tryGeminiFallback("Kimi não configurado (KIMI_API_KEY ausente)");
-          break;
-        }
-        providerName = "Kimi";
-        try {
-          content = await callOpenAICompatible(
+        case "kimi":
+          return await callOpenAICompatible(
             "https://api.moonshot.cn/v1/chat/completions",
-            kimiApiKey,
-            "moonshot-v1-32k"
+            kimiApiKey!,
+            "moonshot-v1-32k",
           );
-        } catch (e) {
-          content = await tryGeminiFallback(`Kimi erro: ${e}`);
-        }
-        break;
-      }
-
-      case "groq":
-      case "groq-8b": {
-        if (!groqApiKey) {
-          content = await tryGeminiFallback("Groq não configurado (GROQ_API_KEY ausente)");
-          break;
-        }
-        const groqModelMap: Record<string, string> = {
-          "groq": "meta-llama/llama-4-scout-17b-16e-instruct",
-          "groq-8b": "llama-3.1-8b-instant",
-        };
-        const groqNameMap: Record<string, string> = {
-          "groq": "Llama 4 Scout (Groq)",
-          "groq-8b": "Llama 3.1 8B (Groq)",
-        };
-        providerName = groqNameMap[selectedModel] || "Groq";
-        try {
-          content = await callOpenAICompatible(
-            "https://api.groq.com/openai/v1/chat/completions",
-            groqApiKey,
-            groqModelMap[selectedModel]
-          );
-        } catch (e) {
-          content = await tryGeminiFallback(`Groq erro: ${e}`);
-        }
-        break;
-      }
-
-      case "openrouter": {
-        if (!openrouterApiKey) {
-          content = await tryGeminiFallback("OpenRouter não configurado (OPENROUTER_API_KEY ausente)");
-          break;
-        }
-        providerName = "OpenRouter";
-        try {
-          content = await callOpenAICompatible(
+        case "groq":
+          return await runGroq("groq");
+        case "groq-8b":
+          return await runGroq("groq-8b");
+        case "openrouter":
+          return await callOpenAICompatible(
             "https://openrouter.ai/api/v1/chat/completions",
-            openrouterApiKey,
+            openrouterApiKey!,
             "deepseek/deepseek-chat:free",
-            { "HTTP-Referer": "https://iaprogramador.online", "X-Title": "IAProgramador" }
+            { "HTTP-Referer": "https://iaprogramador.online", "X-Title": "IAProgramador" },
           );
-        } catch (e) {
-          content = await tryGeminiFallback(`OpenRouter erro: ${e}`);
-        }
-        break;
+        case "claude-haiku":
+        case "claude-sonnet":
+        case "claude-opus":
+          return await runClaude(mid);
+        case "openai":
+          return await runOpenAI();
+        default:
+          if (canAttempt("gemini")) return await runGemini();
+          throw new Error(`Modelo não suportado: ${mid}`);
       }
+    };
 
-      case "openai": {
-        // Use Lovable AI Gateway for OpenAI models
-        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-        if (!lovableKey) {
-          content = await tryGeminiFallback("OpenAI não configurado");
-          break;
-        }
-        providerName = "GPT-4o mini";
-        try {
-          content = await callOpenAICompatible(
-            "https://ai.gateway.lovable.dev/v1/chat/completions",
-            lovableKey,
-            "openai/gpt-5-nano"
-          );
-        } catch (e) {
-          content = await tryGeminiFallback(`OpenAI erro: ${e}`);
+    /** Ordem após o preferido: rápidos/econômicos primeiro, modelos premium por último. */
+    const FALLBACK_ORDER = [
+      "gemini",
+      "groq-8b",
+      "groq",
+      "deepseek",
+      "openrouter",
+      "claude-haiku",
+      "openai",
+      "kimi",
+      "claude-sonnet",
+      "claude-opus",
+    ];
+
+    const preferred = [routedModel, ...FALLBACK_ORDER.filter((m) => m !== routedModel)];
+    const attemptModels = [...new Set(preferred)].filter(canAttempt);
+
+    let content = "";
+    let providerName = "—";
+    let billingShortId = routedModel;
+    let usedFallback = false;
+    let lastError = "";
+    const tried: string[] = [];
+
+    if (attemptModels.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Nenhuma chave de IA encontrada no servidor. Use nomes como OPENAI_API_KEY ou openai_api_key, GEMINI_API_KEY ou gemini_api_key, etc.",
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    for (const mid of attemptModels) {
+      tried.push(mid);
+      try {
+        const text = await runOne(mid);
+        content = text;
+        billingShortId = mid;
+        providerName = modelDisplayName[mid] || mid;
+        usedFallback = mid !== routedModel;
+        if (usedFallback) {
+          const wanted = modelDisplayName[routedModel] || routedModel;
+          content =
+            `_*${wanted}* não respondeu; esta mensagem foi gerada com **${providerName}**._\n\n${content}`;
         }
         break;
-      }
-
-      // Default: Gemini (handles "auto", "gemini", and any unknown model)
-      default: {
-        if (!geminiApiKey) {
-          return new Response(JSON.stringify({ error: "Nenhuma IA configurada. Configure GEMINI_API_KEY." }), {
-            status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        providerName = "Gemini";
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
-        const geminiContents = messages.map((m: any) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }));
-        geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
-        const response = await fetchWithTimeout(geminiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 4096 } }),
-        });
-        if (!response.ok) {
-          const errText = await response.text();
-          if (response.status === 429) {
-            return new Response(JSON.stringify({ error: "Rate limit excedido no Gemini. Aguarde." }), {
-              status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          throw new Error(`Gemini error ${response.status}: ${errText.substring(0, 300)}`);
-        }
-        const aiResult = await response.json();
-        content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        break;
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+        console.warn(`ai-chat modelo ${mid} falhou:`, lastError);
       }
     }
 
-    // ── Calculate cost and debit ──
+    if (!content) {
+      return new Response(
+        JSON.stringify({
+          error: `Nenhuma IA respondeu após tentar: ${tried.join(", ")}. Último erro: ${lastError}`,
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ── Calculate cost and debit (preço do modelo que efetivamente gerou a resposta, ex. fallback Gemini) ──
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
+    const billedPricingModelId = modelIdMap[billingShortId] || "google/gemini-2.5-flash";
+    const { data: billedResale } = await supabaseAdmin
+      .from("ai_model_pricing")
+      .select("resale_price_input_per_million, resale_price_output_per_million")
+      .eq("model_id", billedPricingModelId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const billResaleIn  = billedResale?.resale_price_input_per_million  ?? 50;
+    const billResaleOut = billedResale?.resale_price_output_per_million ?? 200;
+
     const actualCostCents = Math.max(
       Math.ceil(
-        (inputTokens  / 1_000_000) * resaleInput +
-        (outputTokens / 1_000_000) * resaleOutput
+        (inputTokens  / 1_000_000) * billResaleIn +
+        (outputTokens / 1_000_000) * billResaleOut
       ),
       20
     );
@@ -504,7 +612,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const { data: apiPricing } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("api_cost_input_per_million, api_cost_output_per_million")
-      .eq("model_id", pricingModelId)
+      .eq("model_id", billedPricingModelId)
       .eq("is_active", true)
       .maybeSingle();
 
@@ -518,7 +626,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const platformProfitCents = Math.max(actualCostCents - apiCostCents, 0);
     const affiliateCommissionCents = Math.floor(platformProfitCents * 0.30);
 
-    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | modelo: ${selectedModel} (${providerName}) | revenda: R$${(actualCostCents/100).toFixed(4)} | custo: R$${(apiCostCents/100).toFixed(4)}`);
+    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | faturado como ${billingShortId} (${providerName}) | revenda: R$${(actualCostCents/100).toFixed(4)} | custo API: R$${(apiCostCents/100).toFixed(4)}`);
 
     // Debit user
     try {
@@ -530,7 +638,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         }).eq("user_id", user.id),
         supabaseAdmin.from("token_usage").insert({
           user_id: user.id,
-          model: selectedModel,
+          model: billingShortId,
           input_tokens: inputTokens,
           output_tokens: outputTokens,
           cost_cents: actualCostCents,
@@ -586,7 +694,14 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     return new Response(JSON.stringify({
       content,
       provider: providerName,
-      model: selectedModel,
+      model: billingShortId,
+      routing: {
+        user_choice: selectedModel,
+        resolved: routedModel,
+        billed: billingShortId,
+        used_fallback: usedFallback,
+        tried_models: tried,
+      },
       usage: { input_tokens: inputTokens, output_tokens: outputTokens, cost_cents: actualCostCents },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

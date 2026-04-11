@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
             JSON.stringify({ 
               ok: true, 
               sent: false, 
-              message: `Resend API error (${emailRes.status}): ${errorData}. Verifique: 1) Se RESEND_API_KEY está configurada no Lovable Secrets, 2) Se o domínio iaprogramador.online está verificado no Resend dashboard.`,
+              message: `Resend API error (${emailRes.status}): ${errorData}. Verifique: 1) Se RESEND_API_KEY está configurada nas variáveis de ambiente do projeto, 2) Se o domínio iaprogramador.online está verificado no Resend dashboard.`,
               code: code 
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -71,7 +71,7 @@ const getModelBadge = (model?: string) => {
     "claude-haiku": "Claude Haiku",
     "claude-sonnet": "Claude Sonnet",
     "claude-opus": "Claude Opus",
-    openai: "Lovable AI",
+    openai: "GPT-4o mini",
   };
 
   return badges[model || "auto"] || model || "Auto";

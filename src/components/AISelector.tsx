@@ -48,7 +48,7 @@ export function AISelector({
   const [isAuto, setIsAuto] = useState(autoMode);
 
   useEffect(() => {
-    // DeepSeek e Kimi têm API keys configuradas no Supabase Secrets
+    // Chaves ficam no servidor (edge functions); o app só indica quais provedores costumam estar ativos.
     // Gemini sempre habilitado, os demais dependem de keys no frontend (não usadas aqui)
     const alwaysEnabled = ["gemini", "deepseek", "kimi", "openrouter", "groq", "claude-sonnet", "claude-haiku", "claude-opus"];
     const updated = providers.map(p => ({
@@ -128,7 +128,9 @@ export function AISelector({
               </div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>
-                  {provider.pricing.inputPer1M === 0 ? "Grátis" : `$${provider.pricing.inputPer1M}`}
+                  {provider.pricing.inputPer1M < 0.01 && provider.pricing.outputPer1M < 0.01
+                    ? "Tarifa na carteira"
+                    : `$${provider.pricing.inputPer1M}/$${provider.pricing.outputPer1M} /1M`}
                 </span>
                 <span>•</span>
                 <span>⚡{provider.characteristics.speed}/10</span>

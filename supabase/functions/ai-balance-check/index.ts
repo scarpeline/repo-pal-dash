@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
       results.gemini = {
-        balance: res.ok ? "Gratuito" : null,
+        balance: res.ok ? "Key válida" : null,
         error: res.ok ? null : `HTTP ${res.status}`,
         currency: "USD",
         low: false,

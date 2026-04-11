@@ -77,8 +77,7 @@ REPOSITÓRIO: ${this.repo.full_name} (branch: ${this.branch})
 ARQUIVOS DO REPOSITÓRIO:
 ${fileMap.map(f => `--- ${f.path} ---
 ${f.content}
-`).join('
-')}
+`).join("\n\n")}
 
 REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
 1. Sua única resposta deve ser EXCLUSIVAMENTE um objeto JSON válido, sem usar blocos de markdown como \`\`\`json.
