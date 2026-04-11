@@ -68,7 +68,7 @@ const AffiliateDashboard = () => {
   };
 
   const [pixKey, setPixKey] = useState(profile?.pix_key || "");
-  const [pixKeyType, setPixKeyType] = useState(profile?.pix_key_type || "cpf");
+  const [pixKeyType, setPixKeyType] = useState((profile as any)?.pix_key_type || "cpf");
   const [savingPix, setSavingPix] = useState(false);
 
   // Asaas wallet
@@ -175,7 +175,7 @@ const AffiliateDashboard = () => {
       user_id: user?.id,
       amount_cents: withdrawable,
       pix_key: profile.pix_key,
-      pix_key_type: profile.pix_key_type,
+      pix_key_type: (profile as any).pix_key_type,
       status: 'pending'
     } as any);
 
