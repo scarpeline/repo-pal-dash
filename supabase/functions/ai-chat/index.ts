@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Extract user from JWT
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -37,13 +36,13 @@ Deno.serve(async (req) => {
       .eq("role", "blocked");
     
     if (rolesData && rolesData.length > 0) {
-      return new Response(JSON.stringify({ error: "Sua conta foi temporariamente bloqueada por violação das regras. O acesso à Inteligência Artificial está restrito no momento." }), {
+      return new Response(JSON.stringify({ error: "Sua conta foi bloqueada. Acesso à IA restrito." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── Rate limiting: máx 30 requisições por minuto por usuário ──
+    // Rate limiting: 30 req/min
     const windowStart = new Date(Date.now() - 60_000).toISOString();
     const { count: recentCount } = await supabaseAdmin
       .from("token_usage")
@@ -53,12 +52,13 @@ Deno.serve(async (req) => {
 
     if ((recentCount ?? 0) >= 30) {
       return new Response(
-        JSON.stringify({ error: "Muitas requisições. Aguarde um momento antes de tentar novamente." }),
+        JSON.stringify({ error: "Muitas requisições. Aguarde um momento." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
     const body = await req.json();
-    const { messages, fileContent, fileName, repoName, branch, model } = body;
+    const { messages, fileContent, fileName, repoName, branch } = body;
 
     // ── Check AI Balances (Super Admin action) ──
     if (body.action === "check-ai-balances") {
@@ -69,12 +69,9 @@ Deno.serve(async (req) => {
 
       const results: Record<string, { balance: string | null; error: string | null; currency: string }> = {};
 
-      // DeepSeek
       if (deepseekKey) {
         try {
-          const res = await fetch("https://api.deepseek.com/user/balance", {
-            headers: { Authorization: `Bearer ${deepseekKey}` },
-          });
+          const res = await fetch("https://api.deepseek.com/user/balance", { headers: { Authorization: `Bearer ${deepseekKey}` } });
           if (res.ok) {
             const data = await res.json();
             const balance = data?.balance_infos?.[0]?.total_balance ?? data?.balance ?? null;
@@ -82,19 +79,14 @@ Deno.serve(async (req) => {
           } else {
             results.deepseek = { balance: null, error: `HTTP ${res.status}`, currency: "USD" };
           }
-        } catch (e) {
-          results.deepseek = { balance: null, error: String(e), currency: "USD" };
-        }
+        } catch (e) { results.deepseek = { balance: null, error: String(e), currency: "USD" }; }
       } else {
         results.deepseek = { balance: null, error: "API key não configurada", currency: "USD" };
       }
 
-      // Kimi
       if (kimiKey) {
         try {
-          const res = await fetch("https://api.moonshot.cn/v1/users/me/balance", {
-            headers: { Authorization: `Bearer ${kimiKey}` },
-          });
+          const res = await fetch("https://api.moonshot.cn/v1/users/me/balance", { headers: { Authorization: `Bearer ${kimiKey}` } });
           if (res.ok) {
             const data = await res.json();
             const balance = data?.data?.available_balance ?? data?.balance ?? null;
@@ -102,35 +94,25 @@ Deno.serve(async (req) => {
           } else {
             results.kimi = { balance: null, error: `HTTP ${res.status}`, currency: "CNY" };
           }
-        } catch (e) {
-          results.kimi = { balance: null, error: String(e), currency: "CNY" };
-        }
+        } catch (e) { results.kimi = { balance: null, error: String(e), currency: "CNY" }; }
       } else {
         results.kimi = { balance: null, error: "API key não configurada", currency: "CNY" };
       }
 
-      // Groq
       if (groqKey) {
         try {
-          const res = await fetch("https://api.groq.com/openai/v1/models", {
-            headers: { Authorization: `Bearer ${groqKey}` },
-          });
+          const res = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: `Bearer ${groqKey}` } });
           results.groq = { balance: res.ok ? "Key válida" : null, error: res.ok ? null : `HTTP ${res.status}`, currency: "USD" };
-        } catch (e) {
-          results.groq = { balance: null, error: String(e), currency: "USD" };
-        }
+        } catch (e) { results.groq = { balance: null, error: String(e), currency: "USD" }; }
       } else {
         results.groq = { balance: null, error: "API key não configurada", currency: "USD" };
       }
 
-      // Gemini
       if (geminiKey) {
         try {
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
           results.gemini = { balance: res.ok ? "Gratuito" : null, error: res.ok ? null : `HTTP ${res.status}`, currency: "USD" };
-        } catch (e) {
-          results.gemini = { balance: null, error: String(e), currency: "USD" };
-        }
+        } catch (e) { results.gemini = { balance: null, error: String(e), currency: "USD" }; }
       } else {
         results.gemini = { balance: null, error: "API key não configurada", currency: "USD" };
       }
@@ -139,14 +121,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    
-    console.log("ai-chat request:", { 
-      userId: user.id, 
-      messageCount: messages?.length,
-      model: model || "default",
-      hasFileContent: !!fileContent,
-      hasFileName: !!fileName
-    });
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "Missing messages array" }), {
@@ -155,10 +129,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    const selectedModel = model || "google/gemini-3-flash-preview";
-    console.log("Selected model:", selectedModel);
+    // ── Normalize model ID ──
+    // The frontend sends short IDs like "gemini", "deepseek", "groq", "auto", etc.
+    // We normalize to a canonical short ID for routing.
+    const rawModel = body.model || "gemini";
+    
+    // Map any full model path back to short ID
+    const fullPathToShortId: Record<string, string> = {
+      "google/gemini-2.5-flash": "gemini",
+      "google/gemini-3-flash-preview": "gemini",
+      "google/gemini-2.5-pro": "gemini",
+      "deepseek/deepseek-coder": "deepseek",
+      "groq/llama-4-scout": "groq",
+      "groq/llama-3.1-8b": "groq-8b",
+      "groq/gpt-oss": "gpt-oss",
+      "moonshot/moonshot-v1-32k": "kimi",
+      "openrouter/deepseek-free": "openrouter",
+      "anthropic/claude-haiku-4-5": "claude-haiku",
+      "anthropic/claude-sonnet-4-5": "claude-sonnet",
+      "anthropic/claude-opus-4-6": "claude-opus",
+      "openai/gpt-4o-mini": "openai",
+    };
 
-    // ── Mapear model ID do frontend para o model_id da tabela ai_model_pricing ──
+    const selectedModel = fullPathToShortId[rawModel] || rawModel;
+    console.log("ai-chat request:", { userId: user.id, rawModel, selectedModel, messageCount: messages?.length });
+
+    // ── Map short ID to pricing model_id ──
     const modelIdMap: Record<string, string> = {
       "auto":           "google/gemini-2.5-flash",
       "gemini":         "google/gemini-2.5-flash",
@@ -173,9 +169,9 @@ Deno.serve(async (req) => {
       "claude-opus":    "anthropic/claude-opus-4-6",
       "openai":         "openai/gpt-4o-mini",
     };
-    const pricingModelId = modelIdMap[selectedModel] || selectedModel;
+    const pricingModelId = modelIdMap[selectedModel] || "google/gemini-2.5-flash";
 
-    // Buscar preço de REVENDA configurado no Super Admin
+    // Fetch resale pricing
     const { data: pricing } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("resale_price_input_per_million, resale_price_output_per_million, model_label")
@@ -183,7 +179,6 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .maybeSingle();
 
-    // Fallback: buscar qualquer modelo ativo se não encontrar o específico
     const { data: fallbackPricing } = !pricing ? await supabaseAdmin
       .from("ai_model_pricing")
       .select("resale_price_input_per_million, resale_price_output_per_million")
@@ -193,35 +188,26 @@ Deno.serve(async (req) => {
       .maybeSingle() : { data: null };
 
     const activePricing = pricing || fallbackPricing;
+    const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;
+    const resaleOutput = activePricing?.resale_price_output_per_million ?? 2000;
 
-    // Preço de revenda (o que o usuário paga) — NUNCA usar preço de custo da API
-    // Fallback seguro: valores conservadores que garantem lucro mesmo sem config na tabela
-    // Gemini/OpenRouter grátis → cobramos taxa de serviço mínima
-    // Para modelos pagos: fallback alto para não causar prejuízo
-    const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;  // R$0,005/1M — seguro
-    const resaleOutput = activePricing?.resale_price_output_per_million ?? 2000; // R$0,020/1M — seguro
-
-    // Estimar tokens de input com base no tamanho real das mensagens
     const totalInputChars = messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0);
     const estimatedInputTokens  = Math.max(Math.ceil(totalInputChars / 4), 200);
-    const estimatedOutputTokens = 1000; // estimativa conservadora de output
+    const estimatedOutputTokens = 1000;
 
     const estimatedCostCents = Math.ceil(
       (estimatedInputTokens  / 1_000_000) * resaleInput +
       (estimatedOutputTokens / 1_000_000) * resaleOutput
     );
-    // Mínimo de R$ 0,20 por requisição
     const minCharge = Math.max(estimatedCostCents, 20);
 
-    // Check user balance
     const { data: balance } = await supabaseAdmin
       .from("balances")
-      .select("balance_cents")
+      .select("balance_cents, total_spent_cents")
       .eq("user_id", user.id)
       .single();
 
     const currentBalance = balance?.balance_cents || 0;
-    console.log(`User ${user.id} balance check: R$ ${(currentBalance / 100).toFixed(2)} vs min charge R$ ${(minCharge / 100).toFixed(2)}`);
     
     if (currentBalance < minCharge) {
       return new Response(
@@ -231,10 +217,7 @@ Deno.serve(async (req) => {
           currentBalance,
           requiredAmount: minCharge
         }),
-        {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -245,7 +228,6 @@ Deno.serve(async (req) => {
     const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    // Helper com timeout de 30s para todas as chamadas de IA
     const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 30_000) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -274,26 +256,13 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         : ""
     }`;
 
-    // Determinar qual provider usar baseado no modelo selecionado
-    const isDeepSeek = selectedModel.includes("deepseek");
-    const isKimi = selectedModel.includes("moonshot") || selectedModel.includes("kimi");
-    const isGroq = selectedModel === "groq" || selectedModel === "groq-8b" || selectedModel === "gpt-oss" ||
-                   selectedModel.includes("llama") || selectedModel.includes("mixtral") ||
-                   selectedModel.includes("groq");
-    const isOpenRouter = selectedModel === "openrouter" || (selectedModel.includes("/") && !selectedModel.includes("llama-4"));
-    const isClaude = selectedModel.includes("claude");
-
-    // ── Roteamento de modelos com fallback inteligente para Gemini ──
-    // Se a API key do modelo solicitado não estiver configurada,
-    // usa Gemini automaticamente e avisa o usuário na resposta.
-
+    // ── ROUTING: use short IDs exclusively ──
     let content = "";
     let providerName = "Gemini";
     let usedFallback = false;
-    let requestedModel = selectedModel;
 
     const tryGeminiFallback = async (motivo: string): Promise<string> => {
-      if (!geminiApiKey) throw new Error("Nenhuma IA disponível. Configure pelo menos GEMINI_API_KEY no Supabase.");
+      if (!geminiApiKey) throw new Error("Nenhuma IA disponível. Configure GEMINI_API_KEY.");
       usedFallback = true;
       providerName = "Gemini (fallback)";
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
@@ -317,167 +286,224 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       return `⚠️ _${motivo} — usando Gemini automaticamente._\n\n${text}`;
     };
 
-    // ── Claude (Anthropic) ──
-    if (isClaude) {
-      if (!anthropicApiKey) {
-        content = await tryGeminiFallback("Claude não configurado (ANTHROPIC_API_KEY ausente)");
-      } else {
-        const isOpus  = selectedModel.includes("opus");
-        const isHaiku = selectedModel.includes("haiku");
-        providerName = isOpus ? "Claude Opus 4.6" : isHaiku ? "Claude Haiku 4.5" : "Claude Sonnet 4.5";
-        const claudeModel = isOpus ? "claude-opus-4-5" : isHaiku ? "claude-haiku-4-5" : "claude-sonnet-4-5";
-        const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": anthropicApiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({
-            model: claudeModel, max_tokens: 4096, system: systemPrompt,
-            messages: messages.map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
-          }),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          content = await tryGeminiFallback(`Claude retornou erro ${res.status}`);
-        } else {
-          const data = await res.json();
-          content = data.content?.[0]?.text || "";
-        }
-      }
-    }
-    // ── DeepSeek ──
-    else if (isDeepSeek) {
-      if (!deepseekApiKey) {
-        content = await tryGeminiFallback("DeepSeek não configurado (DEEPSEEK_API_KEY ausente)");
-      } else {
-        providerName = "DeepSeek";
-        const dsModel = selectedModel.includes("reasoner") ? "deepseek-reasoner" :
-                        selectedModel.includes("coder")    ? "deepseek-coder"    : "deepseek-chat";
-        const res = await fetchWithTimeout("https://api.deepseek.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${deepseekApiKey}` },
-          body: JSON.stringify({ model: dsModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-        });
-        if (!res.ok) {
-          content = await tryGeminiFallback(`DeepSeek retornou erro ${res.status}`);
-        } else {
-          const data = await res.json();
-          content = data.choices?.[0]?.message?.content || "";
-        }
-      }
-    }
-    // ── Kimi (Moonshot) ──
-    else if (isKimi) {
-      if (!kimiApiKey) {
-        content = await tryGeminiFallback("Kimi não configurado (KIMI_API_KEY ausente)");
-      } else {
-        providerName = "Kimi";
-        const kimiModel = selectedModel.includes("128k") ? "moonshot-v1-128k" :
-                          selectedModel.includes("32k")  ? "moonshot-v1-32k"  : "moonshot-v1-8k";
-        const res = await fetchWithTimeout("https://api.moonshot.cn/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${kimiApiKey}` },
-          body: JSON.stringify({ model: kimiModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-        });
-        if (!res.ok) {
-          content = await tryGeminiFallback(`Kimi retornou erro ${res.status}`);
-        } else {
-          const data = await res.json();
-          content = data.choices?.[0]?.message?.content || "";
-        }
-      }
-    }
-    // ── Groq ──
-    else if (isGroq) {
-      if (!groqApiKey) {
-        content = await tryGeminiFallback("Groq não configurado (GROQ_API_KEY ausente)");
-      } else {
-        const isGptOss = selectedModel === "gpt-oss";
-        const is8b     = selectedModel === "groq-8b" || selectedModel.includes("8b");
-        providerName   = isGptOss ? "GPT OSS (Groq)" : is8b ? "Llama 3.1 8B" : "Llama 4 Scout";
-        const groqModel = isGptOss ? "openai/gpt-4o-mini" :
-                          is8b     ? "llama-3.1-8b-instant" :
-                                     "meta-llama/llama-4-scout-17b-16e-instruct";
-        const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqApiKey}` },
-          body: JSON.stringify({ model: groqModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-        });
-        if (!res.ok) {
-          content = await tryGeminiFallback(`Groq retornou erro ${res.status}`);
-        } else {
-          const data = await res.json();
-          content = data.choices?.[0]?.message?.content || "";
-        }
-      }
-    }
-    // ── OpenRouter ──
-    else if (isOpenRouter) {
-      if (!openrouterApiKey) {
-        content = await tryGeminiFallback("OpenRouter não configurado (OPENROUTER_API_KEY ausente)");
-      } else {
-        providerName = "OpenRouter";
-        const orModel = selectedModel === "openrouter" ? "deepseek/deepseek-chat:free" : selectedModel;
-        const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json", "Authorization": `Bearer ${openrouterApiKey}`,
-            "HTTP-Referer": "https://iaprogramador.online", "X-Title": "IAProgramador",
-          },
-          body: JSON.stringify({ model: orModel, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 4096 }),
-        });
-        if (!res.ok) {
-          content = await tryGeminiFallback(`OpenRouter retornou erro ${res.status}`);
-        } else {
-          const data = await res.json();
-          content = data.choices?.[0]?.message?.content || "";
-        }
-      }
-    }
-    // ── Gemini (padrão) ──
-    else {
-      if (!geminiApiKey) {
-        return new Response(JSON.stringify({ error: "Nenhuma IA configurada. Configure GEMINI_API_KEY nas variáveis de ambiente do Supabase." }), {
-          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      providerName = "Gemini";
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
-      const geminiContents = messages.map((m: any) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-      geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
-      const response = await fetchWithTimeout(geminiUrl, {
+    // Helper for OpenAI-compatible APIs
+    const callOpenAICompatible = async (
+      url: string,
+      apiKey: string,
+      modelName: string,
+      extraHeaders: Record<string, string> = {}
+    ): Promise<string> => {
+      const res = await fetchWithTimeout(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 4096 } }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`, ...extraHeaders },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          temperature: 0.7,
+          max_tokens: 4096,
+        }),
       });
-      if (!response.ok) {
-        const errText = await response.text();
-        if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit excedido no Gemini. Aguarde alguns segundos e tente novamente." }), {
-            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}`);
+      }
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || "";
+    };
+
+    // ── Route by short ID ──
+    switch (selectedModel) {
+      case "claude-haiku":
+      case "claude-sonnet":
+      case "claude-opus": {
+        if (!anthropicApiKey) {
+          content = await tryGeminiFallback("Claude não configurado (ANTHROPIC_API_KEY ausente)");
+          break;
+        }
+        const claudeModelMap: Record<string, string> = {
+          "claude-haiku": "claude-haiku-4-5",
+          "claude-sonnet": "claude-sonnet-4-5",
+          "claude-opus": "claude-opus-4-5",
+        };
+        const claudeNameMap: Record<string, string> = {
+          "claude-haiku": "Claude Haiku 4.5",
+          "claude-sonnet": "Claude Sonnet 4.5",
+          "claude-opus": "Claude Opus 4.5",
+        };
+        providerName = claudeNameMap[selectedModel] || "Claude";
+        try {
+          const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-api-key": anthropicApiKey, "anthropic-version": "2023-06-01" },
+            body: JSON.stringify({
+              model: claudeModelMap[selectedModel],
+              max_tokens: 4096,
+              system: systemPrompt,
+              messages: messages.map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+            }),
+          });
+          if (!res.ok) {
+            content = await tryGeminiFallback(`Claude retornou erro ${res.status}`);
+          } else {
+            const data = await res.json();
+            content = data.content?.[0]?.text || "";
+          }
+        } catch (e) {
+          content = await tryGeminiFallback(`Claude erro: ${e}`);
+        }
+        break;
+      }
+
+      case "deepseek": {
+        if (!deepseekApiKey) {
+          content = await tryGeminiFallback("DeepSeek não configurado (DEEPSEEK_API_KEY ausente)");
+          break;
+        }
+        providerName = "DeepSeek";
+        try {
+          content = await callOpenAICompatible(
+            "https://api.deepseek.com/v1/chat/completions",
+            deepseekApiKey,
+            "deepseek-coder"
+          );
+        } catch (e) {
+          content = await tryGeminiFallback(`DeepSeek erro: ${e}`);
+        }
+        break;
+      }
+
+      case "kimi": {
+        if (!kimiApiKey) {
+          content = await tryGeminiFallback("Kimi não configurado (KIMI_API_KEY ausente)");
+          break;
+        }
+        providerName = "Kimi";
+        try {
+          content = await callOpenAICompatible(
+            "https://api.moonshot.cn/v1/chat/completions",
+            kimiApiKey,
+            "moonshot-v1-32k"
+          );
+        } catch (e) {
+          content = await tryGeminiFallback(`Kimi erro: ${e}`);
+        }
+        break;
+      }
+
+      case "groq":
+      case "groq-8b":
+      case "gpt-oss": {
+        if (!groqApiKey) {
+          content = await tryGeminiFallback("Groq não configurado (GROQ_API_KEY ausente)");
+          break;
+        }
+        const groqModelMap: Record<string, string> = {
+          "groq": "meta-llama/llama-4-scout-17b-16e-instruct",
+          "groq-8b": "llama-3.1-8b-instant",
+          "gpt-oss": "meta-llama/llama-4-scout-17b-16e-instruct", // fallback, gpt-oss not on Groq
+        };
+        const groqNameMap: Record<string, string> = {
+          "groq": "Llama 4 Scout (Groq)",
+          "groq-8b": "Llama 3.1 8B (Groq)",
+          "gpt-oss": "Llama 4 Scout (Groq)",
+        };
+        providerName = groqNameMap[selectedModel] || "Groq";
+        try {
+          content = await callOpenAICompatible(
+            "https://api.groq.com/openai/v1/chat/completions",
+            groqApiKey,
+            groqModelMap[selectedModel]
+          );
+        } catch (e) {
+          content = await tryGeminiFallback(`Groq erro: ${e}`);
+        }
+        break;
+      }
+
+      case "openrouter": {
+        if (!openrouterApiKey) {
+          content = await tryGeminiFallback("OpenRouter não configurado (OPENROUTER_API_KEY ausente)");
+          break;
+        }
+        providerName = "OpenRouter";
+        try {
+          content = await callOpenAICompatible(
+            "https://openrouter.ai/api/v1/chat/completions",
+            openrouterApiKey,
+            "deepseek/deepseek-chat:free",
+            { "HTTP-Referer": "https://iaprogramador.online", "X-Title": "IAProgramador" }
+          );
+        } catch (e) {
+          content = await tryGeminiFallback(`OpenRouter erro: ${e}`);
+        }
+        break;
+      }
+
+      case "openai": {
+        // Use Lovable AI Gateway for OpenAI models
+        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!lovableKey) {
+          content = await tryGeminiFallback("OpenAI não configurado");
+          break;
+        }
+        providerName = "GPT-4o mini";
+        try {
+          content = await callOpenAICompatible(
+            "https://ai.gateway.lovable.dev/v1/chat/completions",
+            lovableKey,
+            "openai/gpt-5-nano"
+          );
+        } catch (e) {
+          content = await tryGeminiFallback(`OpenAI erro: ${e}`);
+        }
+        break;
+      }
+
+      // Default: Gemini (handles "auto", "gemini", and any unknown model)
+      default: {
+        if (!geminiApiKey) {
+          return new Response(JSON.stringify({ error: "Nenhuma IA configurada. Configure GEMINI_API_KEY." }), {
+            status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        throw new Error(`Gemini error ${response.status}: ${errText.substring(0, 300)}`);
+        providerName = "Gemini";
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+        const geminiContents = messages.map((m: any) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        }));
+        geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
+        const response = await fetchWithTimeout(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.7, maxOutputTokens: 4096 } }),
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          if (response.status === 429) {
+            return new Response(JSON.stringify({ error: "Rate limit excedido no Gemini. Aguarde." }), {
+              status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          throw new Error(`Gemini error ${response.status}: ${errText.substring(0, 300)}`);
+        }
+        const aiResult = await response.json();
+        content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        break;
       }
-      const aiResult = await response.json();
-      content = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
-    
-    // Tokens reais: input estimado pelo tamanho das mensagens, output pelo tamanho da resposta
+
+    // ── Calculate cost and debit ──
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
-    // Custo real cobrado do usuário = preço de REVENDA
     const actualCostCents = Math.max(
       Math.ceil(
         (inputTokens  / 1_000_000) * resaleInput +
         (outputTokens / 1_000_000) * resaleOutput
       ),
-      20 // mínimo R$ 0,20
+      20
     );
 
-    // Custo real da API (o que a plataforma paga ao provedor)
     const { data: apiPricing } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("api_cost_input_per_million, api_cost_output_per_million")
@@ -492,15 +518,12 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       (outputTokens / 1_000_000) * apiCostOutput
     );
 
-    // Lucro da plataforma = revenda - custo API (mínimo 0)
     const platformProfitCents = Math.max(actualCostCents - apiCostCents, 0);
-
-    // Comissão do afiliado = 30% do lucro da plataforma
     const affiliateCommissionCents = Math.floor(platformProfitCents * 0.30);
 
-    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | revenda: R$${(actualCostCents/100).toFixed(4)} | custo API: R$${(apiCostCents/100).toFixed(4)} | lucro: R$${(platformProfitCents/100).toFixed(4)} | comissão afiliado: R$${(affiliateCommissionCents/100).toFixed(4)}`);
+    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | modelo: ${selectedModel} (${providerName}) | revenda: R$${(actualCostCents/100).toFixed(4)} | custo: R$${(apiCostCents/100).toFixed(4)}`);
 
-    // Debitar saldo do usuário e registrar uso
+    // Debit user
     try {
       await Promise.all([
         supabaseAdmin.from("balances").update({
@@ -517,7 +540,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         }),
       ]);
 
-      // Comissão de afiliado sobre o LUCRO (30%) — fire and forget
+      // Affiliate commission
       if (affiliateCommissionCents > 0) {
         const { data: userProfile } = await supabaseAdmin
           .from("profiles")
@@ -527,7 +550,6 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
 
         if (userProfile?.referred_by && userProfile.referred_by !== user.id) {
           const affiliateId = userProfile.referred_by;
-
           const { data: affBal } = await supabaseAdmin
             .from("balances")
             .select("balance_cents, total_deposited_cents")
@@ -545,7 +567,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
                 user_id: affiliateId,
                 type: "commission",
                 amount_cents: affiliateCommissionCents,
-                description: `Comissão 30% do lucro — uso de IA (${providerName})`,
+                description: `Comissão 30% — uso de IA (${providerName})`,
                 payment_method: "affiliate",
                 payment_gateway: "platform",
                 status: "confirmed",
@@ -561,11 +583,9 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         }
       }
     } catch (dbError) {
-      console.error("Database operation error:", dbError);
+      console.error("Database error:", dbError);
     }
 
-    console.log(`Response sent to user ${user.id}: ${content.length} chars, cost R$ ${(actualCostCents / 100).toFixed(2)}`);
-    
     return new Response(JSON.stringify({
       content,
       provider: providerName,
