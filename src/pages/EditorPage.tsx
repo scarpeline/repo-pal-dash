@@ -33,7 +33,49 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 type Tab = { path: string; name: string; content: string; sha?: string; dirty?: boolean };
 type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text: string; timestamp: Date };
-type ChatMsg = { role: "user" | "ai" | "system"; content: string; timestamp: Date };
+type ChatMsg = {
+  role: "user" | "ai" | "system";
+  content: string;
+  timestamp: Date;
+  provider?: string;
+  activity?: string[];
+};
+
+const MAX_CHAT_CONTEXT_MESSAGES = 10;
+const REPO_AGENT_ACTION_REGEX = /(corrig\w*|fix\w*|refator\w*|edit\w*|alter\w*|mud\w*|cri\w*|adicion\w*|remov\w*|implement\w*|ajust\w*|otimiz\w*|resolv\w*|analis\w*|scan\w*|varr\w*)/i;
+const REPO_AGENT_SCOPE_REGEX = /(arquivo|repo|repositório|código|codebase|componente|tela|página|função|api|endpoint|layout|estilo|css|bug|erro|build|deploy)/i;
+
+const shouldUseRepositoryAgent = (message: string) =>
+  /^\/edit(ar)?/i.test(message) || (REPO_AGENT_ACTION_REGEX.test(message) && REPO_AGENT_SCOPE_REGEX.test(message));
+
+const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
+  ...messages
+    .filter((message) => message.role !== "system")
+    .slice(-MAX_CHAT_CONTEXT_MESSAGES)
+    .map((message) => ({
+      role: message.role === "ai" ? "assistant" : "user",
+      content: message.content,
+    })),
+  { role: "user", content: latestMessage },
+];
+
+const getModelBadge = (model?: string) => {
+  const badges: Record<string, string> = {
+    auto: "Auto",
+    gemini: "Gemini",
+    deepseek: "DeepSeek",
+    groq: "Groq",
+    "groq-8b": "Groq 8B",
+    kimi: "Kimi",
+    openrouter: "OpenRouter",
+    "claude-haiku": "Claude Haiku",
+    "claude-sonnet": "Claude Sonnet",
+    "claude-opus": "Claude Opus",
+    openai: "Lovable AI",
+  };
+
+  return badges[model || "auto"] || model || "Auto";
+};
 
 const EditorPage = () => {
   const { user, logout } = useAuth();
@@ -275,74 +317,65 @@ const EditorPage = () => {
       return;
     }
 
+    const requestedModel = model || activeProvider || "auto";
+    const providerBadge = getModelBadge(requestedModel);
+
     try {
       const modifier = new AIFileModifier(ghToken!, selectedRepo, branch);
-      
-      // 🎨 Atividades em tempo real (estilo Windsurf)
+      const activityLog = ["🤖 Analisando solicitação..."];
+
       const addProgress = (msg: string) => {
-        setCurrentActivity(prev => {
-          const newActivity = [...prev, msg];
-          // Manter apenas as últimas 5 atividades
-          return newActivity.slice(-5);
-        });
+        activityLog.push(msg);
+        const nextActivity = activityLog.slice(-5);
+        activityLog.splice(0, activityLog.length, ...nextActivity);
+        setCurrentActivity(nextActivity);
       };
-      
-      // Limpar atividades e iniciar
-      setCurrentActivity(["🤖 Analisando solicitação..."]);
-      setStreamingProvider(model || "auto");
+
+      setCurrentActivity(activityLog);
+      setStreamingProvider(providerBadge);
+      setStreamingContent("");
 
       const result = await modifier.processCommand(
-        message, 
-        model || "google/gemini-2.5-flash", 
+        message,
+        requestedModel === "auto" ? "gemini" : requestedModel,
         addProgress,
-        chatMessages.filter(m => m.role !== "system")
+        chatMessages.filter(m => m.role !== "system").slice(-8)
       );
-      
-      // Streaming do conteúdo da resposta
-      if (result.message) {
-        setStreamingContent(result.message);
-        // Streaming em chunks para performance
-        const chunkSize = Math.max(20, Math.floor(result.message.length / 40));
-        for (let i = 0; i <= result.message.length; i += chunkSize) {
-          setStreamingContent(result.message.slice(0, i));
-          await new Promise(r => setTimeout(r, 12));
-        }
-        setStreamingContent(result.message);
-      }
-      
+
       if (result.modifications.length === 0) {
-        setChatMessages(p => [...p, { 
-          role: "ai", 
-          content: result.message, 
+        setChatMessages(p => [...p, {
+          role: "ai",
+          content: result.message,
           timestamp: new Date(),
-          provider: model || "auto",
-          activity: currentActivity 
+          provider: providerBadge,
+          activity: [...activityLog],
         }]);
         setCurrentActivity([]);
         setStreamingContent("");
+        setStreamingProvider("");
         return;
       }
 
       addProgress("⚡ Aplicando alterações no GitHub...");
-
       const executionResult = await modifier.executeModifications(result.modifications);
-      setChatMessages(p => [...p, { 
-        role: "ai", 
-        content: executionResult, 
+
+      setChatMessages(p => [...p, {
+        role: "ai",
+        content: executionResult,
         timestamp: new Date(),
-        provider: model || "auto",
-        activity: [...currentActivity, "✅ Alterações aplicadas com sucesso!"]
+        provider: providerBadge,
+        activity: [...activityLog, "✅ Alterações aplicadas com sucesso!"],
       }]);
-      
+
       setCurrentActivity([]);
       setStreamingContent("");
+      setStreamingProvider("");
 
       // Refresh file tree
       setLoadingTree(true);
       try {
         const tree = await getRepoTree(ghToken!, selectedRepo.owner.login, selectedRepo.name, branch);
         setFiles(tree);
-        // Refresh any open tabs that were modified
         const modifiedPaths = new Set(result.modifications.map(m => m.path));
         for (const tab of openTabs) {
           if (modifiedPaths.has(tab.path)) {
@@ -357,18 +390,23 @@ const EditorPage = () => {
 
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date() }]);
+      toast.error(errMsg);
+      setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date(), provider: providerBadge }]);
       setCurrentActivity([]);
       setStreamingContent("");
+      setStreamingProvider("");
     }
   };
+
   const handleChatSend = useCallback(async (message: string, model?: string) => {
-    // Check if user has balance before allowing AI usage
+    const requestedModel = model || activeProvider || "auto";
+    const providerBadge = getModelBadge(requestedModel);
+
     try {
       const { supabase: sb } = await import("@/integrations/supabase/client");
       const { data: bal } = await sb.from("balances").select("balance_cents").eq("user_id", user?.id).single();
       if (!bal || bal.balance_cents <= 0) {
-        setChatMessages(p => [...p, 
+        setChatMessages(p => [...p,
           { role: "user", content: message, timestamp: new Date() },
           { role: "system", content: "⚠️ Saldo insuficiente. Recarregue sua carteira para usar a IA. Acesse a página Carteira para adquirir um pacote.", timestamp: new Date() }
         ]);
@@ -380,28 +418,23 @@ const EditorPage = () => {
 
     setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
     setIsThinking(true);
-    
+
     try {
-      if (ghToken && selectedRepo) {
-        // Se há um repositório conectado, o Agente cuida de TODAS as interações via o AIFileModifier
-        await handleFileModification(message, model);
+      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message)) {
+        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel);
         setIsThinking(false);
         return;
       }
 
-      // Fallback: se não tiver repositório conectado, age como chat simples
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
-      const messages = chatMessages
-        .filter(m => m.role !== "system")
-        .map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
-      messages.push({ role: "user", content: message });
+      const messages = buildChatContext(chatMessages, message);
 
-      // 🎨 Streaming da resposta
       setCurrentActivity(["🤖 Conectando à IA..."]);
-      setStreamingProvider(model || "auto");
-      
+      setStreamingProvider(providerBadge);
+      setStreamingContent("");
+
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
         method: "POST",
         headers: {
@@ -412,67 +445,76 @@ const EditorPage = () => {
           messages,
           fileContent: activeFile?.content,
           fileName: activeFile?.name,
-          model: model || "auto",
+          model: requestedModel,
         }),
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         const errorMsg = errData.error || `Erro: ${res.status}`;
-        
-        // Erro 402: saldo insuficiente
+
         if (res.status === 402 && errData.code === "INSUFFICIENT_BALANCE") {
-          setChatMessages(p => [...p, { 
-            role: "system", 
-            content: `⚠️ ${errorMsg}\n\n💳 Clique em "Carteira" no menu superior para recarregar.`, 
-            timestamp: new Date() 
+          toast.error("Saldo insuficiente para essa solicitação.");
+          setChatMessages(p => [...p, {
+            role: "system",
+            content: `⚠️ ${errorMsg}
+
+💳 Clique em "Carteira" no menu superior para recarregar.`,
+            timestamp: new Date()
+          }]);
+        } else if (res.status === 429) {
+          toast.error("Limite temporário atingido. Tente novamente em instantes.");
+          setChatMessages(p => [...p, {
+            role: "system",
+            content: `⚠️ ${errorMsg}`,
+            timestamp: new Date()
           }]);
         } else {
-          setChatMessages(p => [...p, { 
-            role: "ai", 
-            content: `❌ ${errorMsg}`, 
-            timestamp: new Date() 
+          toast.error(errorMsg);
+          setChatMessages(p => [...p, {
+            role: "ai",
+            content: `❌ ${errorMsg}`,
+            timestamp: new Date(),
+            provider: providerBadge,
           }]);
         }
-        
+
         setIsThinking(false);
         setCurrentActivity([]);
+        setStreamingContent("");
+        setStreamingProvider("");
         return;
       }
 
       const data = await res.json();
       const aiContent = data.content || "Sem resposta do modelo.";
-      const provider = data.provider || model || "IA";
-      
-      // Streaming da resposta em chunks eficientes
-      setCurrentActivity(["✅ Resposta recebida", "📝 Formatando..."]);
-      setStreamingContent(aiContent);
-      
-      const chunkSize = Math.max(30, Math.floor(aiContent.length / 30));
-      for (let i = 0; i <= aiContent.length; i += chunkSize) {
-        setStreamingContent(aiContent.slice(0, i));
-        await new Promise(r => setTimeout(r, 10));
-      }
-      setStreamingContent(aiContent);
-      
+      const provider = data.provider || providerBadge;
       const usageInfo = data.usage
-        ? `\n\n${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
+        ? `
+
+${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
         : "";
-      setChatMessages(p => [...p, { 
-        role: "ai", 
-        content: aiContent + usageInfo, 
+
+      setChatMessages(p => [...p, {
+        role: "ai",
+        content: aiContent + usageInfo,
         timestamp: new Date(),
-        provider: provider,
-        activity: currentActivity 
+        provider,
+        activity: ["✅ Resposta recebida"],
       }]);
       setStreamingContent("");
       setCurrentActivity([]);
+      setStreamingProvider("");
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      setChatMessages(p => [...p, { role: "ai", content: `Erro: ${errMsg}`, timestamp: new Date() }]);
+      toast.error(errMsg);
+      setChatMessages(p => [...p, { role: "ai", content: `Erro: ${errMsg}`, timestamp: new Date(), provider: providerBadge }]);
+      setCurrentActivity([]);
+      setStreamingContent("");
+      setStreamingProvider("");
     }
     setIsThinking(false);
-  }, [selectedRepo, branch, activeFile, chatMessages, ghToken]);
+  }, [selectedRepo, branch, activeFile, chatMessages, ghToken, activeProvider, user?.id]);
 
   const renderFileTree = (nodes: FileNode[]) => (
     <div className="text-sm">
