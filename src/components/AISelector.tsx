@@ -26,7 +26,7 @@ const providerIcons: Record<string, React.ReactNode> = {
   gemini: <Sparkles className="w-4 h-4 text-blue-400" />,
   deepseek: <Code className="w-4 h-4 text-purple-400" />,
   groq: <Zap className="w-4 h-4 text-yellow-400" />,
-  "gpt-oss": <Zap className="w-4 h-4 text-green-400" />,
+  
   "claude-sonnet": <Brain className="w-4 h-4 text-orange-400" />,
   "claude-haiku": <Zap className="w-4 h-4 text-orange-300" />,
   "claude-opus": <Brain className="w-4 h-4 text-red-500" />,
@@ -50,7 +50,7 @@ export function AISelector({
   useEffect(() => {
     // DeepSeek e Kimi têm API keys configuradas no Supabase Secrets
     // Gemini sempre habilitado, os demais dependem de keys no frontend (não usadas aqui)
-    const alwaysEnabled = ["gemini", "deepseek", "kimi", "openrouter", "groq", "gpt-oss", "claude-sonnet", "claude-haiku", "claude-opus"];
+    const alwaysEnabled = ["gemini", "deepseek", "kimi", "openrouter", "groq", "claude-sonnet", "claude-haiku", "claude-opus"];
     const updated = providers.map(p => ({
       ...p,
       enabled: alwaysEnabled.includes(p.id) ? true : !!import.meta.env[p.apiKeyEnv],
