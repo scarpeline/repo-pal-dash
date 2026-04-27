@@ -14,9 +14,29 @@ function envFirst(...names: string[]): string | undefined {
   return undefined;
 }
 
-/** Modo auto: escolhe modelo conforme contexto (código, tamanho, complexidade) e secrets disponíveis. */
+const MIN_CHAT_CHARGE_CENTS = 1;
+
+const GOOGLE_MODEL_BY_ID: Record<string, string> = {
+  "gemini": "google/gemini-3-flash-preview",
+  "google-code-fast": "google/gemini-3-flash-preview",
+  "google-code-balanced": "google/gemini-2.5-flash",
+  "google-code-pro": "google/gemini-2.5-pro",
+  "google-image": "google/gemini-3.1-flash-image-preview",
+  "google-video": "google/gemini-3.1-pro-preview",
+};
+
+const DIRECT_GEMINI_MODEL_BY_ID: Record<string, string> = {
+  "gemini": "gemini-2.5-flash",
+  "google-code-fast": "gemini-2.5-flash",
+  "google-code-balanced": "gemini-2.5-flash",
+  "google-code-pro": "gemini-2.5-pro",
+  "google-video": "gemini-2.5-pro",
+};
+
+const isGoogleRoute = (id: string) => Boolean(GOOGLE_MODEL_BY_ID[id]);
+
+/** Modo auto: escolhe modelo Google conforme tarefa, evitando provedores quebrados e consumo desnecessário. */
 function pickAutoModel(messages: any[], fileContent?: string): string {
-  const has = (...keys: string[]) => !!envFirst(...keys);
   const lastUser = String(
     [...messages].reverse().find((m: any) => m.role === "user")?.content ?? "",
   );
@@ -39,26 +59,11 @@ function pickAutoModel(messages: any[], fileContent?: string): string {
 
   const tiny = lastUser.length < 160 && codeScore === 0 && !(fileContent && fileContent.length > 400);
 
-  if (expert && has("ANTHROPIC_API_KEY", "anthropic_api_key")) return "claude-sonnet";
-  if (expert && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-
-  if (longCtx && has("KIMI_API_KEY", "kimi_api_key")) return "kimi";
-
-  if (codeScore >= 2 && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-  if (codeScore >= 1 && lastUser.length > 500 && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-
-  if (tiny && has("GROQ_API_KEY", "groq_api_key")) return "groq-8b";
-  if (tiny && has("GEMINI_API_KEY", "gemini_api_key")) return "gemini";
-
-  if (codeScore >= 1 && has("GROQ_API_KEY", "groq_api_key")) return "groq";
-
-  if (has("GEMINI_API_KEY", "gemini_api_key")) return "gemini";
-  if (has("GROQ_API_KEY", "groq_api_key")) return "groq-8b";
-  if (has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-  if (has("OPENROUTER_API_KEY", "openrouter_api_key")) return "openrouter";
-  if (has("ANTHROPIC_API_KEY", "anthropic_api_key")) return "claude-haiku";
-  if (has("OPENAI_API_KEY", "openai_api_key") || has("LOVABLE_API_KEY", "lovable_api_key")) return "openai";
-  return "gemini";
+  if (/\b(imagem|image|foto|logo|banner|ilustra|desenho|arte|thumbnail)\b/i.test(lastUser)) return "google-image";
+  if (/\b(vídeo|video|remotion|motion|animaç|mp4|reel|shorts|storyboard)\b/i.test(lastUser)) return "google-video";
+  if (expert || longCtx) return "google-code-pro";
+  if (codeScore >= 1 && !tiny) return "google-code-balanced";
+  return "google-code-fast";
 }
 
 Deno.serve(async (req) => {
