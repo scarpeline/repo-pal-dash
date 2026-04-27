@@ -141,7 +141,11 @@ const SuperAdmin = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const [verificationMode, setVerificationMode] = useState<"code" | "password">("code");
+  const [verificationMode, setVerificationMode] = useState<"code" | "password">("password");
+  // Login local do Super Admin (quando o usuário não está logado ou não tem permissão)
+  const [gateEmail, setGateEmail] = useState("");
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateLoading, setGateLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).includes(user?.email || ""))) fetchAll();
@@ -570,9 +574,41 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
-  const isAdminEmail = ADMIN_EMAILS.includes(user?.email || "");
+  const HARDCODED_ADMIN_EMAILS = [
+    "escarpelineparticular@gmail.com",
+    "escarpelineparticular2@gmail.com",
+    "empresasescarpeline@gmail.com",
+  ];
+  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
+  const ADMIN_EMAILS = Array.from(new Set([...HARDCODED_ADMIN_EMAILS, ...ENV_ADMIN_EMAILS]));
+  const isAdminEmail = ADMIN_EMAILS.includes((user?.email || "").toLowerCase()) || ADMIN_EMAILS.includes(user?.email || "");
   const hasAccess = isAdmin || isAdminEmail;
+
+  // Tentativa de login direto pela tela do Super Admin (não vaza nenhum email no DOM)
+  const handleGateLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailNorm = gateEmail.trim().toLowerCase();
+    if (!emailNorm || !gatePassword) {
+      toast.error("Preencha email e senha.");
+      return;
+    }
+    const allowed = ADMIN_EMAILS.map(x => x.toLowerCase()).includes(emailNorm);
+    if (!allowed) {
+      // Mensagem genérica — não revela whitelist
+      toast.error("Credenciais inválidas.");
+      return;
+    }
+    setGateLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: emailNorm, password: gatePassword });
+    setGateLoading(false);
+    if (error) {
+      toast.error("Credenciais inválidas.");
+      return;
+    }
+    setGateEmail("");
+    setGatePassword("");
+    toast.success("Login realizado.");
+  };
 
   // Generate and send verification code
   const sendVerificationCode = async () => {
@@ -676,7 +712,64 @@ const SuperAdmin = () => {
   }, []);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
+
+  // Tela de login do Super Admin — não exibe nenhum email no DOM
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <CardTitle>Área restrita</CardTitle>
+            <CardDescription>Faça login para continuar.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleGateLogin} className="space-y-4" autoComplete="off">
+              <div className="space-y-2">
+                <Label htmlFor="gate-email">Email</Label>
+                <Input
+                  id="gate-email"
+                  type="email"
+                  autoComplete="off"
+                  placeholder="seu@email.com"
+                  value={gateEmail}
+                  onChange={(e) => setGateEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gate-password">Senha</Label>
+                <Input
+                  id="gate-password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  value={gatePassword}
+                  onChange={(e) => setGatePassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={gateLoading}>
+                {gateLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Entrar
+              </Button>
+              {user?.email && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={async () => { await signOut(); }}
+                >
+                  Sair da sessão atual
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Show verification screen for admin emails
   if (isAdminEmail && !isVerified) {
@@ -737,7 +830,7 @@ const SuperAdmin = () => {
                         onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
                       />
                       <p className="text-xs text-muted-foreground">
-                        O código foi enviado para: <strong>{user?.email}</strong>
+                        O código foi enviado para o email do Super Admin.
                       </p>
                     </div>
                     <Button 
