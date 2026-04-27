@@ -25,7 +25,7 @@ export class AIFileModifier {
     model: string = "auto",
     onProgress?: (msg: string) => void,
     chatHistory: { role: string; content: string }[] = []
-  ): Promise<{ message: string; modifications: FileModification[] }> {
+  ): Promise<{ message: string; modifications: FileModification[]; usage?: { input_tokens: number; output_tokens: number; cost_cents: number }; provider?: string }> {
     try {
       onProgress?.("📁 Mapeando o repositório conectado...");
       const files = await this.scanner.scanRelevantFiles(command);
@@ -89,62 +89,56 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
 7. Seja natural no campo "summary", conversando em Português do Brasil de forma prestativa e direta.
 8. NUNCA peça para o usuário enviar App.tsx, logs, código ou arquivos quando o repositório já foi conectado. Você já recebeu mapa e arquivos relevantes; analise-os e aja.
 9. Se a causa não estiver 100% comprovada, faça a melhor correção segura com base no repositório e explique objetivamente no "summary".
-10. Para tela branca, erro de login, build quebrado, roteamento, imports, hooks e runtime, procure primeiro em App/main/routes/auth/components e gere modificações quando encontrar qualquer correção plausível.`;
+10. Para tela branca, erro de login, build quebrado, roteamento, imports, hooks e runtime, procure primeiro em App/main/routes/auth/components e gere modificações quando encontrar qualquer correção plausível.
+11. Se a mensagem do usuário contiver comandos como corrija, aplique, faça, implemente, ajuste, crie, edite, melhore ou resolver, você DEVE devolver pelo menos uma modificação quando houver qualquer arquivo relevante no contexto. Não pare apenas explicando o que faria.`;
 
-      const apiMessages = [
-        { role: "system", content: systemPrompt },
-        ...recentHistory.map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: m.content })),
-        { role: "user", content: command }
-      ];
+      const looksActionable = /\b(corrig|consert|arrum|fix|debug|refator|edit|alter|mud|troc|cri|adicion|remov|implement|ajust|otimiz|melhor|atualiz|resolv|apli|fa[çc]a|tela\s+branca|white\s*screen)\b/i.test(command);
+      let lastText = "";
+      let lastUsage: any;
+      let lastProvider: string | undefined;
 
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          messages: apiMessages,
-          repoName: this.repo.full_name,
-          branch: this.branch,
-          model,
-        }),
-      });
+      for (let attempt = 0; attempt < (looksActionable ? 2 : 1); attempt++) {
+        const apiMessages = [
+          { role: "system", content: systemPrompt },
+          ...recentHistory.map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: m.content })),
+          { role: "user", content: attempt === 0 ? command : `${command}\n\nSua resposta anterior parou em explicação. Continue até o fim: devolva JSON com modifications contendo os arquivos completos alterados.` }
+        ];
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({} as Record<string, unknown>));
-        const errStr = String((errData as { error?: string }).error || res.status);
-        const tried = (errData as { tried_models?: string[] }).tried_models;
-        const triedHint =
-          res.status === 503 && tried?.length === 1
-            ? " Configure outras chaves (ex.: LOVABLE_API_KEY) no Supabase para fallback."
-            : tried && tried.length > 1
-              ? ` Tentados: ${tried.join(", ")}.`
-              : "";
-        return { message: `❌ Erro da IA: ${errStr}${triedHint}`, modifications: [] };
+        if (attempt > 0) onProgress?.("🛠️ Continuando automaticamente até gerar alterações aplicáveis...");
+
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ messages: apiMessages, repoName: this.repo.full_name, branch: this.branch, model }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+          const errStr = String((errData as { error?: string }).error || res.status);
+          const tried = (errData as { tried_models?: string[] }).tried_models;
+          const triedHint = res.status === 503 && tried?.length === 1 ? " Configure outras chaves (ex.: LOVABLE_API_KEY) no Supabase para fallback." : tried && tried.length > 1 ? ` Tentados: ${tried.join(", ")}.` : "";
+          return { message: `❌ Erro da IA: ${errStr}${triedHint}`, modifications: [] };
+        }
+
+        const data = await res.json();
+        lastText = data.content || "";
+        lastUsage = data.usage;
+        lastProvider = data.provider;
+
+        try {
+          let jsonStr = lastText;
+          const jsonMatch = lastText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) jsonStr = jsonMatch[0];
+          const parsed = JSON.parse(jsonStr);
+          const modifications: FileModification[] = (parsed.modifications || []).map((m: any) => ({ path: m.path, content: m.content, operation: m.operation || 'update', message: m.message || `Modificação via IA: ${command}` }));
+          const summary = parsed.summary || `${modifications.length} arquivo(s) para modificar.`;
+          if (modifications.length > 0 || !looksActionable || attempt === 1) return { message: `🎯 ${summary}`, modifications, usage: lastUsage, provider: lastProvider };
+        } catch {
+          if (!looksActionable || attempt === 1) return { message: lastText, modifications: [], usage: lastUsage, provider: lastProvider };
+        }
       }
 
-      const data = await res.json();
-      const aiContent = data.content || "";
-
-      try {
-        let jsonStr = aiContent;
-        const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) jsonStr = jsonMatch[0];
-
-        const parsed = JSON.parse(jsonStr);
-        const modifications: FileModification[] = (parsed.modifications || []).map((m: any) => ({
-          path: m.path,
-          content: m.content,
-          operation: m.operation || 'update',
-          message: m.message || `Modificação via IA: ${command}`,
-        }));
-
-        const summary = parsed.summary || `${modifications.length} arquivo(s) para modificar.`;
-        return { message: `🎯 ${summary}`, modifications };
-      } catch {
-        return { message: aiContent, modifications: [] };
-      }
+      return { message: lastText || "A IA não devolveu alterações aplicáveis.", modifications: [], usage: lastUsage, provider: lastProvider };
 
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);

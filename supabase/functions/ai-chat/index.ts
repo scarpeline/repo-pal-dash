@@ -115,6 +115,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { data: apiCostOnlyRoles } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "api_cost_only");
+    const billApiCostOnly = Boolean(apiCostOnlyRoles && apiCostOnlyRoles.length > 0);
+
     // Rate limiting: 30 req/min
     const windowStart = new Date(Date.now() - 60_000).toISOString();
     const { count: recentCount } = await supabaseAdmin
@@ -268,7 +275,7 @@ Deno.serve(async (req) => {
     // Fetch resale pricing do modelo que será chamado (não usar “o mais caro” como fallback)
     const { data: pricing } = await supabaseAdmin
       .from("ai_model_pricing")
-      .select("resale_price_input_per_million, resale_price_output_per_million, model_label")
+      .select("api_cost_input_per_million, api_cost_output_per_million, resale_price_input_per_million, resale_price_output_per_million, model_label")
       .eq("model_id", pricingModelId)
       .eq("is_active", true)
       .maybeSingle();
@@ -276,15 +283,19 @@ Deno.serve(async (req) => {
     const { data: fallbackPricing } = !pricing
       ? await supabaseAdmin
         .from("ai_model_pricing")
-        .select("resale_price_input_per_million, resale_price_output_per_million")
+        .select("api_cost_input_per_million, api_cost_output_per_million, resale_price_input_per_million, resale_price_output_per_million")
         .eq("model_id", "google/gemini-3-flash-preview")
         .eq("is_active", true)
         .maybeSingle()
       : { data: null };
 
     const activePricing = pricing || fallbackPricing;
-    const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;
-    const resaleOutput = activePricing?.resale_price_output_per_million ?? 2000;
+    const resaleInput  = billApiCostOnly
+      ? (activePricing?.api_cost_input_per_million ?? 0)
+      : (activePricing?.resale_price_input_per_million  ?? 500);
+    const resaleOutput = billApiCostOnly
+      ? (activePricing?.api_cost_output_per_million ?? 0)
+      : (activePricing?.resale_price_output_per_million ?? 2000);
 
     const visibleInputChars = messages.reduce((acc: number, m: any) => acc + String(m.content || "").replace(/data:(image|video)\/[^\s)]+/g, "[media]").length, 0);
     const mediaTokenEstimate = attachments.reduce((acc: number, a: any) => {
@@ -742,8 +753,19 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       .eq("is_active", true)
       .maybeSingle();
 
-    const billResaleIn  = billedResale?.resale_price_input_per_million  ?? 50;
-    const billResaleOut = billedResale?.resale_price_output_per_million ?? 200;
+    const { data: billedApiPricingForOverride } = billApiCostOnly ? await supabaseAdmin
+      .from("ai_model_pricing")
+      .select("api_cost_input_per_million, api_cost_output_per_million")
+      .eq("model_id", billedPricingModelId)
+      .eq("is_active", true)
+      .maybeSingle() : { data: null };
+
+    const billResaleIn = billApiCostOnly
+      ? (billedApiPricingForOverride?.api_cost_input_per_million ?? 0)
+      : (billedResale?.resale_price_input_per_million ?? 50);
+    const billResaleOut = billApiCostOnly
+      ? (billedApiPricingForOverride?.api_cost_output_per_million ?? 0)
+      : (billedResale?.resale_price_output_per_million ?? 200);
 
     // Cap absoluto por mensagem para proteger o usuário de cobranças anormais.
     // Se algum modelo Pro retornar resposta gigante, ainda assim limita a R$ 0,50 por mensagem.
@@ -790,7 +812,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const platformProfitCents = Math.max(actualCostCents - apiCostCents, 0);
     const affiliateCommissionCents = Math.floor(platformProfitCents * 0.30);
 
-    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | faturado como ${billingShortId} (${providerName}) | revenda: R$${(actualCostCents/100).toFixed(4)} | custo API: R$${(apiCostCents/100).toFixed(4)}`);
+    console.log(`Cobrança: ${inputTokens}+${outputTokens} tokens | faturado como ${billingShortId} (${providerName}) | ${billApiCostOnly ? "sem revenda" : "revenda"}: R$${(actualCostCents/100).toFixed(4)} | custo API: R$${(apiCostCents/100).toFixed(4)}`);
 
     // Debit user
     try {
@@ -866,7 +888,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         used_fallback: usedFallback,
         tried_models: tried,
       },
-      usage: { input_tokens: inputTokens, output_tokens: outputTokens, cost_cents: actualCostCents },
+      usage: { input_tokens: inputTokens, output_tokens: outputTokens, cost_cents: actualCostCents, api_cost_cents: apiCostCents, api_cost_only: billApiCostOnly },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

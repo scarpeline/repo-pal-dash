@@ -278,6 +278,18 @@ const SuperAdmin = () => {
     fetchAll();
   };
 
+  const toggleApiCostOnly = async (userId: string, roles: string[]) => {
+    const isApiCostOnly = roles.includes("api_cost_only");
+    if (isApiCostOnly) {
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "api_cost_only" as any);
+      toast.success("Usuário voltou a pagar preço de revenda.");
+    } else {
+      await supabase.from("user_roles").insert({ user_id: userId, role: "api_cost_only" } as any);
+      toast.success("Usuário liberado para pagar somente custo de API.");
+    }
+    fetchAll();
+  };
+
   const updateWithdrawalStatus = async (id: string, newStatus: string) => {
     const { error } = await supabase
       .from("withdrawal_requests")
@@ -869,6 +881,7 @@ const SuperAdmin = () => {
                     <TableBody>
                       {users.map((u) => {
                         const isBlocked = u.roles.includes("blocked");
+                        const isApiCostOnly = u.roles.includes("api_cost_only");
                         // Lucro aproximado de 50% em cima do que ele consumiu (total_spent_cents reflete custo de revenda)
                         const profitCents = u.total_spent_cents * 0.5;
                         return (
@@ -887,6 +900,9 @@ const SuperAdmin = () => {
                               </Button>
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-100" onClick={() => quickDonate(u.id)} title="Doar Crédito">
                                 <HandCoins className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className={`h-8 w-8 ${isApiCostOnly ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`} onClick={() => toggleApiCostOnly(u.id, u.roles)} title={isApiCostOnly ? "Desativar custo de API puro" : "Liberar para pagar só custo da API"}>
+                                <DollarSign className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" className={`h-8 w-8 ${isBlocked ? 'text-green-600 hover:bg-green-100' : 'text-red-500 hover:bg-red-100'}`} onClick={() => toggleUserBlock(u.id, u.roles)} title={isBlocked ? "Desbloquear" : "Bloquear IA"}>
                                 {isBlocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}

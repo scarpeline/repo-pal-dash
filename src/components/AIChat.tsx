@@ -395,7 +395,7 @@ const AIChat = ({
       });
   }, []);
 
-  const handleFiles = async (fileList: FileList | null) => {
+  const handleFiles = async (fileList: FileList | File[] | null) => {
     if (!fileList?.length) return;
     setIsReadingFiles(true);
     try {
@@ -426,6 +426,14 @@ const AIChat = ({
       setIsReadingFiles(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedFiles = Array.from(event.clipboardData.files || []).filter((file) => file.type.startsWith("image/"));
+    if (pastedFiles.length === 0) return;
+    event.preventDefault();
+    await handleFiles(pastedFiles.map((file, index) => new File([file], file.name || `print-colado-${Date.now()}-${index + 1}.png`, { type: file.type || "image/png" })));
+    toast.success("Print colado no chat para análise da IA.");
   };
 
   const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id));
@@ -599,6 +607,9 @@ const AIChat = ({
 
         {/* Barra de controles ACIMA do campo de digitação */}
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-muted-foreground mr-auto">
+            Cole um print com Ctrl+V para a IA analisar a tela.
+          </span>
           <input
             ref={fileInputRef}
             type="file"
@@ -654,9 +665,10 @@ const AIChat = ({
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={handlePaste}
             rows={1}
             className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground resize-none leading-relaxed max-h-[220px] overflow-y-auto"
-            placeholder={isThinking ? "Aguarde a resposta..." : "Pergunte ao AI ou peça para editar arquivos... (Shift+Enter para nova linha)"}
+            placeholder={isThinking ? "Aguarde a resposta..." : "Digite o comando ou cole um print da tela... (Shift+Enter para nova linha)"}
             disabled={isThinking}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
