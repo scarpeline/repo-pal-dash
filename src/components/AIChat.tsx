@@ -365,8 +365,17 @@ const AIChat = ({
     if (typeof window !== "undefined") localStorage.setItem("ai_auto_fix", autoFix ? "1" : "0");
   }, [autoFix]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-resize do textarea conforme o usuário digita
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, 220);
+    el.style.height = `${next}px`;
+  }, [input]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
