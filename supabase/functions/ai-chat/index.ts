@@ -583,13 +583,13 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
           return await callOpenAICompatible(
             "https://api.deepseek.com/v1/chat/completions",
             deepseekApiKey!,
-            "deepseek-coder",
+            "deepseek-chat",
           );
         case "kimi":
           return await callOpenAICompatible(
             "https://api.moonshot.cn/v1/chat/completions",
             kimiApiKey!,
-            "moonshot-v1-32k",
+            "kimi-k2-0711-preview",
           );
         case "groq":
           return await runGroq("groq");
@@ -631,7 +631,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     ];
 
     const preferred = [routedModel, ...FALLBACK_ORDER.filter((m) => m !== routedModel)];
-    const attemptModels = [...new Set(preferred)].filter(canAttempt);
+    const attemptModels = [...new Set(preferred)].filter((mid) => canAttempt(mid) && isShortIdActive(mid));
 
     let content = "";
     let providerName = "—";
