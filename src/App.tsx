@@ -16,6 +16,7 @@ import WalletPage from "./pages/WalletPage";
 import AffiliatePage from "./pages/AffiliatePage";
 import RepoFullAccess from "./pages/RepoFullAccess";
 import EmailCampaignPage from "./pages/EmailCampaignPage";
+import ObsidianPage from "./pages/ObsidianPage";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/affiliate" element={<AffiliatePage />} />
               <Route path="/email-campaigns" element={<EmailCampaignPage />} />
               <Route path="/repo-access" element={<RepoFullAccess />} />
+              <Route path="/obsidian" element={<ObsidianPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </LanguageProvider>
