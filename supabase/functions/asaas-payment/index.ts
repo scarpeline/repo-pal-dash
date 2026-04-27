@@ -195,6 +195,16 @@ Deno.serve(async (req) => {
           const parts = externalRef.split(":");
           userId = parts[0];
           amountCents = parseInt(parts[1]);
+          packageId = parts[2] || null;
+
+          if (packageId) {
+            const { data: pkg } = await supabase
+              .from("packages")
+              .select("credits_amount")
+              .eq("id", packageId)
+              .single();
+            creditsToDeliver = pkg?.credits_amount || 0;
+          }
         } else if (payment.paymentLink) {
           // Fluxo de Link de Pagamento Estático
           const { data: pkg } = await supabase
