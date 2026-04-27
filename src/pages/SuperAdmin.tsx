@@ -463,7 +463,8 @@ const SuperAdmin = () => {
 
   // Pricing management
   const updatePricingField = (id: string, field: string, value: string) => {
-    setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseInt(value) || 0 } }));
+    const nextValue = field === "is_active" ? value === "1" : parseInt(value) || 0;
+    setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: nextValue } }));
   };
 
   const savePricing = async (mp: ModelPricing) => {
@@ -966,7 +967,7 @@ const SuperAdmin = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
-                  <CardDescription>Configure o custo real da API e o preço de revenda (por milhão de tokens, em centavos R$). A margem é calculada automaticamente.</CardDescription>
+                  <CardDescription>Configure preços e ative/desative quais IAs aparecem e podem ser usadas no app do usuário.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
@@ -993,6 +994,7 @@ const SuperAdmin = () => {
                           const totalResale = resIn + resOut;
                           const marginPct = totalApi > 0 ? ((totalResale - totalApi) / totalApi * 100).toFixed(0) : "∞";
                           const hasEdits = !!editingPricing[mp.id];
+                          const activeVal = Boolean(editingPricing[mp.id]?.is_active ?? mp.is_active);
 
                           return (
                             <TableRow key={mp.id}>
@@ -1027,10 +1029,10 @@ const SuperAdmin = () => {
                               </TableCell>
                               <TableCell className="text-center">
                                 <button
-                                  onClick={() => updatePricingField(mp.id, "is_active", mp.is_active ? "0" : "1")}
-                                  className={`w-8 h-4 rounded-full transition-colors ${mp.is_active ? "bg-[hsl(var(--success))]" : "bg-muted"}`}
+                                  onClick={() => updatePricingField(mp.id, "is_active", activeVal ? "0" : "1")}
+                                  className={`w-8 h-4 rounded-full transition-colors ${activeVal ? "bg-[hsl(var(--success))]" : "bg-muted"}`}
                                 >
-                                  <div className={`w-3 h-3 bg-background rounded-full transition-transform ${mp.is_active ? "translate-x-4" : "translate-x-0.5"}`} />
+                                  <div className={`w-3 h-3 bg-background rounded-full transition-transform ${activeVal ? "translate-x-4" : "translate-x-0.5"}`} />
                                 </button>
                               </TableCell>
                               <TableCell>
