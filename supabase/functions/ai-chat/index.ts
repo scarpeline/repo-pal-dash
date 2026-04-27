@@ -14,9 +14,29 @@ function envFirst(...names: string[]): string | undefined {
   return undefined;
 }
 
-/** Modo auto: escolhe modelo conforme contexto (código, tamanho, complexidade) e secrets disponíveis. */
+const MIN_CHAT_CHARGE_CENTS = 1;
+
+const GOOGLE_MODEL_BY_ID: Record<string, string> = {
+  "gemini": "google/gemini-3-flash-preview",
+  "google-code-fast": "google/gemini-3-flash-preview",
+  "google-code-balanced": "google/gemini-2.5-flash",
+  "google-code-pro": "google/gemini-2.5-pro",
+  "google-image": "google/gemini-3.1-flash-image-preview",
+  "google-video": "google/gemini-3.1-pro-preview",
+};
+
+const DIRECT_GEMINI_MODEL_BY_ID: Record<string, string> = {
+  "gemini": "gemini-2.5-flash",
+  "google-code-fast": "gemini-2.5-flash",
+  "google-code-balanced": "gemini-2.5-flash",
+  "google-code-pro": "gemini-2.5-pro",
+  "google-video": "gemini-2.5-pro",
+};
+
+const isGoogleRoute = (id: string) => Boolean(GOOGLE_MODEL_BY_ID[id]);
+
+/** Modo auto: escolhe modelo Google conforme tarefa, evitando provedores quebrados e consumo desnecessário. */
 function pickAutoModel(messages: any[], fileContent?: string): string {
-  const has = (...keys: string[]) => !!envFirst(...keys);
   const lastUser = String(
     [...messages].reverse().find((m: any) => m.role === "user")?.content ?? "",
   );
@@ -39,26 +59,11 @@ function pickAutoModel(messages: any[], fileContent?: string): string {
 
   const tiny = lastUser.length < 160 && codeScore === 0 && !(fileContent && fileContent.length > 400);
 
-  if (expert && has("ANTHROPIC_API_KEY", "anthropic_api_key")) return "claude-sonnet";
-  if (expert && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-
-  if (longCtx && has("KIMI_API_KEY", "kimi_api_key")) return "kimi";
-
-  if (codeScore >= 2 && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-  if (codeScore >= 1 && lastUser.length > 500 && has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-
-  if (tiny && has("GROQ_API_KEY", "groq_api_key")) return "groq-8b";
-  if (tiny && has("GEMINI_API_KEY", "gemini_api_key")) return "gemini";
-
-  if (codeScore >= 1 && has("GROQ_API_KEY", "groq_api_key")) return "groq";
-
-  if (has("GEMINI_API_KEY", "gemini_api_key")) return "gemini";
-  if (has("GROQ_API_KEY", "groq_api_key")) return "groq-8b";
-  if (has("DEEPSEEK_API_KEY", "deepseek_api_key")) return "deepseek";
-  if (has("OPENROUTER_API_KEY", "openrouter_api_key")) return "openrouter";
-  if (has("ANTHROPIC_API_KEY", "anthropic_api_key")) return "claude-haiku";
-  if (has("OPENAI_API_KEY", "openai_api_key") || has("LOVABLE_API_KEY", "lovable_api_key")) return "openai";
-  return "gemini";
+  if (/\b(imagem|image|foto|logo|banner|ilustra|desenho|arte|thumbnail)\b/i.test(lastUser)) return "google-image";
+  if (/\b(vídeo|video|remotion|motion|animaç|mp4|reel|shorts|storyboard)\b/i.test(lastUser)) return "google-video";
+  if (expert || longCtx) return "google-code-pro";
+  if (codeScore >= 1 && !tiny) return "google-code-balanced";
+  return "google-code-fast";
 }
 
 Deno.serve(async (req) => {
@@ -186,15 +191,16 @@ Deno.serve(async (req) => {
     }
 
     // ── Normalize model ID ──
-    // The frontend sends short IDs like "gemini", "deepseek", "groq", "auto", etc.
-    // We normalize to a canonical short ID for routing.
-    const rawModel = body.model || "gemini";
+    // O frontend envia IDs curtos. Mantemos rotas Google válidas para evitar modelos depreciados.
+    const rawModel = body.model || "auto";
     
     // Map any full model path back to short ID
     const fullPathToShortId: Record<string, string> = {
-      "google/gemini-2.5-flash": "gemini",
-      "google/gemini-3-flash-preview": "gemini",
-      "google/gemini-2.5-pro": "gemini",
+      "google/gemini-2.5-flash": "google-code-balanced",
+      "google/gemini-3-flash-preview": "google-code-fast",
+      "google/gemini-2.5-pro": "google-code-pro",
+      "google/gemini-3.1-flash-image-preview": "google-image",
+      "google/gemini-3.1-pro-preview": "google-video",
       "deepseek/deepseek-coder": "deepseek",
       "groq/llama-4-scout": "groq",
       "groq/llama-3.1-8b": "groq-8b",
@@ -205,6 +211,7 @@ Deno.serve(async (req) => {
       "anthropic/claude-sonnet-4-5": "claude-sonnet",
       "anthropic/claude-opus-4-6": "claude-opus",
       "openai/gpt-4o-mini": "openai",
+      "openai/gpt-5-nano": "openai",
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
@@ -214,8 +221,13 @@ Deno.serve(async (req) => {
 
     // ── Map short ID to pricing model_id (cada modelo cobra conforme linha em ai_model_pricing) ──
     const modelIdMap: Record<string, string> = {
-      "auto":           "google/gemini-2.5-flash",
-      "gemini":         "google/gemini-2.5-flash",
+      "auto":           "google/gemini-3-flash-preview",
+      "gemini":         "google/gemini-3-flash-preview",
+      "google-code-fast":     "google/gemini-3-flash-preview",
+      "google-code-balanced": "google/gemini-2.5-flash",
+      "google-code-pro":      "google/gemini-2.5-pro",
+      "google-image":         "google/gemini-3.1-flash-image-preview",
+      "google-video":         "google/gemini-3.1-pro-preview",
       "deepseek":       "deepseek/deepseek-coder",
       "groq":           "groq/llama-4-scout",
       "groq-8b":        "groq/llama-3.1-8b",
@@ -224,9 +236,9 @@ Deno.serve(async (req) => {
       "claude-haiku":   "anthropic/claude-haiku-4-5",
       "claude-sonnet":  "anthropic/claude-sonnet-4-5",
       "claude-opus":    "anthropic/claude-opus-4-6",
-      "openai":         "openai/gpt-4o-mini",
+      "openai":         "openai/gpt-5-nano",
     };
-    const pricingModelId = modelIdMap[routedModel] || "google/gemini-2.5-flash";
+    const pricingModelId = modelIdMap[routedModel] || "google/gemini-3-flash-preview";
 
     console.log("ai-chat request:", {
       userId: user.id,
@@ -249,7 +261,7 @@ Deno.serve(async (req) => {
       ? await supabaseAdmin
         .from("ai_model_pricing")
         .select("resale_price_input_per_million, resale_price_output_per_million")
-        .eq("model_id", "google/gemini-2.5-flash")
+        .eq("model_id", "google/gemini-3-flash-preview")
         .eq("is_active", true)
         .maybeSingle()
       : { data: null };
@@ -266,7 +278,7 @@ Deno.serve(async (req) => {
       (estimatedInputTokens  / 1_000_000) * resaleInput +
       (estimatedOutputTokens / 1_000_000) * resaleOutput
     );
-    const minCharge = Math.max(estimatedCostCents, 20);
+    const minCharge = Math.max(estimatedCostCents, MIN_CHAT_CHARGE_CENTS);
 
     const { data: balance } = await supabaseAdmin
       .from("balances")
@@ -294,7 +306,7 @@ Deno.serve(async (req) => {
     const groqApiKey = envFirst("GROQ_API_KEY", "groq_api_key");
     const openrouterApiKey = envFirst("OPENROUTER_API_KEY", "openrouter_api_key");
     const anthropicApiKey = envFirst("ANTHROPIC_API_KEY", "anthropic_api_key");
-    const openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key");
+    const openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key", "openai_API_KEY");
     const lovableGatewayKey = envFirst("LOVABLE_API_KEY", "lovable_api_key");
 
     const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 30_000) => {
@@ -358,7 +370,12 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     };
 
     const modelDisplayName: Record<string, string> = {
-      gemini: "Gemini",
+      gemini: "Google Gemini Flash",
+      "google-code-fast": "Google Gemini 3 Flash",
+      "google-code-balanced": "Google Gemini 2.5 Flash",
+      "google-code-pro": "Google Gemini 2.5 Pro",
+      "google-image": "Google Gemini Imagem",
+      "google-video": "Google Gemini Vídeo",
       "groq-8b": "Llama 3.1 8B (Groq)",
       groq: "Llama 4 Scout (Groq)",
       deepseek: "DeepSeek",
@@ -377,6 +394,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     };
 
     const canAttempt = (mid: string): boolean => {
+      if (isGoogleRoute(mid)) return !!(lovableGatewayKey || geminiApiKey);
       switch (mid) {
         case "gemini":
           return !!geminiApiKey;
@@ -400,10 +418,41 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       }
     };
 
-    const runGemini = async (): Promise<string> => {
+    const runGemini = async (mid = "gemini"): Promise<string> => {
+      if (lovableGatewayKey) {
+        const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
+        const wantsImage = mid === "google-image";
+        const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+        const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
+          body: JSON.stringify({
+            model: modelName,
+            messages: promptMessages,
+            temperature: 0.4,
+            max_tokens: 4096,
+            ...(wantsImage ? { modalities: ["image", "text"] } : {}),
+          }),
+        }, 45_000);
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`Lovable AI ${res.status}: ${errBody.substring(0, 180)}`);
+        }
+        const data = await res.json();
+        if (data.error && (data.error.message || data.error.code)) {
+          throw new Error(String(data.error.message || data.error.code).substring(0, 180));
+        }
+        const text = data.choices?.[0]?.message?.content || "";
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imageUrl) return `${text || "Imagem gerada com sucesso."}\n\n![Imagem gerada](${imageUrl})`;
+        if (!String(text).trim()) throw new Error("Lovable AI resposta vazia");
+        return text;
+      }
+
       if (!geminiApiKey) throw new Error("Gemini sem chave");
+      if (mid === "google-image") throw new Error("Geração de imagem requer Lovable AI configurado");
       const geminiUrl =
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+        `https://generativelanguage.googleapis.com/v1beta/models/${DIRECT_GEMINI_MODEL_BY_ID[mid] || DIRECT_GEMINI_MODEL_BY_ID.gemini}:generateContent?key=${geminiApiKey}`;
       const geminiContents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
@@ -495,16 +544,17 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         return callOpenAICompatible(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           lovableGatewayKey,
-          "openai/gpt-4o-mini",
+          "openai/gpt-5-nano",
         );
       }
       throw new Error("OpenAI sem chave");
     };
 
     const runOne = async (mid: string): Promise<string> => {
+      if (isGoogleRoute(mid)) return await runGemini(mid);
       switch (mid) {
         case "gemini":
-          return await runGemini();
+          return await runGemini("gemini");
         case "deepseek":
           return await callOpenAICompatible(
             "https://api.deepseek.com/v1/chat/completions",
@@ -542,6 +592,8 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
 
     /** Ordem após o preferido: openai cedo (Lovable/OpenAI costuma existir quando Gemini falha por quota). */
     const FALLBACK_ORDER = [
+      "google-code-fast",
+      "google-code-balanced",
       "gemini",
       "openai",
       "groq-8b",
@@ -568,7 +620,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       return new Response(
         JSON.stringify({
           error:
-            "Nenhuma chave de IA encontrada no servidor. Use nomes como OPENAI_API_KEY ou openai_api_key, GEMINI_API_KEY ou gemini_api_key, etc.",
+            "Nenhuma integração de IA disponível no servidor. Configure as chaves de IA ou aguarde o Lovable AI ficar disponível.",
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -609,7 +661,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
-    const billedPricingModelId = modelIdMap[billingShortId] || "google/gemini-2.5-flash";
+    const billedPricingModelId = modelIdMap[billingShortId] || "google/gemini-3-flash-preview";
     const { data: billedResale } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("resale_price_input_per_million, resale_price_output_per_million")
@@ -625,7 +677,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         (inputTokens  / 1_000_000) * billResaleIn +
         (outputTokens / 1_000_000) * billResaleOut
       ),
-      20
+      MIN_CHAT_CHARGE_CENTS
     );
 
     // ── Re-verificar saldo se houve fallback (preço pode ser diferente) ──

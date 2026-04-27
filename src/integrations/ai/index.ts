@@ -29,154 +29,94 @@ export interface AIProvider {
 // Preços em USD por 1M tokens (abril 2026)
 export const AI_PROVIDERS: AIProvider[] = [
   {
-    name: "Gemini (Google)",
-    id: "gemini",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    apiKeyEnv: "GEMINI_API_KEY",
-    models: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"],
-    defaultModel: "gemini-1.5-flash",
+    name: "Google Gemini 3 Flash",
+    id: "google-code-fast",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    apiKeyEnv: "LOVABLE_API_KEY",
+    models: ["google/gemini-3-flash-preview"],
+    defaultModel: "google/gemini-3-flash-preview",
     enabled: true,
     characteristics: {
-      codingStrength: 7, reasoningStrength: 7, speed: 9, costEfficiency: 10,
+      codingStrength: 8, reasoningStrength: 8, speed: 10, costEfficiency: 10,
       contextWindow: 1000000, supportsStreaming: true,
-      bestFor: ["chat", "general", "fast"],
-    },
-    pricing: { inputPer1M: 0.075, outputPer1M: 0.30 },
-  },
-  {
-    name: "DeepSeek",
-    id: "deepseek",
-    baseUrl: "https://api.deepseek.com/v1",
-    apiKeyEnv: "DEEPSEEK_API_KEY",
-    models: ["deepseek-chat", "deepseek-coder", "deepseek-reasoner"],
-    defaultModel: "deepseek-coder",
-    enabled: false,
-    characteristics: {
-      codingStrength: 9, reasoningStrength: 8, speed: 7, costEfficiency: 9,
-      contextWindow: 64000, supportsStreaming: true,
-      bestFor: ["code", "analysis", "technical"],
-    },
-    pricing: { inputPer1M: 0.28, outputPer1M: 1.10 }, // deepseek-chat V3
-  },
-  {
-    name: "Groq — Llama 4 Scout",
-    id: "groq",
-    baseUrl: "https://api.groq.com/openai/v1",
-    apiKeyEnv: "GROQ_API_KEY",
-    models: ["meta-llama/llama-4-scout-17b-16e-instruct"],
-    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
-    enabled: false,
-    characteristics: {
-      codingStrength: 9, reasoningStrength: 8, speed: 10, costEfficiency: 9,
-      contextWindow: 128000, supportsStreaming: true,
-      bestFor: ["fast", "chat", "general", "code"],
-    },
-    pricing: { inputPer1M: 0.11, outputPer1M: 0.34 },
-  },
-  {
-    name: "Groq — Llama 3.1 8B",
-    id: "groq-8b",
-    baseUrl: "https://api.groq.com/openai/v1",
-    apiKeyEnv: "GROQ_API_KEY",
-    models: ["llama-3.1-8b-instant"],
-    defaultModel: "llama-3.1-8b-instant",
-    enabled: false,
-    characteristics: {
-      codingStrength: 7, reasoningStrength: 7, speed: 10, costEfficiency: 10,
-      contextWindow: 128000, supportsStreaming: true,
-      bestFor: ["fast", "simple", "chat"],
-    },
-    pricing: { inputPer1M: 0.05, outputPer1M: 0.08 },
-  },
-  {
-    name: "Claude Sonnet 4.5",
-    id: "claude-sonnet",
-    baseUrl: "https://api.anthropic.com/v1",
-    apiKeyEnv: "ANTHROPIC_API_KEY",
-    models: ["claude-sonnet-4-5"],
-    defaultModel: "claude-sonnet-4-5",
-    enabled: false,
-    characteristics: {
-      codingStrength: 10, reasoningStrength: 10, speed: 8, costEfficiency: 7,
-      contextWindow: 200000, supportsStreaming: true,
-      bestFor: ["code", "analysis", "reasoning", "creative"],
-    },
-    pricing: { inputPer1M: 3.00, outputPer1M: 15.00 },
-  },
-  {
-    name: "Claude Haiku 4.5",
-    id: "claude-haiku",
-    baseUrl: "https://api.anthropic.com/v1",
-    apiKeyEnv: "ANTHROPIC_API_KEY",
-    models: ["claude-haiku-4-5"],
-    defaultModel: "claude-haiku-4-5",
-    enabled: false,
-    characteristics: {
-      codingStrength: 8, reasoningStrength: 8, speed: 10, costEfficiency: 9,
-      contextWindow: 200000, supportsStreaming: true,
-      bestFor: ["fast", "chat", "simple", "code"],
-    },
-    pricing: { inputPer1M: 1.00, outputPer1M: 5.00 },
-  },
-  {
-    name: "Claude Opus 4.6",
-    id: "claude-opus",
-    baseUrl: "https://api.anthropic.com/v1",
-    apiKeyEnv: "ANTHROPIC_API_KEY",
-    models: ["claude-opus-4-6"],
-    defaultModel: "claude-opus-4-6",
-    enabled: false,
-    characteristics: {
-      codingStrength: 10, reasoningStrength: 10, speed: 5, costEfficiency: 4,
-      contextWindow: 200000, supportsStreaming: true,
-      bestFor: ["complex", "reasoning", "research", "expert"],
-    },
-    pricing: { inputPer1M: 5.00, outputPer1M: 25.00 },
-  },
-  {
-    name: "Kimi (Moonshot)",
-    id: "kimi",
-    baseUrl: "https://api.moonshot.cn/v1",
-    apiKeyEnv: "KIMI_API_KEY",
-    models: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
-    defaultModel: "moonshot-v1-32k",
-    enabled: false,
-    characteristics: {
-      codingStrength: 8, reasoningStrength: 9, speed: 7, costEfficiency: 8,
-      contextWindow: 128000, supportsStreaming: true,
-      bestFor: ["long-context", "analysis", "code"],
-    },
-    pricing: { inputPer1M: 0.50, outputPer1M: 1.50 },
-  },
-  {
-    name: "OpenRouter",
-    id: "openrouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    apiKeyEnv: "OPENROUTER_API_KEY",
-    models: ["deepseek/deepseek-chat:free"],
-    defaultModel: "deepseek/deepseek-chat:free",
-    enabled: false,
-    characteristics: {
-      codingStrength: 8, reasoningStrength: 8, speed: 7, costEfficiency: 8,
-      contextWindow: 64000, supportsStreaming: true,
-      bestFor: ["universal", "experimental", "roteamento"],
+      bestFor: ["chat", "code", "fast"],
     },
     pricing: { inputPer1M: 0.05, outputPer1M: 0.20 },
   },
   {
-    name: "GPT-4o mini (OpenAI)",
-    id: "openai",
-    baseUrl: "https://api.openai.com/v1",
-    apiKeyEnv: "OPENAI_API_KEY",
-    models: ["gpt-4o-mini"],
-    defaultModel: "gpt-4o-mini",
-    enabled: false,
+    name: "Google Gemini 2.5 Flash",
+    id: "google-code-balanced",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    apiKeyEnv: "LOVABLE_API_KEY",
+    models: ["google/gemini-2.5-flash"],
+    defaultModel: "google/gemini-2.5-flash",
+    enabled: true,
     characteristics: {
-      codingStrength: 8, reasoningStrength: 9, speed: 8, costEfficiency: 7,
-      contextWindow: 128000, supportsStreaming: true,
-      bestFor: ["general", "creative", "analysis"],
+      codingStrength: 9, reasoningStrength: 9, speed: 9, costEfficiency: 9,
+      contextWindow: 1000000, supportsStreaming: true,
+      bestFor: ["code", "app-edit", "analysis"],
     },
-    pricing: { inputPer1M: 0.15, outputPer1M: 0.60 },
+    pricing: { inputPer1M: 0.10, outputPer1M: 0.40 },
+  },
+  {
+    name: "Google Gemini 2.5 Pro",
+    id: "google-code-pro",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    apiKeyEnv: "LOVABLE_API_KEY",
+    models: ["google/gemini-2.5-pro"],
+    defaultModel: "google/gemini-2.5-pro",
+    enabled: true,
+    characteristics: {
+      codingStrength: 10, reasoningStrength: 10, speed: 7, costEfficiency: 7,
+      contextWindow: 1000000, supportsStreaming: true,
+      bestFor: ["complex-code", "architecture", "long-context"],
+    },
+    pricing: { inputPer1M: 1.25, outputPer1M: 10.00 },
+  },
+  {
+    name: "Google Gemini Imagem",
+    id: "google-image",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    apiKeyEnv: "LOVABLE_API_KEY",
+    models: ["google/gemini-3.1-flash-image-preview"],
+    defaultModel: "google/gemini-3.1-flash-image-preview",
+    enabled: true,
+    characteristics: {
+      codingStrength: 4, reasoningStrength: 7, speed: 8, costEfficiency: 8,
+      contextWindow: 32000, supportsStreaming: false,
+      bestFor: ["image", "logo", "creative"],
+    },
+    pricing: { inputPer1M: 0.30, outputPer1M: 2.00 },
+  },
+  {
+    name: "Google Gemini Vídeo",
+    id: "google-video",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    apiKeyEnv: "LOVABLE_API_KEY",
+    models: ["google/gemini-3.1-pro-preview"],
+    defaultModel: "google/gemini-3.1-pro-preview",
+    enabled: true,
+    characteristics: {
+      codingStrength: 8, reasoningStrength: 10, speed: 6, costEfficiency: 6,
+      contextWindow: 1000000, supportsStreaming: true,
+      bestFor: ["video", "remotion", "storyboard", "motion"],
+    },
+    pricing: { inputPer1M: 1.25, outputPer1M: 10.00 },
+  },
+  {
+    name: "Gemini legado (compatibilidade)",
+    id: "gemini",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
+    apiKeyEnv: "LOVABLE_API_KEY",
+    models: ["google/gemini-3-flash-preview"],
+    defaultModel: "google/gemini-3-flash-preview",
+    enabled: true,
+    characteristics: {
+      codingStrength: 8, reasoningStrength: 8, speed: 10, costEfficiency: 10,
+      contextWindow: 1000000, supportsStreaming: true,
+      bestFor: ["chat", "general", "fallback"],
+    },
+    pricing: { inputPer1M: 0.05, outputPer1M: 0.20 },
   },
 ];
 
@@ -228,64 +168,49 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
   let recommendedProvider = AI_PROVIDERS[0]; // Default: Gemini
   let reasoning = "";
   
-  // REGRA 1: Tarefas simples → Gemini (rápido e econômico)
-  if (complexity === "simple") {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "gemini") || AI_PROVIDERS[0];
-    reasoning = "Tarefa simples: Gemini Flash (rápido)";
+  // REGRA 1: imagem/vídeo → rotas multimodais Google
+  if (/\b(imagem|image|foto|logo|banner|thumbnail|arte)\b/i.test(content)) {
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-image") || AI_PROVIDERS[0];
+    reasoning = "Criação visual: Gemini Imagem";
+  } else if (/\b(vídeo|video|mp4|reel|motion|animaç|remotion)\b/i.test(content)) {
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-video") || AI_PROVIDERS[0];
+    reasoning = "Criação de vídeo: Gemini Vídeo";
   }
-  // REGRA 2: Código backend complexo → Claude Sonnet
+  // REGRA 2: Tarefas simples → Gemini rápido e econômico
+  else if (complexity === "simple") {
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || AI_PROVIDERS[0];
+    reasoning = "Tarefa simples: Gemini 3 Flash (rápido)";
+  }
+  // REGRA 3: Código backend complexo → Gemini Pro
   else if (isBackend && isCode) {
-    const claude = AI_PROVIDERS.find(p => p.id === "claude-sonnet");
-    if (claude?.enabled) {
-      recommendedProvider = claude;
-      reasoning = "Código backend: Claude Sonnet 4.5 (melhor raciocínio)";
-    } else {
-      recommendedProvider = AI_PROVIDERS.find(p => p.id === "deepseek") || recommendedProvider;
-      reasoning = "Código backend: DeepSeek Coder";
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+    reasoning = "Código backend: Gemini 2.5 Pro";
   }
-  // REGRA 3: Código geral → DeepSeek
+  // REGRA 4: Código geral → Gemini Flash equilibrado
   else if (isCode) {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "deepseek") || recommendedProvider;
-    reasoning = "Programação: DeepSeek Coder (especializado em código)";
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-balanced") || recommendedProvider;
+    reasoning = "Programação: Gemini 2.5 Flash";
   }
-  // REGRA 4: Precisa ser rápido → Groq
+  // REGRA 5: Precisa ser rápido → Gemini 3 Flash
   else if (complexity === "medium" && !requiresLongContext) {
-    const groq = AI_PROVIDERS.find(p => p.id === "groq");
-    if (groq?.enabled) {
-      recommendedProvider = groq;
-      reasoning = "Resposta rápida: Groq (mais rápido do mercado)";
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || recommendedProvider;
+    reasoning = "Resposta rápida: Gemini 3 Flash";
   }
-  // REGRA 5: Contexto longo → Kimi ou Gemini Pro
+  // REGRA 6: Contexto longo → Gemini Pro
   else if (requiresLongContext) {
-    const kimi = AI_PROVIDERS.find(p => p.id === "kimi");
-    if (kimi?.enabled) {
-      recommendedProvider = kimi;
-      reasoning = "Contexto longo: Kimi (128k tokens)";
-    } else {
-      reasoning = "Contexto longo: Gemini Pro (1M tokens)";
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+    reasoning = "Contexto longo: Gemini 2.5 Pro";
   }
-  // REGRA 6: Análise complexa → Claude Opus
+  // REGRA 7: Análise complexa → Gemini Pro
   else if (complexity === "complex" && isAnalysis) {
-    const opus = AI_PROVIDERS.find(p => p.id === "claude-opus");
-    if (opus?.enabled) {
-      recommendedProvider = opus;
-      reasoning = "Análise complexa: Claude Opus 4.6 (máximo raciocínio)";
-    } else {
-      const groq = AI_PROVIDERS.find(p => p.id === "groq");
-      if (groq?.enabled) {
-        recommendedProvider = groq;
-        reasoning = "Análise complexa: Groq Llama 4 Scout";
-      }
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+    reasoning = "Análise complexa: Gemini 2.5 Pro";
   }
   
   // Se nenhuma IA paga estiver habilitada, usar Gemini
   if (!recommendedProvider.enabled) {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "gemini") || AI_PROVIDERS[0];
-    reasoning = "IA recomendada desabilitada. Usando Gemini (sempre disponível)";
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || AI_PROVIDERS[0];
+    reasoning = "IA recomendada indisponível. Usando Gemini 3 Flash";
   }
   
   return {

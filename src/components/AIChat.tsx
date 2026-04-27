@@ -4,22 +4,15 @@ import {
   Sparkles, Zap, Code2, Bot, User, Copy, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AISelector } from "./AISelector";
-import { AI_PROVIDERS } from "@/integrations/ai";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto",           label: "🧠 Auto inteligente",   desc: "Escolhe o modelo pelo tipo de tarefa e contexto" },
-  { id: "gemini",         label: "Gemini Flash",          desc: "Google · Rápido e equilibrado" },
-  { id: "deepseek",       label: "DeepSeek Coder",        desc: "Especialista em código" },
-  { id: "groq",           label: "Llama 4 Scout",         desc: "Groq · Muito rápido" },
-  { id: "groq-8b",        label: "Llama 3.1 8B",          desc: "Groq · Respostas curtas e leves" },
-  { id: "kimi",           label: "Kimi 32k",              desc: "Moonshot · Contexto longo" },
-  { id: "openrouter",     label: "OpenRouter",            desc: "DeepSeek via roteador" },
-  { id: "claude-haiku",   label: "Claude Haiku",          desc: "Anthropic · Rápido" },
-  { id: "claude-sonnet",  label: "Claude Sonnet",         desc: "Anthropic · Código e raciocínio" },
-  { id: "claude-opus",    label: "Claude Opus",           desc: "Anthropic · Tarefas difíceis" },
-  { id: "openai",         label: "GPT-4o mini",           desc: "OpenAI · Uso geral" },
+  { id: "auto",                 label: "🧠 Auto inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente" },
+  { id: "google-code-fast",     label: "Gemini 3 Flash",            desc: "Google · edição rápida de app e código" },
+  { id: "google-code-balanced", label: "Gemini 2.5 Flash",          desc: "Google · melhor equilíbrio para programar" },
+  { id: "google-code-pro",      label: "Gemini 2.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo" },
+  { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners" },
+  { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos" },
 ];
 
 type ChatMsg = { 
@@ -176,6 +169,18 @@ const StreamingMessage = ({ content, provider }: { content: string; provider?: s
 const ParsedContent = ({ content }: { content: string }) => {
   const parts: Array<{type: 'text' | 'code'; content: string; language?: string}> = [];
   const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  const renderText = (text: string) => {
+    const imageMatch = text.match(/!\[([^\]]*)\]\((data:image\/[^)]+|https?:\/\/[^)]+)\)/);
+    if (!imageMatch) return <div className="whitespace-pre-wrap leading-relaxed">{text}</div>;
+    const [markdown, alt, src] = imageMatch;
+    return (
+      <div className="space-y-2">
+        {text.slice(0, imageMatch.index).trim() && <div className="whitespace-pre-wrap leading-relaxed">{text.slice(0, imageMatch.index).trim()}</div>}
+        <img src={src} alt={alt || "Imagem gerada pela IA"} className="max-w-full rounded-lg border border-border" loading="lazy" />
+        {text.slice((imageMatch.index || 0) + markdown.length).trim() && <div className="whitespace-pre-wrap leading-relaxed">{text.slice((imageMatch.index || 0) + markdown.length).trim()}</div>}
+      </div>
+    );
+  };
   let lastIndex = 0;
   let match;
   
@@ -217,7 +222,7 @@ const ParsedContent = ({ content }: { content: string }) => {
         part.type === 'code' ? (
           <CodeBlock key={idx} code={part.content} language={part.language} />
         ) : (
-          <div key={idx} className="whitespace-pre-wrap leading-relaxed">{part.content}</div>
+          <div key={idx}>{renderText(part.content)}</div>
         )
       ))}
     </>
@@ -243,6 +248,10 @@ const AIChat = ({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isThinking, streamingContent, currentActivity.join(',')]);
+
+  useEffect(() => {
+    setSelectedModel(selectedProvider || "auto");
+  }, [selectedProvider]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -368,7 +377,7 @@ const AIChat = ({
             {AI_MODELS.map(m => (
               <button
                 key={m.id}
-                onClick={() => { setSelectedModel(m.id); setShowModelSelect(false); }}
+                onClick={() => { setSelectedModel(m.id); onProviderChange?.(m.id); setShowModelSelect(false); }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm flex flex-col gap-0.5 hover:bg-muted transition-all duration-200 ${
                   selectedModel === m.id ? "bg-primary/10 text-primary border border-primary/20" : "text-foreground"
                 }`}

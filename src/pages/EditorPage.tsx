@@ -42,11 +42,11 @@ type ChatMsg = {
 };
 
 const MAX_CHAT_CONTEXT_MESSAGES = 10;
-const REPO_AGENT_ACTION_REGEX = /(corrig\w*|fix\w*|refator\w*|edit\w*|alter\w*|mud\w*|cri\w*|adicion\w*|remov\w*|implement\w*|ajust\w*|otimiz\w*|resolv\w*|analis\w*|scan\w*|varr\w*)/i;
-const REPO_AGENT_SCOPE_REGEX = /(arquivo|repo|repositório|código|codebase|componente|tela|página|função|api|endpoint|layout|estilo|css|bug|erro|build|deploy)/i;
+const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|fix\w*|refator\w*|edit\w*|alter\w*|mud\w*|cri\w*|adicion\w*|remov\w*|implement\w*|ajust\w*|otimiz\w*|resolv\w*|analis\w*|scan\w*|varr\w*)\b/i;
+const REPO_AGENT_SCOPE_REGEX = /\b(arquivo|repo|repositório|código|codebase|componente|tela|página|função|api|endpoint|layout|estilo|css|bug|erro|build|deploy)\b/i;
 
 const shouldUseRepositoryAgent = (message: string) =>
-  /^\/edit(ar)?/i.test(message) || (REPO_AGENT_ACTION_REGEX.test(message) && REPO_AGENT_SCOPE_REGEX.test(message));
+  /^\/edit(ar)?\b/i.test(message) || (REPO_AGENT_ACTION_REGEX.test(message) && REPO_AGENT_SCOPE_REGEX.test(message));
 
 const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
   ...messages
@@ -62,7 +62,12 @@ const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
 const getModelBadge = (model?: string) => {
   const badges: Record<string, string> = {
     auto: "Auto",
-    gemini: "Gemini",
+    gemini: "Google Gemini",
+    "google-code-fast": "Gemini 3 Flash",
+    "google-code-balanced": "Gemini 2.5 Flash",
+    "google-code-pro": "Gemini 2.5 Pro",
+    "google-image": "Gemini Imagem",
+    "google-video": "Gemini Vídeo",
     deepseek: "DeepSeek",
     groq: "Groq",
     "groq-8b": "Groq 8B",
@@ -474,12 +479,9 @@ const EditorPage = () => {
           const triedLine = tried?.length
             ? `\n\nModelos tentados no servidor: ${tried.join(", ")}.`
             : "";
-          const hint =
-            tried?.length === 1
-              ? "\n\nSó há um provedor configurado nas secrets do Supabase. Adicione LOVABLE_API_KEY ou OPENAI_API_KEY (ou Groq, DeepSeek, etc.) para o fallback automático ter para onde alternar."
-              : tried && tried.length > 1
-                ? "\n\nTodas as chaves configuradas falharam nesta rodada. Confira quotas e secrets no painel do Supabase."
-                : "";
+          const hint = tried?.length
+            ? "\n\nO roteador tentou os modelos disponíveis. Confira créditos e limites das integrações de IA."
+            : "";
           const fullMsg = `${errorMsg}${triedLine}${hint}`;
           toast.error("Nenhuma IA respondeu após tentar os provedores disponíveis.");
           setChatMessages(p => [...p, {
