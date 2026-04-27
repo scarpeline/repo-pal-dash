@@ -444,33 +444,38 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
 
     const runGemini = async (mid = "gemini"): Promise<string> => {
       if (lovableGatewayKey) {
-        const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
-        const wantsImage = mid === "google-image";
-        const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
-        const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
-          body: JSON.stringify({
-            model: modelName,
-            messages: promptMessages,
-            temperature: 0.4,
-            max_tokens: 4096,
-            ...(wantsImage ? { modalities: ["image", "text"] } : {}),
-          }),
-        }, 45_000);
-        if (!res.ok) {
-          const errBody = await res.text();
-          throw new Error(`Lovable AI ${res.status}: ${errBody.substring(0, 180)}`);
+        try {
+          const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
+          const wantsImage = mid === "google-image";
+          const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+          const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
+            body: JSON.stringify({
+              model: modelName,
+              messages: promptMessages,
+              temperature: 0.4,
+              max_tokens: 4096,
+              ...(wantsImage ? { modalities: ["image", "text"] } : {}),
+            }),
+          }, 45_000);
+          if (!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`Lovable AI ${res.status}: ${errBody.substring(0, 180)}`);
+          }
+          const data = await res.json();
+          if (data.error && (data.error.message || data.error.code)) {
+            throw new Error(String(data.error.message || data.error.code).substring(0, 180));
+          }
+          const text = data.choices?.[0]?.message?.content || "";
+          const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (imageUrl) return `${text || "Imagem gerada com sucesso."}\n\n![Imagem gerada](${imageUrl})`;
+          if (!String(text).trim()) throw new Error("Lovable AI resposta vazia");
+          return text;
+        } catch (gatewayError) {
+          if (!geminiApiKey || mid === "google-image") throw gatewayError;
+          console.warn(`Lovable AI indisponível para ${mid}; usando Gemini direto:`, gatewayError instanceof Error ? gatewayError.message : String(gatewayError));
         }
-        const data = await res.json();
-        if (data.error && (data.error.message || data.error.code)) {
-          throw new Error(String(data.error.message || data.error.code).substring(0, 180));
-        }
-        const text = data.choices?.[0]?.message?.content || "";
-        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (imageUrl) return `${text || "Imagem gerada com sucesso."}\n\n![Imagem gerada](${imageUrl})`;
-        if (!String(text).trim()) throw new Error("Lovable AI resposta vazia");
-        return text;
       }
 
       if (!geminiApiKey) throw new Error("Gemini sem chave");
