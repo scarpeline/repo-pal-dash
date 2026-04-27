@@ -877,7 +877,7 @@ const SuperAdmin = () => {
                     onKeyDown={(e) => e.key === "Enter" && verifyWithPassword()}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Acesso restrito a emails autorizados via <code>VITE_ADMIN_EMAILS</code>.
+                    Digite a senha do Super Admin para continuar.
                   </p>
                 </div>
                 <Button 
