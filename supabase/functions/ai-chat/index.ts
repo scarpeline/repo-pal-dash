@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
     // Fetch resale pricing do modelo que será chamado (não usar “o mais caro” como fallback)
     const { data: pricing } = await supabaseAdmin
       .from("ai_model_pricing")
-      .select("resale_price_input_per_million, resale_price_output_per_million, model_label")
+      .select("api_cost_input_per_million, api_cost_output_per_million, resale_price_input_per_million, resale_price_output_per_million, model_label")
       .eq("model_id", pricingModelId)
       .eq("is_active", true)
       .maybeSingle();
@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
     const { data: fallbackPricing } = !pricing
       ? await supabaseAdmin
         .from("ai_model_pricing")
-        .select("resale_price_input_per_million, resale_price_output_per_million")
+        .select("api_cost_input_per_million, api_cost_output_per_million, resale_price_input_per_million, resale_price_output_per_million")
         .eq("model_id", "google/gemini-3-flash-preview")
         .eq("is_active", true)
         .maybeSingle()
