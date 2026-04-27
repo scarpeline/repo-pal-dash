@@ -374,11 +374,14 @@ const EditorPage = () => {
       );
 
       if (result.modifications.length === 0) {
+        const usageInfo = result.usage
+          ? `\n\n${formatUsageText(result.usage.input_tokens, result.usage.output_tokens, result.usage.cost_cents)}`
+          : "";
         setChatMessages(p => [...p, {
           role: "ai",
-          content: result.message,
+          content: result.message + usageInfo,
           timestamp: new Date(),
-          provider: providerBadge,
+          provider: result.provider || providerBadge,
           activity: [...activityLog],
         }]);
         setCurrentActivity([]);
@@ -389,12 +392,15 @@ const EditorPage = () => {
 
       addProgress("⚡ Aplicando alterações no GitHub...");
       const executionResult = await modifier.executeModifications(result.modifications);
+      const usageInfo = result.usage
+        ? `\n\n${formatUsageText(result.usage.input_tokens, result.usage.output_tokens, result.usage.cost_cents)}`
+        : "";
 
       setChatMessages(p => [...p, {
         role: "ai",
-        content: executionResult,
+        content: `${result.message}\n\n${executionResult}${usageInfo}`,
         timestamp: new Date(),
-        provider: providerBadge,
+        provider: result.provider || providerBadge,
         activity: [...activityLog, "✅ Alterações aplicadas com sucesso!"],
       }]);
 
