@@ -361,6 +361,35 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         : ""
     }`;
 
+    const stripMediaData = (text: string) => String(text || "").replace(/data:(image|video)\/[^\s)]+/g, "[mídia anexada]");
+    const imageParts = attachments.flatMap((file: any) => {
+      if (file?.kind === "image" && file?.dataUrl) return [{ type: "image_url", image_url: { url: file.dataUrl } }];
+      if (file?.kind === "video" && Array.isArray(file.frames)) {
+        return file.frames.slice(0, 3).map((frame: string) => ({ type: "image_url", image_url: { url: frame } }));
+      }
+      return [];
+    });
+
+    const buildGatewayMessages = () => {
+      const clean = messages.map((m: any) => ({ ...m, content: stripMediaData(m.content) }));
+      if (imageParts.length) {
+        const lastUserIndex = clean.map((m: any) => m.role).lastIndexOf("user");
+        if (lastUserIndex >= 0) {
+          clean[lastUserIndex] = {
+            ...clean[lastUserIndex],
+            content: [{ type: "text", text: clean[lastUserIndex].content }, ...imageParts],
+          };
+        }
+      }
+      return [{ role: "system", content: systemPrompt }, ...clean];
+    };
+
+    const dataUrlToGeminiPart = (dataUrl: string) => {
+      const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return null;
+      return { inline_data: { mime_type: match[1], data: match[2] } };
+    };
+
     // ── APIs compatíveis OpenAI (chat/completions) ──
     const callOpenAICompatible = async (
       url: string,
