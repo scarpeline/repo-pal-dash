@@ -5,7 +5,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AISelector } from "./AISelector";
-import { AI_PROVIDERS } from "@/integrations/ai";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
