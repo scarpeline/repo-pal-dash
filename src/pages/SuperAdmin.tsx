@@ -712,7 +712,64 @@ const SuperAdmin = () => {
   }, []);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
+
+  // Tela de login do Super Admin — não exibe nenhum email no DOM
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <CardTitle>Área restrita</CardTitle>
+            <CardDescription>Faça login para continuar.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleGateLogin} className="space-y-4" autoComplete="off">
+              <div className="space-y-2">
+                <Label htmlFor="gate-email">Email</Label>
+                <Input
+                  id="gate-email"
+                  type="email"
+                  autoComplete="off"
+                  placeholder="seu@email.com"
+                  value={gateEmail}
+                  onChange={(e) => setGateEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gate-password">Senha</Label>
+                <Input
+                  id="gate-password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  value={gatePassword}
+                  onChange={(e) => setGatePassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={gateLoading}>
+                {gateLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Entrar
+              </Button>
+              {user?.email && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={async () => { await signOut(); }}
+                >
+                  Sair da sessão atual
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Show verification screen for admin emails
   if (isAdminEmail && !isVerified) {
