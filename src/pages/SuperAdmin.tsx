@@ -714,10 +714,6 @@ const SuperAdmin = () => {
       toast.error("Falha ao verificar. Tente novamente.");
     }
   };
-    } else {
-      toast.error("Senha incorreta. Tente novamente.");
-    }
-  };
   
   // Check if already verified in this session
   useEffect(() => {
