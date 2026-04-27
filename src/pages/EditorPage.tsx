@@ -42,11 +42,11 @@ type ChatMsg = {
 };
 
 const MAX_CHAT_CONTEXT_MESSAGES = 10;
-const REPO_AGENT_ACTION_REGEX = /(corrig\w*|fix\w*|refator\w*|edit\w*|alter\w*|mud\w*|cri\w*|adicion\w*|remov\w*|implement\w*|ajust\w*|otimiz\w*|resolv\w*|analis\w*|scan\w*|varr\w*)/i;
-const REPO_AGENT_SCOPE_REGEX = /(arquivo|repo|repositório|código|codebase|componente|tela|página|função|api|endpoint|layout|estilo|css|bug|erro|build|deploy)/i;
+const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|fix\w*|refator\w*|edit\w*|alter\w*|mud\w*|cri\w*|adicion\w*|remov\w*|implement\w*|ajust\w*|otimiz\w*|resolv\w*|analis\w*|scan\w*|varr\w*)\b/i;
+const REPO_AGENT_SCOPE_REGEX = /\b(arquivo|repo|repositório|código|codebase|componente|tela|página|função|api|endpoint|layout|estilo|css|bug|erro|build|deploy)\b/i;
 
 const shouldUseRepositoryAgent = (message: string) =>
-  /^\/edit(ar)?/i.test(message) || (REPO_AGENT_ACTION_REGEX.test(message) && REPO_AGENT_SCOPE_REGEX.test(message));
+  /^\/edit(ar)?\b/i.test(message) || (REPO_AGENT_ACTION_REGEX.test(message) && REPO_AGENT_SCOPE_REGEX.test(message));
 
 const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
   ...messages
