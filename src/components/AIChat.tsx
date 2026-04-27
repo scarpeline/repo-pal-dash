@@ -4,7 +4,6 @@ import {
   Sparkles, Zap, Code2, Bot, User, Copy, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AISelector } from "./AISelector";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
@@ -238,6 +237,10 @@ const AIChat = ({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isThinking, streamingContent, currentActivity.join(',')]);
 
+  useEffect(() => {
+    setSelectedModel(selectedProvider || "auto");
+  }, [selectedProvider]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isThinking) return;
@@ -362,7 +365,7 @@ const AIChat = ({
             {AI_MODELS.map(m => (
               <button
                 key={m.id}
-                onClick={() => { setSelectedModel(m.id); setShowModelSelect(false); }}
+                onClick={() => { setSelectedModel(m.id); onProviderChange?.(m.id); setShowModelSelect(false); }}
                 className={`w-full text-left px-3 py-2 rounded-md text-sm flex flex-col gap-0.5 hover:bg-muted transition-all duration-200 ${
                   selectedModel === m.id ? "bg-primary/10 text-primary border border-primary/20" : "text-foreground"
                 }`}
