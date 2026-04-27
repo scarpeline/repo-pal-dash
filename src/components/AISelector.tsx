@@ -54,7 +54,11 @@ export function AISelector({
 
   useEffect(() => {
     // Chaves ficam no servidor; as rotas Google/Lovable AI são resolvidas no backend.
-    const alwaysEnabled = ["google-code-fast", "google-code-balanced", "google-code-pro", "google-image", "google-video", "gemini"];
+    const alwaysEnabled = [
+      "google-code-fast", "google-code-balanced", "google-code-pro",
+      "google-image", "google-video", "gemini", "claude-haiku",
+      "claude-sonnet", "claude-opus", "kimi", "deepseek"
+    ];
     const updated = providers.map(p => ({
       ...p,
       enabled: alwaysEnabled.includes(p.id) ? true : !!import.meta.env[p.apiKeyEnv],

@@ -25,6 +25,27 @@ const GOOGLE_MODEL_BY_ID: Record<string, string> = {
   "google-video": "google/gemini-3.1-pro-preview",
 };
 
+const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
+  "auto": "google/gemini-3-flash-preview",
+  "gemini": "google/gemini-3-flash-preview",
+  "google-code-fast": "google/gemini-3-flash-preview",
+  "google-code-balanced": "google/gemini-2.5-flash",
+  "google-code-pro": "google/gemini-2.5-pro",
+  "google-image": "google/gemini-3.1-flash-image-preview",
+  "google-video": "google/gemini-3.1-pro-preview",
+  "deepseek": "deepseek/deepseek-chat",
+  "groq": "groq/llama-4-scout",
+  "groq-8b": "groq/llama-3.1-8b",
+  "kimi": "moonshot/kimi-k2-0711-preview",
+  "openrouter": "openrouter/deepseek-free",
+  "claude-haiku": "anthropic/claude-haiku-4-5",
+  "claude-sonnet": "anthropic/claude-sonnet-4-6",
+  "claude-opus": "anthropic/claude-opus-4-1",
+  "openai": "openai/gpt-5-nano",
+};
+
+const shortIdToPricingModel = (shortId: string) => MODEL_ID_BY_SHORT_ID[shortId] || MODEL_ID_BY_SHORT_ID["google-code-fast"];
+
 const DIRECT_GEMINI_MODEL_BY_ID: Record<string, string> = {
   "gemini": "gemini-2.5-flash",
   "google-code-fast": "gemini-2.5-flash",
@@ -201,44 +222,47 @@ Deno.serve(async (req) => {
       "google/gemini-2.5-pro": "google-code-pro",
       "google/gemini-3.1-flash-image-preview": "google-image",
       "google/gemini-3.1-pro-preview": "google-video",
+      "deepseek/deepseek-chat": "deepseek",
       "deepseek/deepseek-coder": "deepseek",
       "groq/llama-4-scout": "groq",
       "groq/llama-3.1-8b": "groq-8b",
       
+      "moonshot/kimi-k2-0711-preview": "kimi",
       "moonshot/moonshot-v1-32k": "kimi",
       "openrouter/deepseek-free": "openrouter",
       "anthropic/claude-haiku-4-5": "claude-haiku",
+      "anthropic/claude-sonnet-4-6": "claude-sonnet",
       "anthropic/claude-sonnet-4-5": "claude-sonnet",
+      "anthropic/claude-opus-4-1": "claude-opus",
       "anthropic/claude-opus-4-6": "claude-opus",
       "openai/gpt-4o-mini": "openai",
       "openai/gpt-5-nano": "openai",
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
-    const routedModel = selectedModel === "auto"
+    let routedModel = selectedModel === "auto"
       ? pickAutoModel(messages, fileContent)
       : selectedModel;
 
+    const { data: activeModelsData } = await supabaseAdmin
+      .from("ai_model_pricing")
+      .select("model_id")
+      .eq("is_active", true);
+    const activePricingModelIds = new Set((activeModelsData || []).map((m: any) => m.model_id));
+    const isShortIdActive = (shortId: string) => activePricingModelIds.has(shortIdToPricingModel(shortId));
+
+    if (!isShortIdActive(routedModel)) {
+      if (selectedModel !== "auto") {
+        return new Response(JSON.stringify({ error: "Este modelo de IA está desativado pelo Super Admin." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      routedModel = ["google-code-fast", "google-code-balanced", "google-code-pro", "gemini", "openai"].find(isShortIdActive) || "google-code-fast";
+    }
+
     // ── Map short ID to pricing model_id (cada modelo cobra conforme linha em ai_model_pricing) ──
-    const modelIdMap: Record<string, string> = {
-      "auto":           "google/gemini-3-flash-preview",
-      "gemini":         "google/gemini-3-flash-preview",
-      "google-code-fast":     "google/gemini-3-flash-preview",
-      "google-code-balanced": "google/gemini-2.5-flash",
-      "google-code-pro":      "google/gemini-2.5-pro",
-      "google-image":         "google/gemini-3.1-flash-image-preview",
-      "google-video":         "google/gemini-3.1-pro-preview",
-      "deepseek":       "deepseek/deepseek-coder",
-      "groq":           "groq/llama-4-scout",
-      "groq-8b":        "groq/llama-3.1-8b",
-      "kimi":           "moonshot/moonshot-v1-32k",
-      "openrouter":     "openrouter/deepseek-free",
-      "claude-haiku":   "anthropic/claude-haiku-4-5",
-      "claude-sonnet":  "anthropic/claude-sonnet-4-5",
-      "claude-opus":    "anthropic/claude-opus-4-6",
-      "openai":         "openai/gpt-5-nano",
-    };
-    const pricingModelId = modelIdMap[routedModel] || "google/gemini-3-flash-preview";
+    const pricingModelId = shortIdToPricingModel(routedModel);
 
     console.log("ai-chat request:", {
       userId: user.id,
@@ -381,16 +405,16 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       deepseek: "DeepSeek",
       openrouter: "OpenRouter",
       "claude-haiku": "Claude Haiku 4.5",
-      "claude-sonnet": "Claude Sonnet 4.5",
-      "claude-opus": "Claude Opus 4.5",
-      kimi: "Kimi",
-      openai: "GPT-4o mini",
+      "claude-sonnet": "Claude Sonnet 4.6",
+      "claude-opus": "Claude Opus",
+      kimi: "Kimi K2",
+      openai: "GPT-5 Nano",
     };
 
     const claudeApiModel: Record<string, string> = {
-      "claude-haiku": "claude-haiku-4-5",
+      "claude-haiku": "claude-3-5-haiku-latest",
       "claude-sonnet": "claude-sonnet-4-5",
-      "claude-opus": "claude-opus-4-6",
+      "claude-opus": "claude-opus-4-1",
     };
 
     const canAttempt = (mid: string): boolean => {
@@ -420,33 +444,38 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
 
     const runGemini = async (mid = "gemini"): Promise<string> => {
       if (lovableGatewayKey) {
-        const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
-        const wantsImage = mid === "google-image";
-        const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
-        const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
-          body: JSON.stringify({
-            model: modelName,
-            messages: promptMessages,
-            temperature: 0.4,
-            max_tokens: 4096,
-            ...(wantsImage ? { modalities: ["image", "text"] } : {}),
-          }),
-        }, 45_000);
-        if (!res.ok) {
-          const errBody = await res.text();
-          throw new Error(`Lovable AI ${res.status}: ${errBody.substring(0, 180)}`);
+        try {
+          const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
+          const wantsImage = mid === "google-image";
+          const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+          const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
+            body: JSON.stringify({
+              model: modelName,
+              messages: promptMessages,
+              temperature: 0.4,
+              max_tokens: 4096,
+              ...(wantsImage ? { modalities: ["image", "text"] } : {}),
+            }),
+          }, 45_000);
+          if (!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`Lovable AI ${res.status}: ${errBody.substring(0, 180)}`);
+          }
+          const data = await res.json();
+          if (data.error && (data.error.message || data.error.code)) {
+            throw new Error(String(data.error.message || data.error.code).substring(0, 180));
+          }
+          const text = data.choices?.[0]?.message?.content || "";
+          const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          if (imageUrl) return `${text || "Imagem gerada com sucesso."}\n\n![Imagem gerada](${imageUrl})`;
+          if (!String(text).trim()) throw new Error("Lovable AI resposta vazia");
+          return text;
+        } catch (gatewayError) {
+          if (!geminiApiKey || mid === "google-image") throw gatewayError;
+          console.warn(`Lovable AI indisponível para ${mid}; usando Gemini direto:`, gatewayError instanceof Error ? gatewayError.message : String(gatewayError));
         }
-        const data = await res.json();
-        if (data.error && (data.error.message || data.error.code)) {
-          throw new Error(String(data.error.message || data.error.code).substring(0, 180));
-        }
-        const text = data.choices?.[0]?.message?.content || "";
-        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (imageUrl) return `${text || "Imagem gerada com sucesso."}\n\n![Imagem gerada](${imageUrl})`;
-        if (!String(text).trim()) throw new Error("Lovable AI resposta vazia");
-        return text;
       }
 
       if (!geminiApiKey) throw new Error("Gemini sem chave");
@@ -559,13 +588,13 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
           return await callOpenAICompatible(
             "https://api.deepseek.com/v1/chat/completions",
             deepseekApiKey!,
-            "deepseek-coder",
+            "deepseek-chat",
           );
         case "kimi":
           return await callOpenAICompatible(
             "https://api.moonshot.cn/v1/chat/completions",
             kimiApiKey!,
-            "moonshot-v1-32k",
+            "kimi-k2-0711-preview",
           );
         case "groq":
           return await runGroq("groq");
@@ -607,7 +636,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     ];
 
     const preferred = [routedModel, ...FALLBACK_ORDER.filter((m) => m !== routedModel)];
-    const attemptModels = [...new Set(preferred)].filter(canAttempt);
+    const attemptModels = [...new Set(preferred)].filter((mid) => canAttempt(mid) && isShortIdActive(mid));
 
     let content = "";
     let providerName = "—";
@@ -661,7 +690,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
-    const billedPricingModelId = modelIdMap[billingShortId] || "google/gemini-3-flash-preview";
+    const billedPricingModelId = shortIdToPricingModel(billingShortId);
     const { data: billedResale } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("resale_price_input_per_million, resale_price_output_per_million")

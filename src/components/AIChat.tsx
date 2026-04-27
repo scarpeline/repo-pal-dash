@@ -4,6 +4,7 @@ import {
   Sparkles, Zap, Code2, Bot, User, Copy, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
@@ -13,7 +14,25 @@ const AI_MODELS = [
   { id: "google-code-pro",      label: "Gemini 2.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo" },
   { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners" },
   { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos" },
+  { id: "claude-haiku",         label: "Claude Haiku",              desc: "Anthropic · rápido para revisão e chat" },
+  { id: "claude-sonnet",        label: "Claude Sonnet 4.6",         desc: "Anthropic · edição avançada de app e código" },
+  { id: "claude-opus",          label: "Claude Opus",               desc: "Anthropic · raciocínio profundo e tarefas difíceis" },
+  { id: "kimi",                 label: "Kimi K2",                   desc: "Moonshot · contexto longo e análise" },
+  { id: "deepseek",             label: "DeepSeek Coder",            desc: "DeepSeek · programação, debug e refatoração" },
 ];
+
+const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
+  "google-code-fast": "google/gemini-3-flash-preview",
+  "google-code-balanced": "google/gemini-2.5-flash",
+  "google-code-pro": "google/gemini-2.5-pro",
+  "google-image": "google/gemini-3.1-flash-image-preview",
+  "google-video": "google/gemini-3.1-pro-preview",
+  "claude-haiku": "anthropic/claude-haiku-4-5",
+  "claude-sonnet": "anthropic/claude-sonnet-4-6",
+  "claude-opus": "anthropic/claude-opus-4-1",
+  kimi: "moonshot/kimi-k2-0711-preview",
+  deepseek: "deepseek/deepseek-chat",
+};
 
 type ChatMsg = { 
   role: "user" | "ai" | "system"; 
@@ -242,6 +261,7 @@ const AIChat = ({
   const [input, setInput] = useState("");
   const [selectedModel, setSelectedModel] = useState(selectedProvider);
   const [showModelSelect, setShowModelSelect] = useState(false);
+  const [availableModelIds, setAvailableModelIds] = useState<Set<string> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -253,14 +273,26 @@ const AIChat = ({
     setSelectedModel(selectedProvider || "auto");
   }, [selectedProvider]);
 
+  useEffect(() => {
+    supabase
+      .from("ai_model_pricing")
+      .select("model_id")
+      .eq("is_active", true)
+      .then(({ data }) => {
+        if (data?.length) setAvailableModelIds(new Set(data.map((m) => m.model_id)));
+      });
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isThinking) return;
-    onSend(input.trim(), selectedModel === "auto" ? undefined : selectedModel);
+    const outgoingModel = visibleModels.some((m) => m.id === selectedModel) ? selectedModel : "auto";
+    onSend(input.trim(), outgoingModel === "auto" ? undefined : outgoingModel);
     setInput("");
   };
 
-  const currentModel = AI_MODELS.find(m => m.id === selectedModel) || AI_MODELS[0];
+  const visibleModels = AI_MODELS.filter((m) => m.id === "auto" || !availableModelIds || availableModelIds.has(MODEL_ID_BY_SHORT_ID[m.id]));
+  const currentModel = visibleModels.find(m => m.id === selectedModel) || visibleModels[0] || AI_MODELS[0];
 
   // Renderização de mensagem individual
   const renderMessage = (m: ChatMsg, idx: number) => {
@@ -374,7 +406,7 @@ const AIChat = ({
       {showModelSelect && (
         <div className="border-t border-border bg-card overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
           <div className="p-2 space-y-1 overflow-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
-            {AI_MODELS.map(m => (
+            {visibleModels.map(m => (
               <button
                 key={m.id}
                 onClick={() => { setSelectedModel(m.id); onProviderChange?.(m.id); setShowModelSelect(false); }}
