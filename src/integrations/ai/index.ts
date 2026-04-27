@@ -168,10 +168,18 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
   let recommendedProvider = AI_PROVIDERS[0]; // Default: Gemini
   let reasoning = "";
   
-  // REGRA 1: Tarefas simples → Gemini (rápido e econômico)
-  if (complexity === "simple") {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "gemini") || AI_PROVIDERS[0];
-    reasoning = "Tarefa simples: Gemini Flash (rápido)";
+  // REGRA 1: imagem/vídeo → rotas multimodais Google
+  if (/\b(imagem|image|foto|logo|banner|thumbnail|arte)\b/i.test(content)) {
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-image") || AI_PROVIDERS[0];
+    reasoning = "Criação visual: Gemini Imagem";
+  } else if (/\b(vídeo|video|mp4|reel|motion|animaç|remotion)\b/i.test(content)) {
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-video") || AI_PROVIDERS[0];
+    reasoning = "Criação de vídeo: Gemini Vídeo";
+  }
+  // REGRA 2: Tarefas simples → Gemini rápido e econômico
+  else if (complexity === "simple") {
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || AI_PROVIDERS[0];
+    reasoning = "Tarefa simples: Gemini 3 Flash (rápido)";
   }
   // REGRA 2: Código backend complexo → Claude Sonnet
   else if (isBackend && isCode) {
@@ -180,14 +188,14 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
       recommendedProvider = claude;
       reasoning = "Código backend: Claude Sonnet 4.5 (melhor raciocínio)";
     } else {
-      recommendedProvider = AI_PROVIDERS.find(p => p.id === "deepseek") || recommendedProvider;
-      reasoning = "Código backend: DeepSeek Coder";
+      recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+      reasoning = "Código backend: Gemini 2.5 Pro";
     }
   }
   // REGRA 3: Código geral → DeepSeek
   else if (isCode) {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "deepseek") || recommendedProvider;
-    reasoning = "Programação: DeepSeek Coder (especializado em código)";
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-balanced") || recommendedProvider;
+    reasoning = "Programação: Gemini 2.5 Flash";
   }
   // REGRA 4: Precisa ser rápido → Groq
   else if (complexity === "medium" && !requiresLongContext) {
