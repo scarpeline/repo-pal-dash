@@ -169,6 +169,18 @@ const StreamingMessage = ({ content, provider }: { content: string; provider?: s
 const ParsedContent = ({ content }: { content: string }) => {
   const parts: Array<{type: 'text' | 'code'; content: string; language?: string}> = [];
   const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  const renderText = (text: string) => {
+    const imageMatch = text.match(/!\[([^\]]*)\]\((data:image\/[^)]+|https?:\/\/[^)]+)\)/);
+    if (!imageMatch) return <div className="whitespace-pre-wrap leading-relaxed">{text}</div>;
+    const [markdown, alt, src] = imageMatch;
+    return (
+      <div className="space-y-2">
+        {text.slice(0, imageMatch.index).trim() && <div className="whitespace-pre-wrap leading-relaxed">{text.slice(0, imageMatch.index).trim()}</div>}
+        <img src={src} alt={alt || "Imagem gerada pela IA"} className="max-w-full rounded-lg border border-border" loading="lazy" />
+        {text.slice((imageMatch.index || 0) + markdown.length).trim() && <div className="whitespace-pre-wrap leading-relaxed">{text.slice((imageMatch.index || 0) + markdown.length).trim()}</div>}
+      </div>
+    );
+  };
   let lastIndex = 0;
   let match;
   
@@ -210,7 +222,7 @@ const ParsedContent = ({ content }: { content: string }) => {
         part.type === 'code' ? (
           <CodeBlock key={idx} code={part.content} language={part.language} />
         ) : (
-          <div key={idx} className="whitespace-pre-wrap leading-relaxed">{part.content}</div>
+          <div key={idx}>{renderText(part.content)}</div>
         )
       ))}
     </>
