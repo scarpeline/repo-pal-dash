@@ -56,34 +56,25 @@ const DIRECT_GEMINI_MODEL_BY_ID: Record<string, string> = {
 
 const isGoogleRoute = (id: string) => Boolean(GOOGLE_MODEL_BY_ID[id]);
 
-/** Modo auto: escolhe modelo Google conforme tarefa, evitando provedores quebrados e consumo desnecessário. */
-function pickAutoModel(messages: any[], fileContent?: string): string {
+/**
+ * Modo auto: padrão SEMPRE no Flash mais barato (google-code-fast).
+ * Só sobe para Pro quando o usuário pede explicitamente análise profunda/multi-arquivo.
+ * Imagem e vídeo são detectados por palavras-chave fortes.
+ * Isto evita gastar R$ 0,30+ em respostas curtas roteadas para Pro acidentalmente.
+ */
+function pickAutoModel(messages: any[], _fileContent?: string): string {
   const lastUser = String(
     [...messages].reverse().find((m: any) => m.role === "user")?.content ?? "",
   );
-  const blob = messages.map((m: any) => (typeof m.content === "string" ? m.content : "")).join("\n");
-  const scan = (lastUser + "\n" + blob).slice(-24_000).toLowerCase();
 
-  const codeScore = [
-    /```/.test(lastUser),
-    /\b(function|const|class|import|export|def |\basync\b|interface|type |\bhook\b)\b/.test(scan),
-    /\.(tsx?|jsx?|vue|py|go|rs)\b/.test(scan),
-    /\b(sql|prisma|supabase|endpoint|api rest|graphql)\b/.test(scan),
-  ].filter(Boolean).length;
+  if (/\b(imagem|image|foto|logo|banner|ilustra|desenho|arte|thumbnail|gere\s+uma\s+imagem)\b/i.test(lastUser)) return "google-image";
+  if (/\b(v[ií]deo|video|remotion|motion|animaç|mp4|reel|shorts|storyboard)\b/i.test(lastUser)) return "google-video";
 
-  const expert =
-    /\b(refator|arquitetura|segurança|owasp|performance|codebase|projeto inteiro|multi[- ]?arquivo|complex)\b/i.test(
-      lastUser,
-    ) || lastUser.length > 4000 || (fileContent?.length ?? 0) > 14_000;
+  // Pro só quando o usuário pede expressamente algo grande / arquitetural.
+  const wantsPro = /\b(refator(a|e|ar)\s+(tudo|todo|inteiro)|arquitetura\s+do\s+projeto|projeto\s+inteiro|multi[- ]?arquivo|use\s+(o\s+)?(pro|gemini\s*pro))\b/i.test(lastUser);
+  if (wantsPro) return "google-code-pro";
 
-  const longCtx = (fileContent?.length ?? 0) > 7000 || messages.length > 10 || lastUser.length > 3000;
-
-  const tiny = lastUser.length < 160 && codeScore === 0 && !(fileContent && fileContent.length > 400);
-
-  if (/\b(imagem|image|foto|logo|banner|ilustra|desenho|arte|thumbnail)\b/i.test(lastUser)) return "google-image";
-  if (/\b(vídeo|video|remotion|motion|animaç|mp4|reel|shorts|storyboard)\b/i.test(lastUser)) return "google-video";
-  if (expert || longCtx) return "google-code-pro";
-  if (codeScore >= 1 && !tiny) return "google-code-balanced";
+  // Tudo o mais (incluindo edição normal de repositório) usa o modelo barato/rápido.
   return "google-code-fast";
 }
 
