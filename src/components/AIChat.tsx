@@ -587,7 +587,7 @@ const AIChat = ({
       )}
 
       {/* Input area */}
-      <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3 space-y-2">
+      <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3 space-y-2 shrink-0">
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => {

@@ -642,6 +642,17 @@ ${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.
               )}
             </>
           )}
+          {/* Chat toggle - Abrir/fechar painel do chat */}
+          <button
+            onClick={() => setBottomOpen(!bottomOpen)}
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 md:px-2 md:py-1 rounded-xl md:rounded-lg active:scale-95 transition-all ${
+              bottomOpen ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />
+            <span className="hidden sm:inline">Chat IA</span>
+          </button>
+
           {/* Preview toggle - Touch maior em mobile */}
           <button 
             onClick={() => setShowPreview(!showPreview)} 
@@ -795,7 +806,7 @@ ${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.
                 </div>
                 <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden min-h-0">
                 {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
                   <AIChat 
                     messages={chatMessages} 
