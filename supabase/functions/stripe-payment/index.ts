@@ -15,13 +15,21 @@ function getStripe() {
 }
 
 async function creditUserBalance(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   userId: string,
   amountCents: number,
   creditsAmount: number,
   externalId: string,
   description: string
 ) {
+  const { data: existingTx } = await supabase
+    .from("transactions")
+    .select("id, status")
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (existingTx?.status === "confirmed") return true;
+
   const { data: bal } = await supabase
     .from("balances")
     .select("balance_cents, total_deposited_cents")
@@ -29,72 +37,38 @@ async function creditUserBalance(
     .single();
 
   if (!bal) return false;
+  const b = bal as any;
 
   const finalCredits = creditsAmount > 0 ? creditsAmount : amountCents;
 
   await supabase.from("balances").update({
-    balance_cents: bal.balance_cents + finalCredits,
-    total_deposited_cents: bal.total_deposited_cents + amountCents,
+    balance_cents: b.balance_cents + finalCredits,
+    total_deposited_cents: b.total_deposited_cents + amountCents,
     updated_at: new Date().toISOString(),
   }).eq("user_id", userId);
 
-  await supabase.from("transactions").insert({
-    user_id: userId,
-    type: "deposit",
-    amount_cents: amountCents,
-    description,
-    payment_method: "stripe",
-    payment_gateway: "stripe",
-    external_id: externalId,
-    status: "confirmed",
-  });
-
-  // Comissão afiliado 30%
-  const { data: userProfile } = await supabase
-    .from("profiles")
-    .select("referred_by")
-    .eq("id", userId)
-    .single();
-
-  if (userProfile?.referred_by && userProfile.referred_by !== userId) {
-    const commissionCents = Math.floor(amountCents * 0.3);
-
-    await supabase.from("affiliate_commissions").insert({
-      affiliate_user_id: userProfile.referred_by,
-      referred_user_id: userId,
-      commission_cents: commissionCents,
-      status: "pending",
-    });
-
+  if (existingTx) {
+    await supabase.from("transactions").update({ status: "confirmed", description }).eq("id", existingTx.id);
+  } else {
     await supabase.from("transactions").insert({
-      user_id: userProfile.referred_by,
-      type: "commission",
-      amount_cents: commissionCents,
-      description: "Comissão 30% de depósito (Stripe)",
-      payment_method: "affiliate",
+      user_id: userId,
+      type: "deposit",
+      amount_cents: amountCents,
+      description,
+      payment_method: "stripe",
       payment_gateway: "stripe",
+      external_id: externalId,
       status: "confirmed",
     });
-
-    const { data: affBal } = await supabase
-      .from("balances")
-      .select("balance_cents, total_deposited_cents")
-      .eq("user_id", userProfile.referred_by)
-      .single();
-
-    if (affBal) {
-      await supabase.from("balances").update({
-        balance_cents: affBal.balance_cents + commissionCents,
-        total_deposited_cents: affBal.total_deposited_cents + commissionCents,
-        updated_at: new Date().toISOString(),
-      }).eq("user_id", userProfile.referred_by);
-    }
   }
+
+  // Comissão afiliado é calculada no uso da IA (30% do lucro real),
+  // não no depósito. Stripe apenas registra o depósito limpo.
 
   // Atualizar lead_captures
   await supabase.from("lead_captures").update({
     has_paid: true,
-    total_paid_cents: bal.total_deposited_cents + amountCents,
+    total_paid_cents: b.total_deposited_cents + amountCents,
     last_login_at: new Date().toISOString(),
   }).eq("user_id", userId);
 
@@ -191,9 +165,9 @@ Deno.serve(async (req) => {
 
       const { price_id, package_id, amount_cents, credits } = body;
 
-      if (!amount_cents || amount_cents < 100) {
+      if (!amount_cents || amount_cents < 1000) {
         return new Response(
-          JSON.stringify({ error: "Valor mínimo: R$ 1,00" }),
+          JSON.stringify({ error: "Valor mínimo: R$ 10,00" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -232,8 +206,8 @@ Deno.serve(async (req) => {
                 price_data: {
                   currency: "brl",
                   product_data: {
-                    name: `Créditos IAProgramador`,
-                    description: `R$ ${(amount_cents / 100).toFixed(2)} em créditos`
+                    name: `Saldo IAProgramador`,
+                    description: `R$ ${(amount_cents / 100).toFixed(2)} em saldo para uso na IA`
                   },
                   unit_amount: amount_cents,
                 },

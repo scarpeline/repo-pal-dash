@@ -92,3 +92,48 @@
     user-select: none;
   }
 }
+
+/* ============================================
+   OCULTAR MARCAS LOVABLE INJETADAS
+   A plataforma Lovable pode injetar badges,
+   watermarks ou elementos de branding.
+   ============================================ */
+
+/* Esconder elementos com 'lovable' no nome */
+[class*="lovable"],
+[id*="lovable"],
+[class*="Lovable"],
+[id*="Lovable"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Esconder badges e watermarks flutuantes */
+[role="complementary"][aria-label*="lovable"],
+[data-testid*="lovable"],
+[data-lovable] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Esconder elementos fixos no canto (watermarks) */
+body > div[class*="fixed"]:not([class*="toast"]):not([class*="notification"]):not(#root):not(#app),
+body > div[class*="absolute"]:not([class*="modal"]):not([class*="dialog"]):not([class*="popover"]):not([class*="tooltip"]):not([class*="dropdown"]):not([class*="menu"]) {
+  display: none !important;
+}
+
+/* Target específico para iframe de preview (se houver) */
+iframe[src*="lovable"],
+iframe[src*="lovable.dev"] {
+  display: none !important;
+}
+
+/* Esconder elementos de analytics/tracking visíveis */
+img[src*="lovable"],
+img[src*="analytics"],
+img[width="1"][height="1"] {
+  display: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+}

@@ -111,9 +111,9 @@ export default function RepoFullAccess() {
         }
       });
 
-      // Carregar arquivos do repositório
+      // Carregar arquivos do repositório (sem limite)
       const tree = await getRepoTree(token, repoOwner, repoName, repoData.default_branch);
-      setFiles(tree.slice(0, 20)); // Limitar a 20 arquivos para performance
+      setFiles(tree);
 
     } catch (error: any) {
       toast.error(`Erro: ${error.message}`);

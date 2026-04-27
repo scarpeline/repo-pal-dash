@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
-  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink
+  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink, LogOut, Crown
 } from "lucide-react";
+import { formatCreditsAsBRL } from "@/utils/credits";
+import SuperAdminVIPTab from "@/components/SuperAdminVIPTab";
+import SuperAdminCTATab from "@/components/SuperAdminCTATab";
 
 interface AdminUser {
   id: string; email: string; full_name: string | null;
@@ -30,6 +34,8 @@ interface Lead {
 interface AdminPackage {
   id: string; name: string; description: string | null;
   credits_amount: number; price_brl: number; is_active: boolean;
+  checkout_url?: string | null; asaas_payment_link_id?: string | null;
+  stripe_price_id?: string | null; stripe_product_id?: string | null;
 }
 
 interface WithdrawalRequest {
@@ -45,7 +51,9 @@ interface ModelPricing {
 }
 
 const SuperAdmin = () => {
-  const { isAdmin, loading: authLoading, user } = useAuth();
+  const { isAdmin, loading: authLoading, user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
@@ -72,6 +80,17 @@ const SuperAdmin = () => {
   const [pkgAsaasLinkId, setPkgAsaasLinkId] = useState("");
   const [pkgStripePriceId, setPkgStripePriceId] = useState("");
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
+  const [showCredit, setShowCredit] = useState(true);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitPercent, setSplitPercent] = useState("30");
+
+  // Configurações de WhatsApp
+  const [rechargeWhatsappLink, setRechargeWhatsappLink] = useState("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
+  const [rechargeButtonEnabled, setRechargeButtonEnabled] = useState(true);
+  const [rechargeButtonText, setRechargeButtonText] = useState("💬 Falar no WhatsApp para Recarga");
+  const [extensionWhatsappLink, setExtensionWhatsappLink] = useState("https://wa.me/5514991611225?text=Ol%C3%A1%2C%20quero%20fazer%20uma%20recarga%20no%20IA%20PROGRAMADOR");
+  const [extensionButtonEnabled, setExtensionButtonEnabled] = useState(true);
+  const [extensionButtonText, setExtensionButtonText] = useState("🛒 Comprar Extensão/Licença");
 
   // Notification
   const [notifUserId, setNotifUserId] = useState("all");
@@ -81,8 +100,57 @@ const SuperAdmin = () => {
   // Remarketing filter
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
+  // AI Balances
+  const [aiBalances, setAiBalances] = useState<Record<string, { balance: string | null; error: string | null; currency: string }> | null>(null);
+  const [loadingAiBalances, setLoadingAiBalances] = useState(false);
+  const [aiBalancesCheckedAt, setAiBalancesCheckedAt] = useState<string | null>(null);
+
+  const fetchAiBalances = async () => {
+    setLoadingAiBalances(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-balance-check`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setAiBalances(data.balances);
+      setAiBalancesCheckedAt(data.checkedAt);
+
+      // Alertar saldos baixos
+      const low = Object.entries(data.balances as Record<string, any>)
+        .filter(([, v]) => v.low)
+        .map(([k]) => k);
+      if (low.length > 0) {
+        toast.warning(`⚠️ Saldo baixo: ${low.join(", ")}. Recarregue antes de acabar.`);
+      } else {
+        toast.success("Saldos sincronizados com sucesso!");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao buscar saldos: " + e.message);
+    }
+    setLoadingAiBalances(false);
+  };
+
+  // Admin verification
+  const [verificationCode, setVerificationCode] = useState("");
+  const [inputCode, setInputCode] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [verificationMode, setVerificationMode] = useState<"code" | "password">("password");
+  // Login local do Super Admin (quando o usuário não está logado ou não tem permissão)
+  const [gateEmail, setGateEmail] = useState("");
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateLoading, setGateLoading] = useState(false);
+
   useEffect(() => {
-    if (!authLoading && (isAdmin || ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"].includes(user?.email || ""))) fetchAll();
+    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).includes(user?.email || ""))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -119,12 +187,73 @@ const SuperAdmin = () => {
       else setManualDepositLink("https://w.app/ia_programador");
     }
 
+    // Fetch show_credit setting
+    const { data: creditSetting } = await supabase.from("app_settings").select("value").eq("key", "show_credit").maybeSingle();
+    if (creditSetting) setShowCredit(creditSetting.value !== "false");
+
+    // Fetch split settings
+    const { data: splitSettings } = await supabase.from("app_settings").select("key, value").in("key", ["split_enabled", "split_percent"]);
+    splitSettings?.forEach((s: any) => {
+      if (s.key === "split_enabled") setSplitEnabled(s.value === "true");
+      if (s.key === "split_percent") setSplitPercent(s.value || "30");
+    });
+
+    // Fetch WhatsApp settings
+    const { data: whatsappSettings } = await supabase
+      .from("app_settings")
+      .select("*")
+      .in("key", [
+        "recharge_whatsapp_link",
+        "recharge_button_enabled",
+        "recharge_button_text",
+        "extension_whatsapp_link",
+        "extension_button_enabled",
+        "extension_button_text"
+      ]);
+    
+    if (whatsappSettings) {
+      whatsappSettings.forEach((setting) => {
+        switch (setting.key) {
+          case "recharge_whatsapp_link":
+            setRechargeWhatsappLink(setting.value);
+            break;
+          case "recharge_button_enabled":
+            setRechargeButtonEnabled(setting.value === "true");
+            break;
+          case "recharge_button_text":
+            setRechargeButtonText(setting.value);
+            break;
+          case "extension_whatsapp_link":
+            setExtensionWhatsappLink(setting.value);
+            break;
+          case "extension_button_enabled":
+            setExtensionButtonEnabled(setting.value === "true");
+            break;
+          case "extension_button_text":
+            setExtensionButtonText(setting.value);
+            break;
+        }
+      });
+    }
+
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
     if (pricingRes.data) {
       setModelPricing(pricingRes.data as any[]);
       if (!calcModel && (pricingRes.data as any[]).length > 0) setCalcModel((pricingRes.data as any[])[0].model_id);
     }
     setLoading(false);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+    toast.success("Dados atualizados!");
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
   };
 
   const handleAddCredit = async () => {
@@ -151,11 +280,25 @@ const SuperAdmin = () => {
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
     if (isBlocked) {
-      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "user" as any);
+      // Desbloquear: remove a role "blocked"
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "blocked" as any);
       toast.success("Usuário desbloqueado com sucesso!");
     } else {
-      await supabase.from("user_roles").insert({ user_id: userId, role: "user" } as any);
+      // Bloquear: insere a role "blocked"
+      await supabase.from("user_roles").insert({ user_id: userId, role: "blocked" } as any);
       toast.success("Usuário bloqueado do acesso à IA!");
+    }
+    fetchAll();
+  };
+
+  const toggleApiCostOnly = async (userId: string, roles: string[]) => {
+    const isApiCostOnly = roles.includes("api_cost_only");
+    if (isApiCostOnly) {
+      await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "api_cost_only" as any);
+      toast.success("Usuário voltou a pagar preço de revenda.");
+    } else {
+      await supabase.from("user_roles").insert({ user_id: userId, role: "api_cost_only" } as any);
+      toast.success("Usuário liberado para pagar somente custo de API.");
     }
     fetchAll();
   };
@@ -233,10 +376,10 @@ const SuperAdmin = () => {
     setLoading(true);
     const defaultPrices = [10, 30, 50, 100, 200, 500];
     const newPackages = defaultPrices.map(price => {
-      const credits = price * 100; // 1 crédito = 1 centavo de real
+      const credits = price * 100; // 1 centavo = R$ 0,01 de saldo
       return {
         name: price <= 30 ? "Pacote Starter" : price <= 100 ? "Pacote Business" : "Pacote Pro Max",
-        description: `Pacote de recarga de R$ ${price.toFixed(2)}. Saldo válido para uso em todos os modelos de IA.`,
+        description: `Pacote de recarga de R$ ${price.toFixed(2)}. Saldo em Reais válido para uso em todos os modelos de IA.`,
         price_brl: price * 100,
         credits_amount: credits,
         is_active: true
@@ -345,7 +488,8 @@ const SuperAdmin = () => {
 
   // Pricing management
   const updatePricingField = (id: string, field: string, value: string) => {
-    setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: parseInt(value) || 0 } }));
+    const nextValue = field === "is_active" ? value === "1" : parseInt(value) || 0;
+    setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: nextValue } }));
   };
 
   const savePricing = async (mp: ModelPricing) => {
@@ -409,7 +553,7 @@ const SuperAdmin = () => {
     setPkgPrice(price);
     const priceNum = parseFloat(price);
     if (!isNaN(priceNum) && priceNum > 0) {
-      // 1 crédito por centavo de real (valor direto)
+      // 1 centavo de real = R$ 0,01 de saldo
       const credits = Math.round(priceNum * 100);
       setPkgCredits(credits.toString());
       
@@ -425,7 +569,7 @@ const SuperAdmin = () => {
 
   const validatePackage = () => {
     if (!pkgName.trim()) { toast.error("Nome do pacote é obrigatório"); return false; }
-    if (!pkgCredits || parseInt(pkgCredits) <= 0) { toast.error("Quantidade de créditos deve ser maior que zero"); return false; }
+    if (!pkgCredits || parseInt(pkgCredits) <= 0) { toast.error("Valor do saldo deve ser maior que zero"); return false; }
     if (!pkgPrice || parseFloat(pkgPrice) <= 0) { toast.error("Preço deve ser maior que zero"); return false; }
     return true;
   };
@@ -439,11 +583,335 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const ADMIN_EMAILS = ["escarpelineparticular@gmail.com", "empresasescarpeline@gmail.com"];
-  const hasAccess = isAdmin || ADMIN_EMAILS.includes(user?.email || "");
+  const HARDCODED_ADMIN_EMAILS = [
+    "escarpelineparticular@gmail.com",
+    "escarpelineparticular2@gmail.com",
+    "empresasescarpeline@gmail.com",
+  ];
+  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
+  const ADMIN_EMAILS = Array.from(new Set([...HARDCODED_ADMIN_EMAILS, ...ENV_ADMIN_EMAILS]));
+  const isAdminEmail = ADMIN_EMAILS.includes((user?.email || "").toLowerCase()) || ADMIN_EMAILS.includes(user?.email || "");
+  const hasAccess = isAdmin || isAdminEmail;
+
+  // Tentativa de login direto pela tela do Super Admin (não vaza nenhum email no DOM)
+  const handleGateLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailNorm = gateEmail.trim().toLowerCase();
+    if (!emailNorm || !gatePassword) {
+      toast.error("Preencha email e senha.");
+      return;
+    }
+    const allowed = ADMIN_EMAILS.map(x => x.toLowerCase()).includes(emailNorm);
+    if (!allowed) {
+      // Mensagem genérica — não revela whitelist
+      toast.error("Credenciais inválidas.");
+      return;
+    }
+    setGateLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: emailNorm, password: gatePassword });
+    setGateLoading(false);
+    if (error) {
+      toast.error("Credenciais inválidas.");
+      return;
+    }
+    setGateEmail("");
+    setGatePassword("");
+    toast.success("Login realizado.");
+  };
+
+  // Generate and send verification code
+  const sendVerificationCode = async () => {
+    if (!isAdminEmail) {
+      toast.error("Apenas o Super Admin pode receber código de verificação");
+      return;
+    }
+    
+    setSendingCode(true);
+    try {
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setVerificationCode(code);
+      
+      // Store in sessionStorage for verification (temporary, expires on page close)
+      sessionStorage.setItem("superadmin_verification_code", code);
+      sessionStorage.setItem("superadmin_code_timestamp", Date.now().toString());
+      
+      // Send email via Resend or Edge Function
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      
+      const adminEmail = user?.email || ADMIN_EMAILS[0] || "";
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          action: "send-admin-code",
+          email: adminEmail,
+          code: code,
+          userEmail: user?.email,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      
+      if (!res.ok) {
+        toast.success(`Código gerado: ${code}`, { duration: 10000 });
+        toast.info("Código também foi enviado para o email do Super Admin", { duration: 5000 });
+      } else {
+        toast.success(`Código de verificação enviado para ${adminEmail}`);
+      }
+    } catch (err) {
+      console.error("Error sending code:", err);
+      toast.error("Erro ao enviar código. Tente novamente.");
+    }
+    setSendingCode(false);
+  };
+  
+  const verifyCode = () => {
+    const storedCode = sessionStorage.getItem("superadmin_verification_code");
+    const timestamp = sessionStorage.getItem("superadmin_code_timestamp");
+    
+    if (!storedCode || !timestamp) {
+      toast.error("Código expirado. Solicite um novo.");
+      return;
+    }
+    
+    // Check if code is expired (10 minutes)
+    const codeAge = Date.now() - parseInt(timestamp);
+    if (codeAge > 10 * 60 * 1000) {
+      sessionStorage.removeItem("superadmin_verification_code");
+      sessionStorage.removeItem("superadmin_code_timestamp");
+      toast.error("Código expirado. Solicite um novo.");
+      return;
+    }
+    
+    if (inputCode === storedCode) {
+      setIsVerified(true);
+      sessionStorage.setItem("superadmin_verified", "true");
+      toast.success("Código verificado! Acesso liberado.");
+    } else {
+      toast.error("Código incorreto. Tente novamente.");
+    }
+  };
+
+  // Verifica a senha do Super Admin via Edge Function (segredo fica só no backend)
+  const verifyWithPassword = async () => {
+    if (!adminPassword) return;
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/superadmin-verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ password: adminPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setIsVerified(true);
+        sessionStorage.setItem("superadmin_verified", "true");
+        setAdminPassword("");
+        toast.success("Acesso liberado.");
+      } else {
+        toast.error("Senha incorreta.");
+      }
+    } catch {
+      toast.error("Falha ao verificar. Tente novamente.");
+    }
+  };
+  
+  // Check if already verified in this session
+  useEffect(() => {
+    const verified = sessionStorage.getItem("superadmin_verified");
+    if (verified === "true") {
+      setIsVerified(true);
+    }
+  }, []);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-  if (!hasAccess) return <div className="min-h-screen flex items-center justify-center"><Card><CardContent className="p-8 text-center"><Shield className="w-12 h-12 text-destructive mx-auto mb-4" /><h2 className="text-xl font-bold">Acesso negado</h2><p className="text-sm text-muted-foreground mt-2">Email: {user?.email || "não logado"}</p></CardContent></Card></div>;
+
+  // Tela de login do Super Admin — não exibe nenhum email no DOM
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <CardTitle>Área restrita</CardTitle>
+            <CardDescription>Faça login para continuar.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleGateLogin} className="space-y-4" autoComplete="off">
+              <div className="space-y-2">
+                <Label htmlFor="gate-email">Email</Label>
+                <Input
+                  id="gate-email"
+                  type="email"
+                  autoComplete="off"
+                  placeholder="seu@email.com"
+                  value={gateEmail}
+                  onChange={(e) => setGateEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gate-password">Senha</Label>
+                <Input
+                  id="gate-password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  value={gatePassword}
+                  onChange={(e) => setGatePassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={gateLoading}>
+                {gateLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Entrar
+              </Button>
+              {user?.email && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={async () => { await signOut(); }}
+                >
+                  Sair da sessão atual
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show verification screen for admin emails
+  if (isAdminEmail && !isVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <CardTitle>Verificação de Segurança</CardTitle>
+            <CardDescription>
+              Acesso restrito ao Super Admin. Escolha uma forma de verificação.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Tabs para escolher modo de verificação */}
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={verificationMode === "code" ? "default" : "outline"}
+                onClick={() => setVerificationMode("code")}
+                className="flex-1"
+                size="sm"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Código por Email
+              </Button>
+              <Button
+                variant={verificationMode === "password" ? "default" : "outline"}
+                onClick={() => setVerificationMode("password")}
+                className="flex-1"
+                size="sm"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Senha
+              </Button>
+            </div>
+
+            {verificationMode === "code" ? (
+              <>
+                {!verificationCode ? (
+                  <Button 
+                    onClick={sendVerificationCode} 
+                    disabled={sendingCode}
+                    className="w-full"
+                  >
+                    {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    {sendingCode ? "Enviando..." : "Receber Código de Acesso"}
+                  </Button>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="code">Código de 6 dígitos</Label>
+                      <Input
+                        id="code"
+                        type="text"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={inputCode}
+                        onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        O código foi enviado para o email do Super Admin.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={verifyCode} 
+                      disabled={inputCode.length !== 6}
+                      className="w-full"
+                    >
+                      Verificar Código
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={sendVerificationCode}
+                      disabled={sendingCode}
+                      className="w-full"
+                    >
+                      {sendingCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Reenviar Código
+                    </Button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password">Senha do Super Admin</Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Digite a senha..."
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && verifyWithPassword()}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Digite a senha do Super Admin para continuar.
+                  </p>
+                </div>
+                <Button 
+                  onClick={verifyWithPassword} 
+                  disabled={!adminPassword}
+                  className="w-full"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Entrar com Senha
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="ghost" 
+              onClick={() => window.location.href = "/"}
+              className="w-full"
+            >
+              Voltar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const getVal = (mp: ModelPricing, field: keyof ModelPricing): string | number => {
     const v = editingPricing[mp.id]?.[field] !== undefined ? editingPricing[mp.id][field] : mp[field];
@@ -459,10 +927,35 @@ const SuperAdmin = () => {
             <p className="text-sm text-muted-foreground">Painel de administração IAProgramador</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.location.href = "/"}><X className="w-4 h-4 mr-1" /> Voltar</Button>
-            <Button variant="outline" size="sm" onClick={fetchAll}><RefreshCw className="w-4 h-4" /> Atualizar</Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/")}><X className="w-4 h-4 mr-1" /> Voltar</Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCw className={`w-4 h-4 mr-1 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Atualizando..." : "Atualizar"}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-1" /> Sair
+            </Button>
           </div>
         </div>
+
+        {/* Alerta de saldos baixos */}
+        {aiBalances && Object.entries(aiBalances).some(([, v]: any) => v.low) && (
+          <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/40 rounded-lg px-4 py-3">
+            <span className="text-yellow-500 text-lg">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-yellow-500">Saldo baixo detectado</p>
+              <p className="text-xs text-muted-foreground">
+                {Object.entries(aiBalances)
+                  .filter(([, v]: any) => v.low)
+                  .map(([k, v]: any) => `${k} (${v.balance} ${v.currency})`)
+                  .join(" · ")}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" className="border-yellow-500/40 text-yellow-500 hover:bg-yellow-500/10" onClick={fetchAiBalances}>
+              <RefreshCw className="w-3 h-3 mr-1" /> Verificar
+            </Button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -476,6 +969,8 @@ const SuperAdmin = () => {
           <TabsList className="flex-wrap">
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="pricing">💰 Preços IA</TabsTrigger>
+            <TabsTrigger value="vip" className="flex items-center gap-2"><Crown className="w-4 h-4" /> VIP</TabsTrigger>
+            <TabsTrigger value="cta" className="flex items-center gap-2"><ExternalLink className="w-4 h-4" /> CTA</TabsTrigger>
             <TabsTrigger value="remarketing">Remarketing</TabsTrigger>
             <TabsTrigger value="packages">Pacotes</TabsTrigger>
             <TabsTrigger value="withdrawals">Saques</TabsTrigger>
@@ -483,6 +978,7 @@ const SuperAdmin = () => {
             <TabsTrigger value="credits">Créditos</TabsTrigger>
             <TabsTrigger value="notifications">Notificações</TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2"><Settings className="w-4 h-4" /> Configurações</TabsTrigger>
+            <TabsTrigger value="ai-balances" className="flex items-center gap-2"><Cpu className="w-4 h-4" /> Saldos IA</TabsTrigger>
           </TabsList>
 
           {/* Users */}
@@ -502,6 +998,7 @@ const SuperAdmin = () => {
                     <TableBody>
                       {users.map((u) => {
                         const isBlocked = u.roles.includes("blocked");
+                        const isApiCostOnly = u.roles.includes("api_cost_only");
                         // Lucro aproximado de 50% em cima do que ele consumiu (total_spent_cents reflete custo de revenda)
                         const profitCents = u.total_spent_cents * 0.5;
                         return (
@@ -520,6 +1017,9 @@ const SuperAdmin = () => {
                               </Button>
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-100" onClick={() => quickDonate(u.id)} title="Doar Crédito">
                                 <HandCoins className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className={`h-8 w-8 ${isApiCostOnly ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`} onClick={() => toggleApiCostOnly(u.id, u.roles)} title={isApiCostOnly ? "Desativar custo de API puro" : "Liberar para pagar só custo da API"}>
+                                <DollarSign className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" className={`h-8 w-8 ${isBlocked ? 'text-green-600 hover:bg-green-100' : 'text-red-500 hover:bg-red-100'}`} onClick={() => toggleUserBlock(u.id, u.roles)} title={isBlocked ? "Desbloquear" : "Bloquear IA"}>
                                 {isBlocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
@@ -600,7 +1100,7 @@ const SuperAdmin = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
-                  <CardDescription>Configure o custo real da API e o preço de revenda (por milhão de tokens, em centavos R$). A margem é calculada automaticamente.</CardDescription>
+                  <CardDescription>Configure preços e ative/desative quais IAs aparecem e podem ser usadas no app do usuário.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
@@ -618,7 +1118,16 @@ const SuperAdmin = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {modelPricing.map(mp => {
+                        {modelPricing.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              <div className="space-y-2">
+                                <p className="font-medium">Nenhum modelo de IA cadastrado</p>
+                                <p className="text-xs">Execute a migration para popular a tabela ai_model_pricing</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : modelPricing.map(mp => {
                           const apiIn = Number(getVal(mp, "api_cost_input_per_million"));
                           const apiOut = Number(getVal(mp, "api_cost_output_per_million"));
                           const resIn = Number(getVal(mp, "resale_price_input_per_million"));
@@ -627,6 +1136,7 @@ const SuperAdmin = () => {
                           const totalResale = resIn + resOut;
                           const marginPct = totalApi > 0 ? ((totalResale - totalApi) / totalApi * 100).toFixed(0) : "∞";
                           const hasEdits = !!editingPricing[mp.id];
+                          const activeVal = Boolean(editingPricing[mp.id]?.is_active ?? mp.is_active);
 
                           return (
                             <TableRow key={mp.id}>
@@ -661,10 +1171,10 @@ const SuperAdmin = () => {
                               </TableCell>
                               <TableCell className="text-center">
                                 <button
-                                  onClick={() => updatePricingField(mp.id, "is_active", mp.is_active ? "0" : "1")}
-                                  className={`w-8 h-4 rounded-full transition-colors ${mp.is_active ? "bg-[hsl(var(--success))]" : "bg-muted"}`}
+                                  onClick={() => updatePricingField(mp.id, "is_active", activeVal ? "0" : "1")}
+                                  className={`w-8 h-4 rounded-full transition-colors ${activeVal ? "bg-[hsl(var(--success))]" : "bg-muted"}`}
                                 >
-                                  <div className={`w-3 h-3 bg-background rounded-full transition-transform ${mp.is_active ? "translate-x-4" : "translate-x-0.5"}`} />
+                                  <div className={`w-3 h-3 bg-background rounded-full transition-transform ${activeVal ? "translate-x-4" : "translate-x-0.5"}`} />
                                 </button>
                               </TableCell>
                               <TableCell>
@@ -694,6 +1204,16 @@ const SuperAdmin = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* VIP Users */}
+          <TabsContent value="vip">
+            <SuperAdminVIPTab />
+          </TabsContent>
+
+          {/* CTA */}
+          <TabsContent value="cta">
+            <SuperAdminCTATab />
           </TabsContent>
 
           {/* Remarketing */}
@@ -820,7 +1340,14 @@ const SuperAdmin = () => {
                 )}
               </Card>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {packages.map(pkg => (
+                {packages.length === 0 ? (
+                <div className="col-span-3 text-center py-8 text-muted-foreground">
+                  <p>Nenhum pacote cadastrado</p>
+                  <Button size="sm" variant="outline" className="mt-2" onClick={() => setShowPkgForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" /> Criar primeiro pacote
+                  </Button>
+                </div>
+              ) : packages.map(pkg => (
                   <Card key={pkg.id} className={pkg.is_active ? "" : "opacity-50"}>
                     <CardHeader>
                       <div className="flex justify-between"><Package className="w-6 h-6 text-primary" /><Badge>{pkg.is_active ? "Ativo" : "Inativo"}</Badge></div>
@@ -829,7 +1356,7 @@ const SuperAdmin = () => {
                     </CardHeader>
                     <CardContent>
                       <p className="text-2xl font-bold text-primary">R$ {(pkg.price_brl / 100).toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">{pkg.credits_amount.toLocaleString()} créditos</p>
+                      <p className="text-sm text-muted-foreground">{formatCreditsAsBRL(pkg.credits_amount)} de saldo</p>
                       <div className="flex gap-2 mt-3">
                         <Button size="sm" variant="outline" onClick={() => editPkg(pkg)}><Edit2 className="w-3 h-3" /></Button>
                         <Button size="sm" variant="outline" onClick={() => deletePkg(pkg.id)}><Trash2 className="w-3 h-3" /></Button>
@@ -973,8 +1500,38 @@ const SuperAdmin = () => {
                 <CardDescription>Gerencie o gateway de pagamento e outras preferências globais.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+
+                {/* Toggle: Feito por O.Scarpeline */}
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Exibir "Feito por: O.Scarpeline"</p>
+                    <p className="text-xs text-muted-foreground">Controla a exibição do crédito no cabeçalho do editor.</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const newVal = !showCredit;
+                      setShowCredit(newVal);
+                      await supabase.from("app_settings").upsert({ key: "show_credit", value: newVal.toString() as any }, { onConflict: "key" });
+                      toast.success(newVal ? "Crédito exibido!" : "Crédito ocultado!");
+                    }}
+                    className={`w-12 h-6 rounded-full transition-colors ${showCredit ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <div className={`w-5 h-5 bg-background rounded-full transition-transform mx-0.5 ${showCredit ? "translate-x-6" : "translate-x-0"}`} />
+                  </button>
+                </div>
+
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Gateway de Pagamento Primário</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Gateway de Pagamento Primário</h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchAll}
+                      className="gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" /> Atualizar
+                    </Button>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     Selecione qual gateway será usado por padrão para processar novos pagamentos.
                   </p>
@@ -1035,16 +1592,307 @@ const SuperAdmin = () => {
                   </div>
                 </div>
 
+                <div className="border-t pt-6 space-y-6">
+                  <h3 className="text-lg font-semibold">Configurações de WhatsApp</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure os links de WhatsApp para recarga manual e compra de extensões.
+                  </p>
+                  
+                  {/* Configurações de Recarga */}
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4" /> Botão de Recarga
+                    </h4>
+                    
+                    <div className="flex items-center gap-4">
+                      <Label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4"
+                          checked={rechargeButtonEnabled}
+                          onChange={async (e) => {
+                            const newValue = e.target.checked;
+                            setRechargeButtonEnabled(newValue);
+                            await supabase.from("app_settings").upsert({ 
+                              key: "recharge_button_enabled", 
+                              value: newValue.toString() as any 
+                            }, { onConflict: "key" });
+                            toast.success(newValue ? "Botão de recarga ativado" : "Botão de recarga desativado");
+                          }}
+                        />
+                        <span>Ativar botão de recarga</span>
+                      </Label>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="recharge-text">Texto do Botão</Label>
+                      <Input 
+                        id="recharge-text"
+                        value={rechargeButtonText}
+                        onChange={(e) => setRechargeButtonText(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "recharge_button_text", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Texto do botão atualizado");
+                        }}
+                        placeholder="Ex: 💬 Falar no WhatsApp para Recarga"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="recharge-link">Link WhatsApp para Recarga</Label>
+                      <Input 
+                        id="recharge-link"
+                        value={rechargeWhatsappLink}
+                        onChange={(e) => setRechargeWhatsappLink(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "recharge_whatsapp_link", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Link de recarga atualizado");
+                        }}
+                        placeholder="https://wa.me/..."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Link que será aberto quando o usuário clicar no botão de recarga.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Configurações de Extensão */}
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4" /> Botão de Comprar Extensão
+                    </h4>
+                    
+                    <div className="flex items-center gap-4">
+                      <Label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4"
+                          checked={extensionButtonEnabled}
+                          onChange={async (e) => {
+                            const newValue = e.target.checked;
+                            setExtensionButtonEnabled(newValue);
+                            await supabase.from("app_settings").upsert({ 
+                              key: "extension_button_enabled", 
+                              value: newValue.toString() as any 
+                            }, { onConflict: "key" });
+                            toast.success(newValue ? "Botão de extensão ativado" : "Botão de extensão desativado");
+                          }}
+                        />
+                        <span>Ativar botão de extensão</span>
+                      </Label>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="extension-text">Texto do Botão</Label>
+                      <Input 
+                        id="extension-text"
+                        value={extensionButtonText}
+                        onChange={(e) => setExtensionButtonText(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "extension_button_text", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Texto do botão atualizado");
+                        }}
+                        placeholder="Ex: 🛒 Comprar Extensão/Licença"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="extension-link">Link WhatsApp para Extensão</Label>
+                      <Input 
+                        id="extension-link"
+                        value={extensionWhatsappLink}
+                        onChange={(e) => setExtensionWhatsappLink(e.target.value)}
+                        onBlur={async (e) => {
+                          await supabase.from("app_settings").upsert({ 
+                            key: "extension_whatsapp_link", 
+                            value: e.target.value as any 
+                          }, { onConflict: "key" });
+                          toast.success("Link de extensão atualizado");
+                        }}
+                        placeholder="https://wa.me/..."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Link que será aberto quando o usuário clicar no botão de comprar extensão.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="border-t pt-6">
+                  {/* Split de Pagamento */}
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm flex items-center gap-2">
+                          Split de Pagamento (Afiliados)
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${splitEnabled ? "bg-green-500/20 text-green-500" : "bg-muted text-muted-foreground"}`}>
+                            {splitEnabled ? "ATIVO" : "INATIVO"}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Quando ativo, divide automaticamente cada PIX recebido com o afiliado no momento do depósito.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newVal = !splitEnabled;
+                          setSplitEnabled(newVal);
+                          await supabase.from("app_settings").upsert({ key: "split_enabled", value: newVal.toString() as any }, { onConflict: "key" });
+                          toast.success(newVal ? "Split ativado!" : "Split desativado!");
+                        }}
+                        className={`w-12 h-6 rounded-full transition-colors shrink-0 ${splitEnabled ? "bg-green-500" : "bg-muted-foreground/30"}`}
+                      >
+                        <div className={`w-5 h-5 bg-background rounded-full transition-transform mx-0.5 ${splitEnabled ? "translate-x-6" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground block mb-1">% de split para o afiliado</label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={splitPercent}
+                            onChange={(e) => setSplitPercent(e.target.value)}
+                            className="w-24 h-8 text-sm"
+                          />
+                          <span className="text-sm text-muted-foreground">%</span>
+                          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={async () => {
+                            await supabase.from("app_settings").upsert({ key: "split_percent", value: splitPercent as any }, { onConflict: "key" });
+                            toast.success(`Split configurado para ${splitPercent}%`);
+                          }}>
+                            Salvar %
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 space-y-1">
+                      <p className="text-xs font-semibold text-yellow-600">⚠️ Atenção antes de ativar:</p>
+                      <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                        <li>O split é calculado sobre o <strong>depósito total</strong>, não sobre o lucro</li>
+                        <li>O afiliado precisa ter uma <strong>conta Asaas cadastrada</strong> (wallet ID)</li>
+                        <li>Requer configurar o <strong>wallet_id</strong> de cada afiliado no perfil</li>
+                        <li>Atualmente o sistema paga comissão sobre o <strong>lucro real</strong> — mais justo</li>
+                        <li>Ative apenas se migrar o modelo de comissão para % do depósito</li>
+                      </ul>
+                    </div>
+                  </div>
+
                   <h3 className="text-lg font-semibold mb-4 text-destructive">Zona de Perigo</h3>
                   <p className="text-xs text-muted-foreground mb-4">Ações irreversíveis que impactam dados sensíveis.</p>
-                  <Button variant="destructive" onClick={() => { if(confirm("Deseja realmente limpar todos os logs de transação?")) toast.error("Função não implementada por segurança."); }}>
+                  <Button variant="destructive" onClick={async () => {
+                    if (!confirm("Deseja realmente limpar TODOS os logs de transação? Esta ação não pode ser desfeita.")) return;
+                    const secondConfirm = prompt('Digite "CONFIRMAR" para prosseguir:');
+                    if (secondConfirm !== "CONFIRMAR") { toast.error("Operação cancelada."); return; }
+                    try {
+                      const { error } = await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                      if (error) throw error;
+                      toast.success("Histórico de transações limpo com sucesso.");
+                      fetchAll();
+                    } catch (e: any) {
+                      toast.error("Erro ao limpar histórico: " + e.message);
+                    }
+                  }}>
                     Limpar Histórico de Transações
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
+          {/* AI Balances */}
+          <TabsContent value="ai-balances">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Saldos das IAs</CardTitle>
+                  <CardDescription>
+                    Saldo disponível em cada provedor de IA configurado.
+                    {aiBalancesCheckedAt && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        Atualizado: {new Date(aiBalancesCheckedAt).toLocaleString("pt-BR")}
+                      </span>
+                    )}
+                  </CardDescription>
+                </div>
+                <Button onClick={fetchAiBalances} disabled={loadingAiBalances} className="gap-2">
+                  {loadingAiBalances ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {loadingAiBalances ? "Verificando..." : "Sincronizar Saldos"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {!aiBalances ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Cpu className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <p>Clique em "Sincronizar Saldos" para verificar o saldo de cada IA.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { id: "gemini",      name: "Gemini (Google)",       icon: "✨", color: "text-blue-400" },
+                      { id: "deepseek",    name: "DeepSeek",              icon: "💻", color: "text-purple-400" },
+                      { id: "kimi",        name: "Kimi (Moonshot)",       icon: "🧠", color: "text-red-400" },
+                      { id: "groq",        name: "Groq (Llama 4 Scout)",  icon: "⚡", color: "text-yellow-400" },
+                      { id: "anthropic",   name: "Anthropic (Claude)",    icon: "🤖", color: "text-orange-400" },
+                      { id: "openrouter",  name: "OpenRouter",            icon: "🌐", color: "text-green-400" },
+                      { id: "openai",      name: "OpenAI (GPT-4o mini)",  icon: "🔮", color: "text-cyan-400" },
+                    ].map(({ id, name, icon, color }) => {
+                      const info = aiBalances[id];
+                      const hasBalance = info?.balance !== null;
+                      const isLow = false;
+                      const hasError = !!info?.error;
+                      return (
+                        <Card key={id} className={`border ${isLow ? "border-yellow-500/60 bg-yellow-500/5" : hasBalance ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl">{icon}</span>
+                                <div>
+                                  <p className={`font-semibold ${color}`}>{name}</p>
+                                  <p className="text-xs text-muted-foreground">{info?.currency || "USD"}</p>
+                                </div>
+                              </div>
+                              <Badge variant={isLow ? "outline" : hasBalance ? "default" : "destructive"}
+                                className={isLow ? "border-yellow-500 text-yellow-500" : ""}>
+                                {isLow ? "⚠️ Baixo" : hasBalance ? "✓ Ativo" : "✗ Erro"}
+                              </Badge>
+                            </div>
+                            <div className="mt-2">
+                              {hasBalance ? (
+                                <p className="text-xl font-bold text-foreground">
+                                  {info.balance}
+                                  {info.currency && !info.balance?.includes("válida") && !info.balance?.includes("Gratuito") && (
+                                    <span className="text-sm font-normal text-muted-foreground ml-1">{info.currency}</span>
+                                  )}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-destructive">{info?.error || "Sem informação"}</p>
+                              )}
+                              {isLow && (
+                                <p className="text-xs text-yellow-500 mt-1 font-medium">⚠️ Saldo baixo — recarregue em breve</p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
         </Tabs>
       </div>
     </div>

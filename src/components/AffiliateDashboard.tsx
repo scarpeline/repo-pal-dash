@@ -3,9 +3,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Link2, DollarSign, Users, Copy, Loader2, Shield, Save } from "lucide-react";
+import { Link2, DollarSign, Users, Copy, Loader2, Shield, Save, Wallet, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Commission {
   id: string;
@@ -67,8 +68,70 @@ const AffiliateDashboard = () => {
   };
 
   const [pixKey, setPixKey] = useState(profile?.pix_key || "");
-  const [pixKeyType, setPixKeyType] = useState(profile?.pix_key_type || "cpf");
+  const [pixKeyType, setPixKeyType] = useState((profile as any)?.pix_key_type || "cpf");
   const [savingPix, setSavingPix] = useState(false);
+
+  // Asaas wallet
+  const [hasWallet, setHasWallet] = useState(false);
+  const [walletId, setWalletId] = useState<string | null>(null);
+  const [showWalletForm, setShowWalletForm] = useState(false);
+  const [creatingWallet, setCreatingWallet] = useState(false);
+  const [walletForm, setWalletForm] = useState({
+    name: "", email: "", cpf_cnpj: "", birth_date: "",
+    mobile_phone: "", address: "", address_number: "",
+    province: "", postal_code: "", income_value: "",
+  });
+
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+  useEffect(() => {
+    checkWalletStatus();
+  }, [user]);
+
+  const checkWalletStatus = async () => {
+    if (!user) return;
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session) return;
+    try {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/asaas-affiliate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-wallet-status" }),
+      });
+      const data = await res.json();
+      setHasWallet(data.has_wallet);
+      setWalletId(data.wallet_id || null);
+    } catch (_) {}
+  };
+
+  const handleCreateWallet = async () => {
+    if (!user) return;
+    const f = walletForm;
+    if (!f.name || !f.email || !f.cpf_cnpj || !f.mobile_phone || !f.address || !f.address_number || !f.postal_code || !f.income_value) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+    setCreatingWallet(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/asaas-affiliate`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session!.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-wallet", ...f }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setHasWallet(true);
+      setWalletId(data.wallet_id);
+      setShowWalletForm(false);
+      toast.success(data.message || "Conta Asaas criada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar conta Asaas");
+    }
+    setCreatingWallet(false);
+  };
+
+  const wf = (field: string, value: string) => setWalletForm(p => ({ ...p, [field]: value }));
 
   const savePix = async () => {
     if (!pixKey) {
@@ -112,7 +175,7 @@ const AffiliateDashboard = () => {
       user_id: user?.id,
       amount_cents: withdrawable,
       pix_key: profile.pix_key,
-      pix_key_type: profile.pix_key_type,
+      pix_key_type: (profile as any).pix_key_type,
       status: 'pending'
     } as any);
 
@@ -247,8 +310,88 @@ const AffiliateDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-4 flex gap-3 items-start h-full">
+        {/* Conta Asaas para Split */}
+        <Card className={hasWallet ? "border-green-500/30 bg-green-500/5" : "border-primary/20"}>
+          <CardHeader className="pb-2">
+            <button className="flex items-center justify-between w-full text-left" onClick={() => !hasWallet && setShowWalletForm(!showWalletForm)}>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-primary" />
+                Conta Asaas (Split Automático)
+                {hasWallet
+                  ? <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-500 rounded-full font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Ativa</span>
+                  : <span className="text-[10px] px-2 py-0.5 bg-muted text-muted-foreground rounded-full">Não cadastrada</span>
+                }
+              </CardTitle>
+              {!hasWallet && (showWalletForm ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />)}
+            </button>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {hasWallet ? (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Sua conta está configurada para receber split automático de pagamentos.</p>
+                <p className="text-[10px] font-mono text-muted-foreground">Wallet ID: {walletId}</p>
+              </div>
+            ) : showWalletForm ? (
+              <div className="space-y-3 pt-2">
+                <p className="text-xs text-muted-foreground">Crie sua subconta Asaas para receber comissões automaticamente via split de pagamento.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Nome completo *</label>
+                    <Input className="h-8 text-xs" placeholder="Seu nome" value={walletForm.name} onChange={e => wf("name", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Email *</label>
+                    <Input className="h-8 text-xs" placeholder="seu@email.com" value={walletForm.email} onChange={e => wf("email", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">CPF ou CNPJ *</label>
+                    <Input className="h-8 text-xs" placeholder="000.000.000-00" value={walletForm.cpf_cnpj} onChange={e => wf("cpf_cnpj", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Data de nascimento (PF)</label>
+                    <Input className="h-8 text-xs" type="date" value={walletForm.birth_date} onChange={e => wf("birth_date", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Celular *</label>
+                    <Input className="h-8 text-xs" placeholder="(11) 99999-9999" value={walletForm.mobile_phone} onChange={e => wf("mobile_phone", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">CEP *</label>
+                    <Input className="h-8 text-xs" placeholder="00000-000" value={walletForm.postal_code} onChange={e => wf("postal_code", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Endereço *</label>
+                    <Input className="h-8 text-xs" placeholder="Rua, Av..." value={walletForm.address} onChange={e => wf("address", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Número *</label>
+                    <Input className="h-8 text-xs" placeholder="123" value={walletForm.address_number} onChange={e => wf("address_number", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Bairro</label>
+                    <Input className="h-8 text-xs" placeholder="Centro" value={walletForm.province} onChange={e => wf("province", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Renda mensal (R$) *</label>
+                    <Input className="h-8 text-xs" type="number" placeholder="3000" value={walletForm.income_value} onChange={e => wf("income_value", e.target.value)} />
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-muted-foreground">* Campos obrigatórios. Dados enviados diretamente ao Asaas de forma segura.</p>
+
+                <Button className="w-full h-8 text-xs gap-2" onClick={handleCreateWallet} disabled={creatingWallet}>
+                  {creatingWallet ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wallet className="w-3 h-3" />}
+                  {creatingWallet ? "Criando conta..." : "Criar conta Asaas"}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground pt-1">Clique para cadastrar sua conta e receber split automático quando o admin ativar o recurso.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-destructive/30 bg-destructive/5">          <CardContent className="p-4 flex gap-3 items-start h-full">
             <Shield className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="text-sm font-bold text-destructive">Regras Antiburla</p>

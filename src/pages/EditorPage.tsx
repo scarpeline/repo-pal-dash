@@ -1,14 +1,17 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Gift, LogOut, Code2, Globe
+  Wallet, Gift, LogOut, Code2, Globe, Menu, ChevronLeft
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipe } from "@/hooks/use-swipe";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
 import TerminalPanel from "@/components/TerminalPanel";
-import AIChat from "@/components/AIChat";
+import AIChat, { type ChatAttachment } from "@/components/AIChat";
 import PreviewPanel from "@/components/PreviewPanel";
 import UserBalanceBar from "@/components/UserBalanceBar";
 import GitHubConnect from "@/components/GitHubConnect";
@@ -30,13 +33,91 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 type Tab = { path: string; name: string; content: string; sha?: string; dirty?: boolean };
 type TermMsg = { type: "input" | "output" | "error" | "system" | "success"; text: string; timestamp: Date };
-type ChatMsg = { role: "user" | "ai" | "system"; content: string; timestamp: Date };
+type ChatMsg = {
+  role: "user" | "ai" | "system";
+  content: string;
+  timestamp: Date;
+  provider?: string;
+  activity?: string[];
+};
+
+const MAX_CHAT_CONTEXT_MESSAGES = 10;
+// Sempre que houver repositório conectado e a frase tiver QUALQUER intenção de ação/análise,
+// o agente assume o controle, varre o repositório e responde com base no código real.
+// Assim o usuário não precisa decorar comandos como "/edit" e a IA não responde mais
+// "me envie os arquivos" — ela já tem acesso ao repositório.
+const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|conserta\w*|arrum\w*|fix\w*|debug\w*|refator\w*|edit\w*|alter\w*|mud\w*|troc\w*|cri\w*|adicion\w*|remov\w*|delet\w*|apag\w*|implement\w*|ajust\w*|otimiz\w*|melhor\w*|atualiz\w*|resolv\w*|analis\w*|revis\w*|verific\w*|inspecion\w*|scan\w*|varr\w*|le\w*\s+(o|os|esse|esses|este|estes)\s+(arquivo|c[oó]digo|repo)|tela\s+branca|white\s*screen)\b/i;
+const REPO_AGENT_QUESTION_REGEX = /\b(o\s+que|porque|por\s*que|como\s+(funciona|est[aá]|fa[çc]o)|onde\s+est[aá]|qual\s+(arquivo|fun[çc][aã]o|componente))\b/i;
+
+const shouldUseRepositoryAgent = (message: string, hasRepo: boolean, hasAttachments = false) => {
+  if (!hasRepo) return false;
+  if (hasAttachments) return true;
+  // Saudações/agradecimentos curtos continuam no chat normal.
+  if (/^(oi|ol[aá]|obrigado|obrigada|valeu|bom dia|boa tarde|boa noite|ok|sim|n[aã]o|tchau)[!.\s]*$/i.test(message.trim())) return false;
+  // Com repositório conectado, qualquer outra mensagem aciona o agente — ele já tem o código.
+  return true;
+};
+
+const summarizeAttachmentsForPrompt = (attachments: ChatAttachment[] = [], includeMediaData = false) => {
+  if (!attachments.length) return "";
+  const parts = attachments.map((file, index) => {
+    const base = `Anexo ${index + 1}: ${file.name} (${file.type || file.kind}, ${(file.size / 1024).toFixed(1)} KB)`;
+    if (file.kind === "text" && file.text) return `${base}\nConteúdo:\n\`\`\`\n${file.text}\n\`\`\``;
+    if (file.kind === "image" && file.dataUrl) return includeMediaData ? `${base}\nImagem em data URL para análise visual: ${file.dataUrl.slice(0, 180_000)}` : `${base}\nImagem anexada para análise visual.`;
+    if (file.kind === "video" && file.frames?.length) return includeMediaData ? `${base}\nQuadros extraídos do vídeo para análise visual:\n${file.frames.map((frame, i) => `Frame ${i + 1}: ${frame.slice(0, 120_000)}`).join("\n")}` : `${base}\nVídeo anexado; ${file.frames.length} quadros foram extraídos para análise visual.`;
+    return `${base}\nObservação: ${file.note || "Arquivo anexado como referência."}`;
+  });
+  return `\n\nANEXOS ENVIADOS PELO USUÁRIO:\n${parts.join("\n\n")}`;
+};
+
+const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
+  ...messages
+    .filter((message) => message.role !== "system")
+    .slice(-MAX_CHAT_CONTEXT_MESSAGES)
+    .map((message) => ({
+      role: message.role === "ai" ? "assistant" : "user",
+      content: message.content,
+    })),
+  { role: "user", content: latestMessage },
+];
+
+const getModelBadge = (model?: string) => {
+  const badges: Record<string, string> = {
+    auto: "Auto",
+    gemini: "Google Gemini",
+    "google-code-fast": "Gemini 3 Flash",
+    "google-code-balanced": "Gemini 2.5 Flash",
+    "google-code-pro": "Gemini 2.5 Pro",
+    "google-image": "Gemini Imagem",
+    "google-video": "Gemini Vídeo",
+    deepseek: "DeepSeek",
+    groq: "Groq",
+    "groq-8b": "Groq 8B",
+    kimi: "Kimi",
+    openrouter: "OpenRouter",
+    "claude-haiku": "Claude Haiku",
+    "claude-sonnet": "Claude Sonnet",
+    "claude-opus": "Claude Opus",
+    openai: "GPT-4o mini",
+  };
+
+  return badges[model || "auto"] || model || "Auto";
+};
 
 const EditorPage = () => {
   const { user, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isMobile = useIsMobile();
+  
+  // Mobile: sidebar começa fechada, desktop: começa aberta
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+  
   const [sidebarTab, setSidebarTab] = useState<"files" | "github" | "search">("github");
 
   const [ghToken, setGhToken] = useState<string | null>(null);
@@ -51,8 +132,21 @@ const EditorPage = () => {
   const [openTabs, setOpenTabs] = useState<Tab[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [bottomTab, setBottomTab] = useState<"terminal" | "chat">("chat");
-  const [bottomOpen, setBottomOpen] = useState(true);
-  const [showPreview, setShowPreview] = useState(true);
+  
+  // Mobile: painéis começam fechados, desktop: começam abertos
+  const [bottomOpen, setBottomOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+  
+  const [showPreview, setShowPreview] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [loadingFile, setLoadingFile] = useState(false);
   const [repoUrls, setRepoUrls] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem("repo_preview_urls") || "{}"); } catch { return {}; }
@@ -74,7 +168,37 @@ const EditorPage = () => {
     { role: "system", content: "Bem-vindo ao IAProgramador! 🚀\n\nSou um agente autônomo. Você não precisa usar comandos específicos.\n\nSimplesmente converse comigo e diga o que você deseja mudar, corrigir ou criar, e eu mapearei o repositório e farei o trabalho pra você! Se apenas tiver uma dúvida, pode me perguntar livremente.", timestamp: new Date() },
   ]);
   const [isThinking, setIsThinking] = useState(false);
+  const [currentActivity, setCurrentActivity] = useState<string[]>([]);
+  const [streamingContent, setStreamingContent] = useState<string>("");
+  const [streamingProvider, setStreamingProvider] = useState<string>("");
+  const [activeProvider, setActiveProvider] = useState<string>("auto");
+  const [showCredit, setShowCredit] = useState(true);
   const [searchParams] = useSearchParams();
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  // 🎨 Swipe gestures para mobile - swipe da esquerda abre sidebar, da direita fecha
+  const { ref: swipeRef } = useSwipe(
+    () => setSidebarOpen(false), // swipe left fecha sidebar
+    () => setSidebarOpen(true),   // swipe right abre sidebar
+    undefined, // swipe up - não usado
+    undefined  // swipe down - não usado
+  );
+
+  // 🎨 Fechar painéis ao redimensionar para mobile
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobileView = window.innerWidth < 768;
+      if (isMobileView) {
+        // Em mobile, fecha painéis para dar mais espaço
+        if (sidebarOpen && bottomOpen) {
+          setBottomOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [sidebarOpen, bottomOpen]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -214,43 +338,81 @@ const EditorPage = () => {
   const activeFile = openTabs.find(t => t.path === activeTab);
 
   // Manipula modificações de arquivos via IA
-  const handleFileModification = async (message: string, model?: string) => {
+  const handleFileModification = async (message: string, model?: string, attachments: ChatAttachment[] = [], autoFix: boolean = true) => {
     if (!selectedRepo) {
       setChatMessages(p => [...p, { role: "ai", content: "❌ Nenhum repositório selecionado.", timestamp: new Date() }]);
       return;
     }
 
+    const requestedModel = model || activeProvider || "auto";
+    const providerBadge = getModelBadge(requestedModel);
+
     try {
       const modifier = new AIFileModifier(ghToken!, selectedRepo, branch);
-      
+      const activityLog = ["🤖 Analisando solicitação..."];
+
       const addProgress = (msg: string) => {
-        setChatMessages(p => [...p, { role: "system", content: msg, timestamp: new Date() }]);
+        activityLog.push(msg);
+        const nextActivity = activityLog.slice(-5);
+        activityLog.splice(0, activityLog.length, ...nextActivity);
+        setCurrentActivity(nextActivity);
       };
 
+      setCurrentActivity(activityLog);
+      setStreamingProvider(providerBadge);
+      setStreamingContent("");
+
+      const autoFixDirective = autoFix
+        ? `\n\n[MODO CORREÇÃO AUTOMÁTICA ATIVADO]\nAlém de atender o pedido acima, varra os arquivos relevantes do repositório, identifique bugs evidentes, imports quebrados, conflitos, problemas de tipagem, runtime errors e tela branca, e inclua as correções necessárias no mesmo conjunto de "modifications". Se encontrar melhorias seguras (acessibilidade, performance trivial, código morto), aplique-as também e explique cada alteração no "summary". Nunca peça arquivos ao usuário — você já tem o repositório.`
+        : `\n\n[MODO CORREÇÃO AUTOMÁTICA DESATIVADO]\nFaça apenas o que foi pedido. Não aplique correções extras nem refatore o que não foi solicitado.`;
+      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}${autoFixDirective}`;
       const result = await modifier.processCommand(
-        message, 
-        model || "google/gemini-2.5-flash", 
+        commandWithAttachments,
+        requestedModel,
         addProgress,
-        chatMessages.filter(m => m.role !== "system")
+        chatMessages.filter(m => m.role !== "system").slice(-8)
       );
-      
+
       if (result.modifications.length === 0) {
-        setChatMessages(p => [...p, { role: "ai", content: result.message, timestamp: new Date() }]);
+        const usageInfo = result.usage
+          ? `\n\n${formatUsageText(result.usage.input_tokens, result.usage.output_tokens, result.usage.cost_cents)}`
+          : "";
+        setChatMessages(p => [...p, {
+          role: "ai",
+          content: result.message + usageInfo,
+          timestamp: new Date(),
+          provider: result.provider || providerBadge,
+          activity: [...activityLog],
+        }]);
+        setCurrentActivity([]);
+        setStreamingContent("");
+        setStreamingProvider("");
         return;
       }
 
-      addProgress(result.message + "\n\n⚡ **Aplicando alterações no GitHub...**");
-
+      addProgress("⚡ Aplicando alterações no GitHub...");
       const executionResult = await modifier.executeModifications(result.modifications);
-      setChatMessages(p => [...p, { role: "ai", content: executionResult, timestamp: new Date() }]);
+      const usageInfo = result.usage
+        ? `\n\n${formatUsageText(result.usage.input_tokens, result.usage.output_tokens, result.usage.cost_cents)}`
+        : "";
+
+      setChatMessages(p => [...p, {
+        role: "ai",
+        content: `${result.message}\n\n${executionResult}${usageInfo}`,
+        timestamp: new Date(),
+        provider: result.provider || providerBadge,
+        activity: [...activityLog, "✅ Alterações aplicadas com sucesso!"],
+      }]);
+
+      setCurrentActivity([]);
+      setStreamingContent("");
+      setStreamingProvider("");
 
       // Refresh file tree
       setLoadingTree(true);
       try {
         const tree = await getRepoTree(ghToken!, selectedRepo.owner.login, selectedRepo.name, branch);
         setFiles(tree);
-        
-        // Refresh any open tabs that were modified
         const modifiedPaths = new Set(result.modifications.map(m => m.path));
         for (const tab of openTabs) {
           if (modifiedPaths.has(tab.path)) {
@@ -265,18 +427,25 @@ const EditorPage = () => {
 
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date() }]);
+      toast.error(errMsg);
+      setChatMessages(p => [...p, { role: "ai", content: `❌ Erro: ${errMsg}`, timestamp: new Date(), provider: providerBadge }]);
+      setCurrentActivity([]);
+      setStreamingContent("");
+      setStreamingProvider("");
     }
   };
-  const handleChatSend = useCallback(async (message: string, model?: string) => {
-    // Check if user has balance before allowing AI usage
+
+  const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = [], autoFix: boolean = true) => {
+    const requestedModel = model || activeProvider || "auto";
+    const providerBadge = getModelBadge(requestedModel);
+
     try {
       const { supabase: sb } = await import("@/integrations/supabase/client");
       const { data: bal } = await sb.from("balances").select("balance_cents").eq("user_id", user?.id).single();
       if (!bal || bal.balance_cents <= 0) {
-        setChatMessages(p => [...p, 
+        setChatMessages(p => [...p,
           { role: "user", content: message, timestamp: new Date() },
-          { role: "system", content: "⚠️ Saldo insuficiente. Recarregue sua carteira para usar a IA. Acesse a página Carteira para adquirir um pacote de créditos.", timestamp: new Date() }
+          { role: "system", content: "⚠️ Saldo insuficiente. Recarregue sua carteira para usar a IA. Acesse a página Carteira para adquirir um pacote.", timestamp: new Date() }
         ]);
         return;
       }
@@ -284,25 +453,29 @@ const EditorPage = () => {
       console.error("Balance check error", e);
     }
 
-    setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
+    const attachmentLabel = attachments.length
+      ? `\n\n📎 ${attachments.length} anexo(s): ${attachments.map(a => a.name).join(", ")}`
+      : "";
+    const autoFixLabel = autoFix && ghToken && selectedRepo ? " · 🪄 Auto-fix ON" : "";
+    setChatMessages(p => [...p, { role: "user", content: `${message}${attachmentLabel}${autoFixLabel}`, timestamp: new Date() }]);
     setIsThinking(true);
-    
+
     try {
-      if (ghToken && selectedRepo) {
-        // Se há um repositório conectado, o Agente cuida de TODAS as interações via o AIFileModifier
-        await handleFileModification(message, model);
+      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true, attachments.length > 0)) {
+        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel, attachments, autoFix);
         setIsThinking(false);
         return;
       }
 
-      // Fallback: se não tiver repositório conectado, age como chat simples
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
-      const messages = chatMessages
-        .filter(m => m.role !== "system")
-        .map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
-      messages.push({ role: "user", content: message });
+      const messageWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}`;
+      const messages = buildChatContext(chatMessages, messageWithAttachments);
+
+      setCurrentActivity(["🤖 Conectando à IA..."]);
+      setStreamingProvider(providerBadge);
+      setStreamingContent("");
 
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
         method: "POST",
@@ -314,29 +487,92 @@ const EditorPage = () => {
           messages,
           fileContent: activeFile?.content,
           fileName: activeFile?.name,
-          model: model || "google/gemini-3-flash-preview",
+          model: requestedModel,
+          attachments,
         }),
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        setChatMessages(p => [...p, { role: "ai", content: errData.error || `Erro: ${res.status}`, timestamp: new Date() }]);
+        const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+        const errorMsg = (errData as { error?: string }).error || `Erro: ${res.status}`;
+
+        if (res.status === 402 && (errData as { code?: string }).code === "INSUFFICIENT_BALANCE") {
+          toast.error("Saldo insuficiente para essa solicitação.");
+          setChatMessages(p => [...p, {
+            role: "system",
+            content: `⚠️ ${errorMsg}
+
+💳 Clique em "Carteira" no menu superior para recarregar.`,
+            timestamp: new Date()
+          }]);
+        } else if (res.status === 429) {
+          toast.error("Limite temporário atingido. Tente novamente em instantes.");
+          setChatMessages(p => [...p, {
+            role: "system",
+            content: `⚠️ ${errorMsg}`,
+            timestamp: new Date()
+          }]);
+        } else if (res.status === 503) {
+          const tried = (errData as { tried_models?: string[] }).tried_models;
+          const triedLine = tried?.length
+            ? `\n\nModelos tentados no servidor: ${tried.join(", ")}.`
+            : "";
+          const hint = tried?.length
+            ? "\n\nO roteador tentou os modelos disponíveis. Confira créditos e limites das integrações de IA."
+            : "";
+          const fullMsg = `${errorMsg}${triedLine}${hint}`;
+          toast.error("Nenhuma IA respondeu após tentar os provedores disponíveis.");
+          setChatMessages(p => [...p, {
+            role: "system",
+            content: `⚠️ ${fullMsg}`,
+            timestamp: new Date(),
+          }]);
+        } else {
+          toast.error(errorMsg);
+          setChatMessages(p => [...p, {
+            role: "ai",
+            content: `❌ ${errorMsg}`,
+            timestamp: new Date(),
+            provider: providerBadge,
+          }]);
+        }
+
         setIsThinking(false);
+        setCurrentActivity([]);
+        setStreamingContent("");
+        setStreamingProvider("");
         return;
       }
 
       const data = await res.json();
       const aiContent = data.content || "Sem resposta do modelo.";
+      const provider = data.provider || providerBadge;
       const usageInfo = data.usage
-        ? `\n\n${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
+        ? `
+
+${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
         : "";
-      setChatMessages(p => [...p, { role: "ai", content: aiContent + usageInfo, timestamp: new Date() }]);
+
+      setChatMessages(p => [...p, {
+        role: "ai",
+        content: aiContent + usageInfo,
+        timestamp: new Date(),
+        provider,
+        activity: ["✅ Resposta recebida"],
+      }]);
+      setStreamingContent("");
+      setCurrentActivity([]);
+      setStreamingProvider("");
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      setChatMessages(p => [...p, { role: "ai", content: `Erro: ${errMsg}`, timestamp: new Date() }]);
+      toast.error(errMsg);
+      setChatMessages(p => [...p, { role: "ai", content: `Erro: ${errMsg}`, timestamp: new Date(), provider: providerBadge }]);
+      setCurrentActivity([]);
+      setStreamingContent("");
+      setStreamingProvider("");
     }
     setIsThinking(false);
-  }, [selectedRepo, branch, activeFile, chatMessages, ghToken]);
+  }, [selectedRepo, branch, activeFile, chatMessages, ghToken, activeProvider, user?.id]);
 
   const renderFileTree = (nodes: FileNode[]) => (
     <div className="text-sm">
@@ -362,21 +598,38 @@ const EditorPage = () => {
     <div className="h-screen flex flex-col overflow-hidden bg-background p-2 gap-2 text-foreground font-sans">
       <AuthErrorHandler />
 
-      {/* Title bar */}
-      <div className="h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-4 shrink-0 transition-all">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-muted-foreground hover:text-foreground">
+      {/* Title bar - Mobile otimizado */}
+      <div className="h-14 md:h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-3 md:px-4 shrink-0 transition-all safe-area-pt">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Botão menu mobile maior */}
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)} 
+            className="md:hidden p-2.5 -ml-1 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all"
+            aria-label="Toggle sidebar"
+          >
+            {sidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+          
+          {/* Botão desktop */}
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)} 
+            className="hidden md:flex p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
             {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
           </button>
-          <div className="flex items-center gap-1.5">
-            <img src={logoImg} alt="IAProgramador" className="w-6 h-6 object-contain" />
-            <div className="flex flex-col justify-center gap-1">
-              <span className="text-sm font-bold text-foreground leading-tight">IAProgramador</span>
-              <span className="text-[9px] text-primary font-bold uppercase tracking-wider leading-none">Feito por: O.Scarpeline</span>
+          
+          {/* Logo - Mais compacto em mobile */}
+          <div className="flex items-center gap-1.5 md:gap-1.5">
+            <img src={logoImg} alt="IAProgramador" className="w-7 h-7 md:w-6 md:h-6 object-contain" />
+            <div className="flex flex-col justify-center gap-0.5 md:gap-1">
+              <span className="text-base md:text-sm font-bold text-foreground leading-tight">IAProgramador</span>
+              <span className="text-[8px] md:text-[9px] text-primary font-bold uppercase tracking-wider leading-none hidden sm:block">Feito por: O.Scarpeline</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        
+        {/* Ações - Mais espaçadas em mobile para touch */}
+        <div className="flex items-center gap-2 md:gap-3">
           {selectedRepo && (
             <>
               <span className="text-sm text-muted-foreground font-mono flex items-center gap-1">
@@ -389,31 +642,67 @@ const EditorPage = () => {
               )}
             </>
           )}
-          <button onClick={() => setShowPreview(!showPreview)} className={`flex items-center gap-1 text-sm px-2 py-1 rounded ${showPreview ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-            <Eye className="w-3.5 h-3.5" /> Preview
+          {/* Chat toggle - Abrir/fechar painel do chat */}
+          <button
+            onClick={() => setBottomOpen(!bottomOpen)}
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 md:px-2 md:py-1 rounded-xl md:rounded-lg active:scale-95 transition-all ${
+              bottomOpen ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />
+            <span className="hidden sm:inline">Chat IA</span>
+          </button>
+
+          {/* Preview toggle - Touch maior em mobile */}
+          <button 
+            onClick={() => setShowPreview(!showPreview)} 
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 md:px-2 md:py-1 rounded-xl md:rounded-lg active:scale-95 transition-all ${
+              showPreview ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Eye className="w-4 h-4 md:w-3.5 md:h-3.5" />
+            <span className="hidden sm:inline">Preview</span>
           </button>
           
-          <UserBalanceBar />
-          <NotificationBell />
+          {/* Componentes de usuário */}
+          <div className="flex items-center gap-1 md:gap-2">
+            <UserBalanceBar />
+            <NotificationBell />
+          </div>
           
-          <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1 ml-1 hidden xs:flex">
+          {/* Idioma - Escondido em mobile pequeno */}
+          <div className="hidden xs:flex items-center gap-1.5 border-r border-border pr-2 md:pr-3 mr-1 ml-1">
             <Globe className="w-4 h-4 text-muted-foreground" />
             <select 
               value={language} 
               onChange={(e) => setLanguage(e.target.value as any)}
-              className="bg-transparent border-none text-sm font-medium text-muted-foreground outline-none cursor-pointer"
+              className="bg-transparent border-none text-xs md:text-sm font-medium text-muted-foreground outline-none cursor-pointer"
             >
               <option value="pt-BR">PT</option>
               <option value="en-US">EN</option>
               <option value="es-ES">ES</option>
             </select>
           </div>
-          <button onClick={() => navigate("/affiliate")} className="text-muted-foreground hover:text-foreground hidden sm:block" title="Afiliados">
+          
+          {/* Afiliados - Desktop only */}
+          <button 
+            onClick={() => navigate("/affiliate")} 
+            className="hidden sm:flex p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" 
+            title="Afiliados"
+          >
             <Gift className="w-4 h-4" />
           </button>
-          <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
-          <button onClick={logout} className="text-muted-foreground hover:text-foreground" title="Sair">
-            <LogOut className="w-4 h-4" />
+          
+          {/* Email - Desktop only */}
+          <span className="hidden md:inline text-sm text-muted-foreground max-w-[120px] truncate">{user?.email}</span>
+          
+          {/* Logout - Touch maior em mobile */}
+          <button 
+            onClick={logout} 
+            className="p-2.5 md:p-2 rounded-xl md:rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 active:scale-95 transition-all" 
+            title="Sair"
+          >
+            <LogOut className="w-5 h-5 md:w-4 md:h-4" />
           </button>
         </div>
       </div>
@@ -471,7 +760,31 @@ const EditorPage = () => {
                 renderFileTree(files)
               )}
               {sidebarTab === "search" && (
-                <div className="p-3"><input placeholder="Buscar..." className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none" /></div>
+                <div className="p-3 flex flex-col gap-2">
+                  <input
+                    placeholder="Buscar arquivo..."
+                    className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/20"
+                    onChange={(e) => {
+                      const q = e.target.value.toLowerCase();
+                      if (!q) return;
+                      const matches = files.filter(f => f.path.toLowerCase().includes(q));
+                      // Render results inline
+                      const container = e.target.nextElementSibling as HTMLElement;
+                      if (container) {
+                        container.innerHTML = matches.slice(0, 20).map(f =>
+                          `<div class="px-2 py-1.5 text-xs font-mono text-muted-foreground hover:bg-muted/50 rounded cursor-pointer truncate" data-path="${f.path}">${f.path}</div>`
+                        ).join("") || '<div class="text-xs text-muted-foreground px-2 py-2">Nenhum resultado</div>';
+                        container.querySelectorAll("[data-path]").forEach(el => {
+                          el.addEventListener("click", () => {
+                            const node = files.find(f => f.path === el.getAttribute("data-path"));
+                            if (node) handleFileSelect(node);
+                          });
+                        });
+                      }
+                    }}
+                  />
+                  <div className="space-y-0.5" />
+                </div>
               )}
             </div>
           </div>
@@ -493,8 +806,19 @@ const EditorPage = () => {
                 </div>
                 <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
               </div>
-              <div className="flex-1 overflow-hidden">
-                {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : <AIChat messages={chatMessages} onSend={handleChatSend} isThinking={isThinking} />}
+              <div className="flex-1 overflow-hidden min-h-0">
+                {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
+                  <AIChat 
+                    messages={chatMessages} 
+                    onSend={handleChatSend} 
+                    isThinking={isThinking}
+                    currentActivity={currentActivity}
+                    streamingContent={streamingContent}
+                    streamingProvider={streamingProvider}
+                    selectedProvider={activeProvider}
+                    onProviderChange={setActiveProvider}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -554,26 +878,28 @@ const EditorPage = () => {
               )}
             </div>
 
-            {/* Status Bar */}
-            <div className="h-8 bg-card border border-border rounded-lg shadow-sm flex items-center justify-between px-4 text-sm text-muted-foreground shrink-0 mt-auto">
-              <div className="flex items-center gap-4">
-                {!bottomOpen && (
-                  <>
-                    <button onClick={() => { setBottomOpen(true); setBottomTab("chat"); }} className="hover:text-primary transition-colors flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Abrir Chat</button>
-                    <button onClick={() => { setBottomOpen(true); setBottomTab("terminal"); }} className="hover:text-primary transition-colors flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5" /> Abrir Terminal</button>
-                  </>
-                )}
-                {ghUser && <span className="text-[hsl(var(--success))] font-medium">● @{ghUser.login}</span>}
-              </div>
-              <div className="flex items-center gap-3">
-                {activeFile?.dirty && <span className="flex items-center gap-1 text-[hsl(var(--warning))] font-medium"><Save className="w-3 h-3" /> Modificado não salvo</span>}
-                {activeFile?.name && <span className="px-2 py-0.5 bg-muted/40 rounded">{activeFile.name}</span>}
-                <span>UTF-8</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
+      
+      {/* 🎨 Mobile Bottom Navigation */}
+      <MobileBottomNav
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        bottomOpen={bottomOpen}
+        setBottomOpen={setBottomOpen}
+        bottomTab={bottomTab}
+        setBottomTab={setBottomTab}
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
+        hasOpenTabs={openTabs.length > 0}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        openTabs={openTabs.map(t => ({ path: t.path, name: t.name }))}
+      />
+      
+      {/* Mobile padding para safe area */}
+      <div className="md:hidden h-[72px] safe-area-pb" />
     </div>
   );
 };

@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +18,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
 
   const refCode = searchParams.get("ref");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +28,9 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado!");
+        setTimeout(() => navigate("/", { replace: true }), 500);
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -38,7 +39,27 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        toast.success("Conta criada com sucesso!");
+
+        if (data?.session) {
+          // Confirmação desativada — sessão imediata
+          toast.success("Conta criada! Bem-vindo!");
+          setTimeout(() => navigate("/", { replace: true }), 500);
+        } else if (data?.user && data.user.identities?.length === 0) {
+          // Usuário já existe — tentar login direto
+          const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginError) throw new Error("Email já cadastrado. Verifique sua senha.");
+          toast.success("Login realizado!");
+          setTimeout(() => navigate("/", { replace: true }), 500);
+        } else {
+          // Confirmação ativada — tentar login mesmo assim
+          const { data: loginData } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginData?.session) {
+            toast.success("Conta criada! Bem-vindo!");
+            setTimeout(() => navigate("/", { replace: true }), 500);
+          } else {
+            toast.info("Conta criada! Verifique seu email para ativar, depois faça login.");
+          }
+        }
       }
     } catch (err: any) {
       toast.error(err.message || "Erro na autenticação");
@@ -49,33 +70,119 @@ const Auth = () => {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
-      if (result.error) {
-        toast.error("Erro ao conectar com Google");
+
+      if (error) {
+        throw error;
       }
+
+      toast.success("Redirecionando para login com Google...");
     } catch (err: any) {
       toast.error(err.message || "Erro ao conectar com Google");
+      setGoogleLoading(false);
     }
-    setGoogleLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center mb-2">
-            <img src={logoImg} alt="IAProgramador" className="w-24 h-24 object-contain" />
+      <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-8 items-center">
+        
+        {/* Seção de Copy Agressiva */}
+        <div className="hidden lg:block space-y-6 pr-8">
+          <div className="flex items-center gap-3 mb-4">
+            <img src={logoImg} alt="IAProgramador" className="w-16 h-16 object-contain" />
+            <div>
+              <h1 className="text-3xl font-black text-foreground">IAProgramador</h1>
+              <p className="text-xs text-primary font-bold uppercase tracking-wider">Powered by AI</p>
+            </div>
           </div>
-          <CardTitle>{isLogin ? "Entrar" : "Criar conta"}</CardTitle>
-          <CardDescription>
-            {isLogin ? "Acesse sua conta IAProgramador" : "Crie sua conta e comece a programar com IA"}
-          </CardDescription>
-          {refCode && !isLogin && (
-            <p className="text-xs text-primary mt-1">🎁 Indicado por: {refCode}</p>
-          )}
-        </CardHeader>
+          
+          <div className="space-y-4">
+            <h2 className="text-4xl font-black leading-tight text-foreground">
+              Edite <span className="text-primary">QUALQUER APP</span> em Segundos com IA
+            </h2>
+            
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Conecte seu GitHub e deixe a IA fazer o trabalho pesado. 
+              <span className="text-foreground font-semibold"> Sem comandos complicados. Sem configuração.</span> 
+              {" "}Apenas converse e veja suas mudanças acontecerem em tempo real.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-primary font-bold">✓</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Controle Total do Repositório</h3>
+                <p className="text-sm text-muted-foreground">Varre, modifica e commita direto no GitHub. React, TypeScript, Python, Node — qualquer stack.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-primary font-bold">⚡</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">6 IAs de Elite em Uma Plataforma</h3>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">Claude Sonnet 4.5</span> (melhor em código), 
+                  <span className="font-semibold text-foreground"> Gemini 2.5 Flash</span> (ultra rápido), 
+                  <span className="font-semibold text-foreground"> DeepSeek Coder</span> (especialista), 
+                  <span className="font-semibold text-foreground"> Llama 4 Scout</span> (Groq), 
+                  <span className="font-semibold text-foreground"> GPT-4o</span> e mais.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-primary font-bold">🚀</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Editor + Terminal + Preview Integrados</h3>
+                <p className="text-sm text-muted-foreground">Veja suas mudanças ao vivo. Edite código. Execute comandos. Tudo em um só lugar.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-primary font-bold">💰</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Pague Apenas Pelo Que Usar</h3>
+                <p className="text-sm text-muted-foreground">Sem mensalidades. Recarregue seu saldo e use quando quiser. PIX, Cartão ou Stripe.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-border">
+            <p className="text-xs text-muted-foreground italic">
+              "Pare de perder tempo com edições manuais. Deixe a IA trabalhar por você enquanto você foca no que importa: criar produtos incríveis."
+            </p>
+          </div>
+        </div>
+
+        {/* Card de Login/Cadastro */}
+        <Card className="w-full">
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center mb-2 lg:hidden">
+              <img src={logoImg} alt="IAProgramador" className="w-24 h-24 object-contain" />
+            </div>
+            <CardTitle className="text-2xl">{isLogin ? "Entrar" : "Criar conta"}</CardTitle>
+            <CardDescription>
+              {isLogin ? "Acesse sua conta IAProgramador" : "Crie sua conta e comece a programar com IA"}
+            </CardDescription>
+            {refCode && !isLogin && (
+              <p className="text-xs text-primary mt-1">🎁 Indicado por: {refCode}</p>
+            )}
+          </CardHeader>
         <CardContent className="space-y-4">
           <Button
             variant="outline"
@@ -120,6 +227,8 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+      
+      </div>
     </div>
   );
 };
