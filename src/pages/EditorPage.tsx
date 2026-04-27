@@ -338,7 +338,7 @@ const EditorPage = () => {
   const activeFile = openTabs.find(t => t.path === activeTab);
 
   // Manipula modificações de arquivos via IA
-  const handleFileModification = async (message: string, model?: string) => {
+  const handleFileModification = async (message: string, model?: string, attachments: ChatAttachment[] = []) => {
     if (!selectedRepo) {
       setChatMessages(p => [...p, { role: "ai", content: "❌ Nenhum repositório selecionado.", timestamp: new Date() }]);
       return;
@@ -362,8 +362,9 @@ const EditorPage = () => {
       setStreamingProvider(providerBadge);
       setStreamingContent("");
 
+      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments)}`;
       const result = await modifier.processCommand(
-        message,
+        commandWithAttachments,
         requestedModel,
         addProgress,
         chatMessages.filter(m => m.role !== "system").slice(-8)
@@ -425,7 +426,7 @@ const EditorPage = () => {
     }
   };
 
-  const handleChatSend = useCallback(async (message: string, model?: string) => {
+  const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = []) => {
     const requestedModel = model || activeProvider || "auto";
     const providerBadge = getModelBadge(requestedModel);
 
@@ -443,12 +444,15 @@ const EditorPage = () => {
       console.error("Balance check error", e);
     }
 
-    setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
+    const attachmentLabel = attachments.length
+      ? `\n\n📎 ${attachments.length} anexo(s): ${attachments.map(a => a.name).join(", ")}`
+      : "";
+    setChatMessages(p => [...p, { role: "user", content: `${message}${attachmentLabel}`, timestamp: new Date() }]);
     setIsThinking(true);
 
     try {
-      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true)) {
-        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel);
+      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true, attachments.length > 0)) {
+        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel, attachments);
         setIsThinking(false);
         return;
       }
@@ -456,7 +460,8 @@ const EditorPage = () => {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
-      const messages = buildChatContext(chatMessages, message);
+      const messageWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments)}`;
+      const messages = buildChatContext(chatMessages, messageWithAttachments);
 
       setCurrentActivity(["🤖 Conectando à IA..."]);
       setStreamingProvider(providerBadge);
@@ -473,6 +478,7 @@ const EditorPage = () => {
           fileContent: activeFile?.content,
           fileName: activeFile?.name,
           model: requestedModel,
+          attachments,
         }),
       });
 
