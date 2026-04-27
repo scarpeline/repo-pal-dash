@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
     const groqApiKey = envFirst("GROQ_API_KEY", "groq_api_key");
     const openrouterApiKey = envFirst("OPENROUTER_API_KEY", "openrouter_api_key");
     const anthropicApiKey = envFirst("ANTHROPIC_API_KEY", "anthropic_api_key");
-    const openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key");
+    const openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key", "openai_API_KEY");
     const lovableGatewayKey = envFirst("LOVABLE_API_KEY", "lovable_api_key");
 
     const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 30_000) => {
@@ -544,16 +544,17 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         return callOpenAICompatible(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           lovableGatewayKey,
-          "openai/gpt-4o-mini",
+          "openai/gpt-5-nano",
         );
       }
       throw new Error("OpenAI sem chave");
     };
 
     const runOne = async (mid: string): Promise<string> => {
+      if (isGoogleRoute(mid)) return await runGemini(mid);
       switch (mid) {
         case "gemini":
-          return await runGemini();
+          return await runGemini("gemini");
         case "deepseek":
           return await callOpenAICompatible(
             "https://api.deepseek.com/v1/chat/completions",
@@ -591,6 +592,8 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
 
     /** Ordem após o preferido: openai cedo (Lovable/OpenAI costuma existir quando Gemini falha por quota). */
     const FALLBACK_ORDER = [
+      "google-code-fast",
+      "google-code-balanced",
       "gemini",
       "openai",
       "groq-8b",
