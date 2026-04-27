@@ -65,6 +65,14 @@ async function creditUserBalance(
   description: string,
   paymentMethod: string
 ) {
+  const { data: existingTx } = await supabase
+    .from("transactions")
+    .select("id, status")
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (existingTx?.status === "confirmed") return true;
+
   const { data: bal } = await supabase
     .from("balances")
     .select("balance_cents, total_deposited_cents")
@@ -84,13 +92,6 @@ async function creditUserBalance(
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
-
-  // Upsert transaction
-  const { data: existingTx } = await supabase
-    .from("transactions")
-    .select("id")
-    .eq("external_id", externalId)
-    .maybeSingle();
 
   if (existingTx) {
     const tx = existingTx as any;
