@@ -191,15 +191,16 @@ Deno.serve(async (req) => {
     }
 
     // ── Normalize model ID ──
-    // The frontend sends short IDs like "gemini", "deepseek", "groq", "auto", etc.
-    // We normalize to a canonical short ID for routing.
-    const rawModel = body.model || "gemini";
+    // O frontend envia IDs curtos. Mantemos rotas Google válidas para evitar modelos depreciados.
+    const rawModel = body.model || "auto";
     
     // Map any full model path back to short ID
     const fullPathToShortId: Record<string, string> = {
       "google/gemini-2.5-flash": "gemini",
       "google/gemini-3-flash-preview": "gemini",
       "google/gemini-2.5-pro": "gemini",
+      "google/gemini-3.1-flash-image-preview": "google-image",
+      "google/gemini-3.1-pro-preview": "google-video",
       "deepseek/deepseek-coder": "deepseek",
       "groq/llama-4-scout": "groq",
       "groq/llama-3.1-8b": "groq-8b",
@@ -210,6 +211,7 @@ Deno.serve(async (req) => {
       "anthropic/claude-sonnet-4-5": "claude-sonnet",
       "anthropic/claude-opus-4-6": "claude-opus",
       "openai/gpt-4o-mini": "openai",
+      "openai/gpt-5-nano": "openai",
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
@@ -219,8 +221,13 @@ Deno.serve(async (req) => {
 
     // ── Map short ID to pricing model_id (cada modelo cobra conforme linha em ai_model_pricing) ──
     const modelIdMap: Record<string, string> = {
-      "auto":           "google/gemini-2.5-flash",
-      "gemini":         "google/gemini-2.5-flash",
+      "auto":           "google/gemini-3-flash-preview",
+      "gemini":         "google/gemini-3-flash-preview",
+      "google-code-fast":     "google/gemini-3-flash-preview",
+      "google-code-balanced": "google/gemini-2.5-flash",
+      "google-code-pro":      "google/gemini-2.5-pro",
+      "google-image":         "google/gemini-3.1-flash-image-preview",
+      "google-video":         "google/gemini-3.1-pro-preview",
       "deepseek":       "deepseek/deepseek-coder",
       "groq":           "groq/llama-4-scout",
       "groq-8b":        "groq/llama-3.1-8b",
@@ -231,7 +238,7 @@ Deno.serve(async (req) => {
       "claude-opus":    "anthropic/claude-opus-4-6",
       "openai":         "openai/gpt-4o-mini",
     };
-    const pricingModelId = modelIdMap[routedModel] || "google/gemini-2.5-flash";
+    const pricingModelId = modelIdMap[routedModel] || "google/gemini-3-flash-preview";
 
     console.log("ai-chat request:", {
       userId: user.id,
@@ -254,7 +261,7 @@ Deno.serve(async (req) => {
       ? await supabaseAdmin
         .from("ai_model_pricing")
         .select("resale_price_input_per_million, resale_price_output_per_million")
-        .eq("model_id", "google/gemini-2.5-flash")
+        .eq("model_id", "google/gemini-3-flash-preview")
         .eq("is_active", true)
         .maybeSingle()
       : { data: null };
@@ -271,7 +278,7 @@ Deno.serve(async (req) => {
       (estimatedInputTokens  / 1_000_000) * resaleInput +
       (estimatedOutputTokens / 1_000_000) * resaleOutput
     );
-    const minCharge = Math.max(estimatedCostCents, 20);
+    const minCharge = Math.max(estimatedCostCents, MIN_CHAT_CHARGE_CENTS);
 
     const { data: balance } = await supabaseAdmin
       .from("balances")
