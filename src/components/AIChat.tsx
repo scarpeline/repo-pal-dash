@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
@@ -332,8 +333,11 @@ const AIChat = ({
   const [selectedModel, setSelectedModel] = useState(selectedProvider);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [availableModelIds, setAvailableModelIds] = useState<Set<string> | null>(null);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [isReadingFiles, setIsReadingFiles] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -353,12 +357,56 @@ const AIChat = ({
       });
   }, []);
 
+  const handleFiles = async (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    setIsReadingFiles(true);
+    try {
+      const slots = Math.max(MAX_UPLOAD_FILES - attachments.length, 0);
+      const incoming = Array.from(fileList).slice(0, slots);
+      if (fileList.length > slots) toast.warning(`Limite de ${MAX_UPLOAD_FILES} anexos por mensagem.`);
+
+      const parsed = await Promise.all(incoming.map(async (file) => {
+        if (file.size > MAX_FILE_BYTES) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, kind: "file" as const, note: "Arquivo acima de 20MB; enviado só como referência de nome/tipo." };
+        }
+        if (file.type.startsWith("image/")) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "image" as const, dataUrl: await readAsDataUrl(file) };
+        }
+        if (file.type.startsWith("video/")) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "video" as const, frames: await captureVideoFrames(file), note: "Foram extraídos quadros do vídeo para análise visual." };
+        }
+        if (isTextFile(file)) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type || "text/plain", size: file.size, kind: "text" as const, text: await readAsText(file) };
+        }
+        return { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, kind: "file" as const, note: "Tipo binário anexado como referência; envie PDF/DOCX como texto se precisar ler o conteúdo completo." };
+      }));
+
+      setAttachments(prev => [...prev, ...parsed]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível ler o anexo.");
+    } finally {
+      setIsReadingFiles(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id));
+
+  const getAttachmentIcon = (kind: ChatAttachment["kind"]) => {
+    if (kind === "image") return FileImage;
+    if (kind === "video") return FileVideo;
+    if (kind === "text") return FileText;
+    return FileIcon;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isThinking) return;
+    if ((!input.trim() && attachments.length === 0) || isThinking || isReadingFiles) return;
     const outgoingModel = visibleModels.some((m) => m.id === selectedModel) ? selectedModel : "auto";
-    onSend(input.trim(), outgoingModel === "auto" ? undefined : outgoingModel);
+    const message = input.trim() || "Analise os anexos enviados e aplique as melhorias necessárias.";
+    onSend(message, outgoingModel === "auto" ? undefined : outgoingModel, attachments);
     setInput("");
+    setAttachments([]);
   };
 
   const visibleModels = AI_MODELS.filter((m) => m.id === "auto" || !availableModelIds || availableModelIds.has(MODEL_ID_BY_SHORT_ID[m.id]));
