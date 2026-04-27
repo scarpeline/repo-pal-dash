@@ -141,7 +141,11 @@ const SuperAdmin = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const [verificationMode, setVerificationMode] = useState<"code" | "password">("code");
+  const [verificationMode, setVerificationMode] = useState<"code" | "password">("password");
+  // Login local do Super Admin (quando o usuário não está logado ou não tem permissão)
+  const [gateEmail, setGateEmail] = useState("");
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateLoading, setGateLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).includes(user?.email || ""))) fetchAll();
@@ -570,9 +574,41 @@ const SuperAdmin = () => {
     leadFilter === "inactive" ? leads.filter(l => l.has_paid && l.status === "inactive") :
     leads.filter(l => !l.has_paid);
 
-  const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
-  const isAdminEmail = ADMIN_EMAILS.includes(user?.email || "");
+  const HARDCODED_ADMIN_EMAILS = [
+    "escarpelineparticular@gmail.com",
+    "escarpelineparticular2@gmail.com",
+    "empresasescarpeline@gmail.com",
+  ];
+  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
+  const ADMIN_EMAILS = Array.from(new Set([...HARDCODED_ADMIN_EMAILS, ...ENV_ADMIN_EMAILS]));
+  const isAdminEmail = ADMIN_EMAILS.includes((user?.email || "").toLowerCase()) || ADMIN_EMAILS.includes(user?.email || "");
   const hasAccess = isAdmin || isAdminEmail;
+
+  // Tentativa de login direto pela tela do Super Admin (não vaza nenhum email no DOM)
+  const handleGateLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailNorm = gateEmail.trim().toLowerCase();
+    if (!emailNorm || !gatePassword) {
+      toast.error("Preencha email e senha.");
+      return;
+    }
+    const allowed = ADMIN_EMAILS.map(x => x.toLowerCase()).includes(emailNorm);
+    if (!allowed) {
+      // Mensagem genérica — não revela whitelist
+      toast.error("Credenciais inválidas.");
+      return;
+    }
+    setGateLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: emailNorm, password: gatePassword });
+    setGateLoading(false);
+    if (error) {
+      toast.error("Credenciais inválidas.");
+      return;
+    }
+    setGateEmail("");
+    setGatePassword("");
+    toast.success("Login realizado.");
+  };
 
   // Generate and send verification code
   const sendVerificationCode = async () => {
