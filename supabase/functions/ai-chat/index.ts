@@ -370,7 +370,12 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     };
 
     const modelDisplayName: Record<string, string> = {
-      gemini: "Gemini",
+      gemini: "Google Gemini Flash",
+      "google-code-fast": "Google Gemini 3 Flash",
+      "google-code-balanced": "Google Gemini 2.5 Flash",
+      "google-code-pro": "Google Gemini 2.5 Pro",
+      "google-image": "Google Gemini Imagem",
+      "google-video": "Google Gemini Vídeo",
       "groq-8b": "Llama 3.1 8B (Groq)",
       groq: "Llama 4 Scout (Groq)",
       deepseek: "DeepSeek",
@@ -389,6 +394,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     };
 
     const canAttempt = (mid: string): boolean => {
+      if (isGoogleRoute(mid)) return !!(lovableGatewayKey || geminiApiKey);
       switch (mid) {
         case "gemini":
           return !!geminiApiKey;
@@ -412,10 +418,41 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       }
     };
 
-    const runGemini = async (): Promise<string> => {
+    const runGemini = async (mid = "gemini"): Promise<string> => {
+      if (lovableGatewayKey) {
+        const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
+        const wantsImage = mid === "google-image";
+        const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+        const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
+          body: JSON.stringify({
+            model: modelName,
+            messages: promptMessages,
+            temperature: 0.4,
+            max_tokens: 4096,
+            ...(wantsImage ? { modalities: ["image", "text"] } : {}),
+          }),
+        }, 45_000);
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`Lovable AI ${res.status}: ${errBody.substring(0, 180)}`);
+        }
+        const data = await res.json();
+        if (data.error && (data.error.message || data.error.code)) {
+          throw new Error(String(data.error.message || data.error.code).substring(0, 180));
+        }
+        const text = data.choices?.[0]?.message?.content || "";
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imageUrl) return `${text || "Imagem gerada com sucesso."}\n\n![Imagem gerada](${imageUrl})`;
+        if (!String(text).trim()) throw new Error("Lovable AI resposta vazia");
+        return text;
+      }
+
       if (!geminiApiKey) throw new Error("Gemini sem chave");
+      if (mid === "google-image") throw new Error("Geração de imagem requer Lovable AI configurado");
       const geminiUrl =
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
+        `https://generativelanguage.googleapis.com/v1beta/models/${DIRECT_GEMINI_MODEL_BY_ID[mid] || DIRECT_GEMINI_MODEL_BY_ID.gemini}:generateContent?key=${geminiApiKey}`;
       const geminiContents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
