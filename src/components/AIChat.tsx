@@ -579,9 +579,9 @@ const AIChat = ({
       )}
 
       {/* Input area */}
-      <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3">
+      <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3 space-y-2">
         {attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => {
               const Icon = getAttachmentIcon(attachment.kind);
               return (
@@ -596,7 +596,9 @@ const AIChat = ({
             })}
           </div>
         )}
-        <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+
+        {/* Barra de controles ACIMA do campo de digitação */}
+        <div className="flex items-center gap-2 flex-wrap">
           <input
             ref={fileInputRef}
             type="file"
@@ -609,19 +611,20 @@ const AIChat = ({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 p-1 hover:bg-background/60 rounded transition-colors disabled:opacity-50"
+            className="text-muted-foreground hover:text-foreground shrink-0 p-1.5 hover:bg-muted rounded-md transition-colors disabled:opacity-50"
             title="Anexar imagem, vídeo ou arquivo"
           >
             {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
           </button>
+
           <button
             type="button"
             onClick={() => setShowModelSelect(!showModelSelect)}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 transition-colors p-1 hover:bg-white/5 rounded"
+            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 hover:bg-muted rounded-md border border-border"
             title={`Modelo: ${currentModel.label}`}
           >
             <Settings2 className="w-4 h-4" />
-            <span className="text-xs hidden sm:inline max-w-[100px] truncate">
+            <span className="text-xs max-w-[140px] truncate">
               {currentModel.label}
             </span>
           </button>
@@ -629,7 +632,7 @@ const AIChat = ({
           <button
             type="button"
             onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors p-1 rounded border ${
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-md border ${
               autoFix
                 ? "bg-primary/15 text-primary border-primary/30"
                 : "bg-transparent text-muted-foreground border-border hover:text-foreground"
@@ -639,31 +642,35 @@ const AIChat = ({
               : "Correção automática de erros: DESATIVADA — a IA executa só o que for pedido."}
           >
             <Wand2 className="w-4 h-4" />
-            <span className="text-[10px] hidden sm:inline font-semibold uppercase tracking-wide">
+            <span className="text-[10px] font-semibold uppercase tracking-wide">
               Auto-fix {autoFix ? "ON" : "OFF"}
             </span>
           </button>
+        </div>
 
-          <input
+        {/* Campo de digitação expansível */}
+        <div className="flex items-end gap-2 bg-muted rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+          <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground min-h-[20px]"
-            placeholder={isThinking ? "Aguarde a resposta..." : "Pergunte ao AI ou peça para editar arquivos..."}
+            rows={1}
+            className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground resize-none leading-relaxed max-h-[220px] overflow-y-auto"
+            placeholder={isThinking ? "Aguarde a resposta..." : "Pergunte ao AI ou peça para editar arquivos... (Shift+Enter para nova linha)"}
             disabled={isThinking}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                handleSubmit(e);
+                handleSubmit(e as unknown as React.FormEvent);
               }
             }}
           />
-          
-          <Button 
-            type="submit" 
-            disabled={isThinking || isReadingFiles || (!input.trim() && attachments.length === 0)} 
+
+          <Button
+            type="submit"
+            disabled={isThinking || isReadingFiles || (!input.trim() && attachments.length === 0)}
             size="sm"
-            className="shrink-0 h-8 w-8 p-0 rounded-lg"
+            className="shrink-0 h-9 w-9 p-0 rounded-lg"
           >
             {isThinking ? (
               <Loader2 className="w-4 h-4 animate-spin" />
