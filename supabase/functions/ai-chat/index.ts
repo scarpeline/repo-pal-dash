@@ -222,14 +222,18 @@ Deno.serve(async (req) => {
       "google/gemini-2.5-pro": "google-code-pro",
       "google/gemini-3.1-flash-image-preview": "google-image",
       "google/gemini-3.1-pro-preview": "google-video",
+      "deepseek/deepseek-chat": "deepseek",
       "deepseek/deepseek-coder": "deepseek",
       "groq/llama-4-scout": "groq",
       "groq/llama-3.1-8b": "groq-8b",
       
+      "moonshot/kimi-k2-0711-preview": "kimi",
       "moonshot/moonshot-v1-32k": "kimi",
       "openrouter/deepseek-free": "openrouter",
       "anthropic/claude-haiku-4-5": "claude-haiku",
+      "anthropic/claude-sonnet-4-6": "claude-sonnet",
       "anthropic/claude-sonnet-4-5": "claude-sonnet",
+      "anthropic/claude-opus-4-1": "claude-opus",
       "anthropic/claude-opus-4-6": "claude-opus",
       "openai/gpt-4o-mini": "openai",
       "openai/gpt-5-nano": "openai",
@@ -241,25 +245,7 @@ Deno.serve(async (req) => {
       : selectedModel;
 
     // ── Map short ID to pricing model_id (cada modelo cobra conforme linha em ai_model_pricing) ──
-    const modelIdMap: Record<string, string> = {
-      "auto":           "google/gemini-3-flash-preview",
-      "gemini":         "google/gemini-3-flash-preview",
-      "google-code-fast":     "google/gemini-3-flash-preview",
-      "google-code-balanced": "google/gemini-2.5-flash",
-      "google-code-pro":      "google/gemini-2.5-pro",
-      "google-image":         "google/gemini-3.1-flash-image-preview",
-      "google-video":         "google/gemini-3.1-pro-preview",
-      "deepseek":       "deepseek/deepseek-coder",
-      "groq":           "groq/llama-4-scout",
-      "groq-8b":        "groq/llama-3.1-8b",
-      "kimi":           "moonshot/moonshot-v1-32k",
-      "openrouter":     "openrouter/deepseek-free",
-      "claude-haiku":   "anthropic/claude-haiku-4-5",
-      "claude-sonnet":  "anthropic/claude-sonnet-4-5",
-      "claude-opus":    "anthropic/claude-opus-4-6",
-      "openai":         "openai/gpt-5-nano",
-    };
-    const pricingModelId = modelIdMap[routedModel] || "google/gemini-3-flash-preview";
+    const pricingModelId = shortIdToPricingModel(routedModel);
 
     console.log("ai-chat request:", {
       userId: user.id,
