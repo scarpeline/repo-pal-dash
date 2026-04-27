@@ -830,7 +830,7 @@ const SuperAdmin = () => {
                         onChange={(e) => setInputCode(e.target.value.replace(/\D/g, ""))}
                       />
                       <p className="text-xs text-muted-foreground">
-                        O código foi enviado para: <strong>{user?.email}</strong>
+                        O código foi enviado para o email do Super Admin.
                       </p>
                     </div>
                     <Button 
