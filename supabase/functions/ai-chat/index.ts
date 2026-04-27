@@ -692,12 +692,16 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const billResaleIn  = billedResale?.resale_price_input_per_million  ?? 50;
     const billResaleOut = billedResale?.resale_price_output_per_million ?? 200;
 
-    const actualCostCents = Math.max(
-      Math.ceil(
-        (inputTokens  / 1_000_000) * billResaleIn +
-        (outputTokens / 1_000_000) * billResaleOut
-      ),
-      MIN_CHAT_CHARGE_CENTS
+    // Cap absoluto por mensagem para proteger o usuário de cobranças anormais.
+    // Se algum modelo Pro retornar resposta gigante, ainda assim limita a R$ 0,50 por mensagem.
+    const HARD_CAP_CENTS = 50;
+    const rawCostCents = Math.ceil(
+      (inputTokens  / 1_000_000) * billResaleIn +
+      (outputTokens / 1_000_000) * billResaleOut
+    );
+    const actualCostCents = Math.min(
+      Math.max(rawCostCents, MIN_CHAT_CHARGE_CENTS),
+      HARD_CAP_CENTS
     );
 
     // ── Re-verificar saldo se houve fallback (preço pode ser diferente) ──
