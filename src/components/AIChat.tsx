@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { 
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
   Code2, Bot, User, Copy, Check, Paperclip, X,
-  FileImage, FileVideo, FileText, File as FileIcon
+  FileImage, FileVideo, FileText, File as FileIcon, Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +58,7 @@ export type ChatAttachment = {
 
 interface AIChatProps {
   messages: ChatMsg[];
-  onSend: (message: string, model?: string, attachments?: ChatAttachment[]) => void;
+  onSend: (message: string, model?: string, attachments?: ChatAttachment[], autoFix?: boolean) => void;
   isThinking: boolean;
   currentActivity?: string[];
   streamingContent?: string;
@@ -355,6 +355,15 @@ const AIChat = ({
   const [availableModelIds, setAvailableModelIds] = useState<Set<string> | null>(null);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isReadingFiles, setIsReadingFiles] = useState(false);
+  const [autoFix, setAutoFix] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("ai_auto_fix");
+    return saved === null ? true : saved === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("ai_auto_fix", autoFix ? "1" : "0");
+  }, [autoFix]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -424,7 +433,7 @@ const AIChat = ({
     if ((!input.trim() && attachments.length === 0) || isThinking || isReadingFiles) return;
     const outgoingModel = visibleModels.some((m) => m.id === selectedModel) ? selectedModel : "auto";
     const message = input.trim() || "Analise os anexos enviados e aplique as melhorias necessárias.";
-    onSend(message, outgoingModel === "auto" ? undefined : outgoingModel, attachments);
+    onSend(message, outgoingModel === "auto" ? undefined : outgoingModel, attachments, autoFix);
     setInput("");
     setAttachments([]);
   };
@@ -607,7 +616,25 @@ const AIChat = ({
               {currentModel.label}
             </span>
           </button>
-          
+
+          <button
+            type="button"
+            onClick={() => setAutoFix((v) => !v)}
+            className={`shrink-0 flex items-center gap-1.5 transition-colors p-1 rounded border ${
+              autoFix
+                ? "bg-primary/15 text-primary border-primary/30"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground"
+            }`}
+            title={autoFix
+              ? "Correção automática de erros: ATIVADA — a IA analisa o repositório, identifica bugs/conflitos e aplica correções."
+              : "Correção automática de erros: DESATIVADA — a IA executa só o que for pedido."}
+          >
+            <Wand2 className="w-4 h-4" />
+            <span className="text-[10px] hidden sm:inline font-semibold uppercase tracking-wide">
+              Auto-fix {autoFix ? "ON" : "OFF"}
+            </span>
+          </button>
+
           <input
             ref={inputRef}
             value={input}

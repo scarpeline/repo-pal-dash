@@ -51,11 +51,11 @@ const REPO_AGENT_QUESTION_REGEX = /\b(o\s+que|porque|por\s*que|como\s+(funciona|
 
 const shouldUseRepositoryAgent = (message: string, hasRepo: boolean, hasAttachments = false) => {
   if (!hasRepo) return false;
-  if (/^\/edit(ar)?\b/i.test(message)) return true;
   if (hasAttachments) return true;
-  if (/^(oi|ol[aá]|obrigado|obrigada|valeu|bom dia|boa tarde|boa noite|ok|sim|n[aã]o)[!.\s]*$/i.test(message.trim())) return false;
-  // Qualquer intenção de ação OU pergunta investigativa sobre o repo dispara o agente.
-  return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message) || message.trim().length > 12;
+  // Saudações/agradecimentos curtos continuam no chat normal.
+  if (/^(oi|ol[aá]|obrigado|obrigada|valeu|bom dia|boa tarde|boa noite|ok|sim|n[aã]o|tchau)[!.\s]*$/i.test(message.trim())) return false;
+  // Com repositório conectado, qualquer outra mensagem aciona o agente — ele já tem o código.
+  return true;
 };
 
 const summarizeAttachmentsForPrompt = (attachments: ChatAttachment[] = [], includeMediaData = false) => {
@@ -338,7 +338,7 @@ const EditorPage = () => {
   const activeFile = openTabs.find(t => t.path === activeTab);
 
   // Manipula modificações de arquivos via IA
-  const handleFileModification = async (message: string, model?: string, attachments: ChatAttachment[] = []) => {
+  const handleFileModification = async (message: string, model?: string, attachments: ChatAttachment[] = [], autoFix: boolean = true) => {
     if (!selectedRepo) {
       setChatMessages(p => [...p, { role: "ai", content: "❌ Nenhum repositório selecionado.", timestamp: new Date() }]);
       return;
@@ -362,7 +362,10 @@ const EditorPage = () => {
       setStreamingProvider(providerBadge);
       setStreamingContent("");
 
-      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}`;
+      const autoFixDirective = autoFix
+        ? `\n\n[MODO CORREÇÃO AUTOMÁTICA ATIVADO]\nAlém de atender o pedido acima, varra os arquivos relevantes do repositório, identifique bugs evidentes, imports quebrados, conflitos, problemas de tipagem, runtime errors e tela branca, e inclua as correções necessárias no mesmo conjunto de "modifications". Se encontrar melhorias seguras (acessibilidade, performance trivial, código morto), aplique-as também e explique cada alteração no "summary". Nunca peça arquivos ao usuário — você já tem o repositório.`
+        : `\n\n[MODO CORREÇÃO AUTOMÁTICA DESATIVADO]\nFaça apenas o que foi pedido. Não aplique correções extras nem refatore o que não foi solicitado.`;
+      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}${autoFixDirective}`;
       const result = await modifier.processCommand(
         commandWithAttachments,
         requestedModel,
@@ -426,7 +429,7 @@ const EditorPage = () => {
     }
   };
 
-  const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = []) => {
+  const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = [], autoFix: boolean = true) => {
     const requestedModel = model || activeProvider || "auto";
     const providerBadge = getModelBadge(requestedModel);
 
@@ -447,12 +450,13 @@ const EditorPage = () => {
     const attachmentLabel = attachments.length
       ? `\n\n📎 ${attachments.length} anexo(s): ${attachments.map(a => a.name).join(", ")}`
       : "";
-    setChatMessages(p => [...p, { role: "user", content: `${message}${attachmentLabel}`, timestamp: new Date() }]);
+    const autoFixLabel = autoFix && ghToken && selectedRepo ? " · 🪄 Auto-fix ON" : "";
+    setChatMessages(p => [...p, { role: "user", content: `${message}${attachmentLabel}${autoFixLabel}`, timestamp: new Date() }]);
     setIsThinking(true);
 
     try {
       if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true, attachments.length > 0)) {
-        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel, attachments);
+        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel, attachments, autoFix);
         setIsThinking(false);
         return;
       }
