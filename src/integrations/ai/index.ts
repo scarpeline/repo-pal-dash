@@ -181,59 +181,36 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
     recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || AI_PROVIDERS[0];
     reasoning = "Tarefa simples: Gemini 3 Flash (rápido)";
   }
-  // REGRA 2: Código backend complexo → Claude Sonnet
+  // REGRA 3: Código backend complexo → Gemini Pro
   else if (isBackend && isCode) {
-    const claude = AI_PROVIDERS.find(p => p.id === "claude-sonnet");
-    if (claude?.enabled) {
-      recommendedProvider = claude;
-      reasoning = "Código backend: Claude Sonnet 4.5 (melhor raciocínio)";
-    } else {
-      recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
-      reasoning = "Código backend: Gemini 2.5 Pro";
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+    reasoning = "Código backend: Gemini 2.5 Pro";
   }
-  // REGRA 3: Código geral → DeepSeek
+  // REGRA 4: Código geral → Gemini Flash equilibrado
   else if (isCode) {
     recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-balanced") || recommendedProvider;
     reasoning = "Programação: Gemini 2.5 Flash";
   }
-  // REGRA 4: Precisa ser rápido → Groq
+  // REGRA 5: Precisa ser rápido → Gemini 3 Flash
   else if (complexity === "medium" && !requiresLongContext) {
-    const groq = AI_PROVIDERS.find(p => p.id === "groq");
-    if (groq?.enabled) {
-      recommendedProvider = groq;
-      reasoning = "Resposta rápida: Groq (mais rápido do mercado)";
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || recommendedProvider;
+    reasoning = "Resposta rápida: Gemini 3 Flash";
   }
-  // REGRA 5: Contexto longo → Kimi ou Gemini Pro
+  // REGRA 6: Contexto longo → Gemini Pro
   else if (requiresLongContext) {
-    const kimi = AI_PROVIDERS.find(p => p.id === "kimi");
-    if (kimi?.enabled) {
-      recommendedProvider = kimi;
-      reasoning = "Contexto longo: Kimi (128k tokens)";
-    } else {
-      reasoning = "Contexto longo: Gemini Pro (1M tokens)";
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+    reasoning = "Contexto longo: Gemini 2.5 Pro";
   }
-  // REGRA 6: Análise complexa → Claude Opus
+  // REGRA 7: Análise complexa → Gemini Pro
   else if (complexity === "complex" && isAnalysis) {
-    const opus = AI_PROVIDERS.find(p => p.id === "claude-opus");
-    if (opus?.enabled) {
-      recommendedProvider = opus;
-      reasoning = "Análise complexa: Claude Opus 4.6 (máximo raciocínio)";
-    } else {
-      const groq = AI_PROVIDERS.find(p => p.id === "groq");
-      if (groq?.enabled) {
-        recommendedProvider = groq;
-        reasoning = "Análise complexa: Groq Llama 4 Scout";
-      }
-    }
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-pro") || recommendedProvider;
+    reasoning = "Análise complexa: Gemini 2.5 Pro";
   }
   
   // Se nenhuma IA paga estiver habilitada, usar Gemini
   if (!recommendedProvider.enabled) {
-    recommendedProvider = AI_PROVIDERS.find(p => p.id === "gemini") || AI_PROVIDERS[0];
-    reasoning = "IA recomendada desabilitada. Usando Gemini (sempre disponível)";
+    recommendedProvider = AI_PROVIDERS.find(p => p.id === "google-code-fast") || AI_PROVIDERS[0];
+    reasoning = "IA recomendada indisponível. Usando Gemini 3 Flash";
   }
   
   return {
