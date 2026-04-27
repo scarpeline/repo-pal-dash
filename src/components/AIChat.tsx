@@ -542,7 +542,40 @@ const AIChat = ({
 
       {/* Input area */}
       <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3">
+        {attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {attachments.map((attachment) => {
+              const Icon = getAttachmentIcon(attachment.kind);
+              return (
+                <div key={attachment.id} className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2 py-1 text-xs text-foreground">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                  <span className="max-w-[120px] truncate">{attachment.name}</span>
+                  <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded text-muted-foreground hover:text-foreground" aria-label={`Remover ${attachment.name}`}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/*,.txt,.md,.json,.csv,.xml,.yaml,.yml,.toml,.js,.jsx,.ts,.tsx,.css,.scss,.html,.py,.php,.java,.go,.rs,.rb,.sh,.env,.log,.pdf,.doc,.docx"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isThinking || isReadingFiles}
+            className="text-muted-foreground hover:text-foreground shrink-0 p-1 hover:bg-background/60 rounded transition-colors disabled:opacity-50"
+            title="Anexar imagem, vídeo ou arquivo"
+          >
+            {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+          </button>
           <button
             type="button"
             onClick={() => setShowModelSelect(!showModelSelect)}
@@ -572,7 +605,7 @@ const AIChat = ({
           
           <Button 
             type="submit" 
-            disabled={isThinking || !input.trim()} 
+            disabled={isThinking || isReadingFiles || (!input.trim() && attachments.length === 0)} 
             size="sm"
             className="shrink-0 h-8 w-8 p-0 rounded-lg"
           >
