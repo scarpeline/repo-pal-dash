@@ -9,17 +9,12 @@ import { AI_PROVIDERS } from "@/integrations/ai";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto",           label: "🧠 Auto inteligente",   desc: "Escolhe o modelo pelo tipo de tarefa e contexto" },
-  { id: "gemini",         label: "Gemini Flash",          desc: "Google · Rápido e equilibrado" },
-  { id: "deepseek",       label: "DeepSeek Coder",        desc: "Especialista em código" },
-  { id: "groq",           label: "Llama 4 Scout",         desc: "Groq · Muito rápido" },
-  { id: "groq-8b",        label: "Llama 3.1 8B",          desc: "Groq · Respostas curtas e leves" },
-  { id: "kimi",           label: "Kimi 32k",              desc: "Moonshot · Contexto longo" },
-  { id: "openrouter",     label: "OpenRouter",            desc: "DeepSeek via roteador" },
-  { id: "claude-haiku",   label: "Claude Haiku",          desc: "Anthropic · Rápido" },
-  { id: "claude-sonnet",  label: "Claude Sonnet",         desc: "Anthropic · Código e raciocínio" },
-  { id: "claude-opus",    label: "Claude Opus",           desc: "Anthropic · Tarefas difíceis" },
-  { id: "openai",         label: "GPT-4o mini",           desc: "OpenAI · Uso geral" },
+  { id: "auto",                 label: "🧠 Auto inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente" },
+  { id: "google-code-fast",     label: "Gemini 3 Flash",            desc: "Google · edição rápida de app e código" },
+  { id: "google-code-balanced", label: "Gemini 2.5 Flash",          desc: "Google · melhor equilíbrio para programar" },
+  { id: "google-code-pro",      label: "Gemini 2.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo" },
+  { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners" },
+  { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos" },
 ];
 
 type ChatMsg = { 
