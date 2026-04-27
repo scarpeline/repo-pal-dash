@@ -22,6 +22,14 @@ async function creditUserBalance(
   externalId: string,
   description: string
 ) {
+  const { data: existingTx } = await supabase
+    .from("transactions")
+    .select("id, status")
+    .eq("external_id", externalId)
+    .maybeSingle();
+
+  if (existingTx?.status === "confirmed") return true;
+
   const { data: bal } = await supabase
     .from("balances")
     .select("balance_cents, total_deposited_cents")
@@ -39,16 +47,20 @@ async function creditUserBalance(
     updated_at: new Date().toISOString(),
   }).eq("user_id", userId);
 
-  await supabase.from("transactions").insert({
-    user_id: userId,
-    type: "deposit",
-    amount_cents: amountCents,
-    description,
-    payment_method: "stripe",
-    payment_gateway: "stripe",
-    external_id: externalId,
-    status: "confirmed",
-  });
+  if (existingTx) {
+    await supabase.from("transactions").update({ status: "confirmed", description }).eq("id", existingTx.id);
+  } else {
+    await supabase.from("transactions").insert({
+      user_id: userId,
+      type: "deposit",
+      amount_cents: amountCents,
+      description,
+      payment_method: "stripe",
+      payment_gateway: "stripe",
+      external_id: externalId,
+      status: "confirmed",
+    });
+  }
 
   // Comissão afiliado é calculada no uso da IA (30% do lucro real),
   // não no depósito. Stripe apenas registra o depósito limpo.
