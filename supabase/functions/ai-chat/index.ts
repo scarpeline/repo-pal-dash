@@ -196,9 +196,9 @@ Deno.serve(async (req) => {
     
     // Map any full model path back to short ID
     const fullPathToShortId: Record<string, string> = {
-      "google/gemini-2.5-flash": "gemini",
-      "google/gemini-3-flash-preview": "gemini",
-      "google/gemini-2.5-pro": "gemini",
+      "google/gemini-2.5-flash": "google-code-balanced",
+      "google/gemini-3-flash-preview": "google-code-fast",
+      "google/gemini-2.5-pro": "google-code-pro",
       "google/gemini-3.1-flash-image-preview": "google-image",
       "google/gemini-3.1-pro-preview": "google-video",
       "deepseek/deepseek-coder": "deepseek",
@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
       "claude-haiku":   "anthropic/claude-haiku-4-5",
       "claude-sonnet":  "anthropic/claude-sonnet-4-5",
       "claude-opus":    "anthropic/claude-opus-4-6",
-      "openai":         "openai/gpt-4o-mini",
+      "openai":         "openai/gpt-5-nano",
     };
     const pricingModelId = modelIdMap[routedModel] || "google/gemini-3-flash-preview";
 
@@ -620,7 +620,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       return new Response(
         JSON.stringify({
           error:
-            "Nenhuma chave de IA encontrada no servidor. Use nomes como OPENAI_API_KEY ou openai_api_key, GEMINI_API_KEY ou gemini_api_key, etc.",
+            "Nenhuma integração de IA disponível no servidor. Configure as chaves de IA ou aguarde o Lovable AI ficar disponível.",
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
