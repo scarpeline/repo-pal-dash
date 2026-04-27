@@ -240,9 +240,26 @@ Deno.serve(async (req) => {
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
-    const routedModel = selectedModel === "auto"
+    let routedModel = selectedModel === "auto"
       ? pickAutoModel(messages, fileContent)
       : selectedModel;
+
+    const { data: activeModelsData } = await supabaseAdmin
+      .from("ai_model_pricing")
+      .select("model_id")
+      .eq("is_active", true);
+    const activePricingModelIds = new Set((activeModelsData || []).map((m: any) => m.model_id));
+    const isShortIdActive = (shortId: string) => activePricingModelIds.has(shortIdToPricingModel(shortId));
+
+    if (!isShortIdActive(routedModel)) {
+      if (selectedModel !== "auto") {
+        return new Response(JSON.stringify({ error: "Este modelo de IA está desativado pelo Super Admin." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      routedModel = ["google-code-fast", "google-code-balanced", "google-code-pro", "gemini", "openai"].find(isShortIdActive) || "google-code-fast";
+    }
 
     // ── Map short ID to pricing model_id (cada modelo cobra conforme linha em ai_model_pricing) ──
     const pricingModelId = shortIdToPricingModel(routedModel);
