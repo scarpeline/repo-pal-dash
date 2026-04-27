@@ -2,8 +2,8 @@ import { AIRepoScanner, FileModification } from "./aiRepoScanner";
 import { GitHubRepo } from "./github";
 import { supabase } from "@/integrations/supabase/client";
 
-const MAX_FILE_CONTEXT_CHARS = 350_000;
-const MAX_FILE_CONTENT_CHARS = 20_000;
+const MAX_FILE_CONTEXT_CHARS = 120_000;
+const MAX_FILE_CONTENT_CHARS = 12_000;
 const MAX_CHAT_HISTORY_MESSAGES = 8;
 
 export class AIFileModifier {
@@ -27,14 +27,14 @@ export class AIFileModifier {
     chatHistory: { role: string; content: string }[] = []
   ): Promise<{ message: string; modifications: FileModification[] }> {
     try {
-      onProgress?.("📁 Varrendo e analisando arquivos relevantes...");
-      const files = await this.scanner.scanAllFiles();
+      onProgress?.("📁 Mapeando o repositório conectado...");
+      const files = await this.scanner.scanRelevantFiles(command);
 
       if (files.length === 0) {
         return { message: "❌ Nenhum arquivo encontrado no repositório.", modifications: [] };
       }
 
-      onProgress?.(`📄 ${files.length} arquivos encontrados. Montando contexto otimizado...`);
+      onProgress?.(`📄 ${files.length} arquivos relevantes carregados. Montando contexto econômico...`);
 
       files.sort((a, b) => {
         const isCoreA = a.path.startsWith('src/') || a.path.includes('components') || a.path.includes('pages');
@@ -86,7 +86,10 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
 4. Cada objeto em "modifications" deve ser: { "path": "caminho/do/arquivo", "content": "CÓDIGO COMPLETO SUBSTITUTO", "operation": "update" ou "create", "message": "descrição do commit" }.
 5. "content" DEVE SEMPRE conter o CÓDIGO FONTE COMPLETO do arquivo após sua modificação. Nunca resuma com reticências.
 6. Se a solicitação do usuário for apenas uma dúvida, ou se nenhuma modificação com código for necessária, retorne "modifications": [] e escreva a resposta explicativa no campo "summary".
-7. Seja natural no campo "summary", conversando em Português do Brasil de forma prestativa e direta.`;
+7. Seja natural no campo "summary", conversando em Português do Brasil de forma prestativa e direta.
+8. NUNCA peça para o usuário enviar App.tsx, logs, código ou arquivos quando o repositório já foi conectado. Você já recebeu mapa e arquivos relevantes; analise-os e aja.
+9. Se a causa não estiver 100% comprovada, faça a melhor correção segura com base no repositório e explique objetivamente no "summary".
+10. Para tela branca, erro de login, build quebrado, roteamento, imports, hooks e runtime, procure primeiro em App/main/routes/auth/components e gere modificações quando encontrar qualquer correção plausível.`;
 
       const apiMessages = [
         { role: "system", content: systemPrompt },

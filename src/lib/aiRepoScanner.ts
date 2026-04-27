@@ -55,6 +55,55 @@ export class AIRepoScanner {
     }
   }
 
+  async scanRelevantFiles(command: string, maxFiles = 45): Promise<{ path: string; content: string; type: 'file' | 'dir' }[]> {
+    const tree = await getRepoTree(this.token, this.owner, this.repo, this.branch);
+    const paths: string[] = [];
+    const walk = (nodes: any[]) => nodes.forEach((node) => {
+      if (node.type === 'file' && this.shouldProcessFile(node.path)) paths.push(node.path);
+      if (node.type === 'dir' && node.children) walk(node.children);
+    });
+    walk(tree);
+
+    const terms = command.toLowerCase().match(/[a-zà-ú0-9_-]{4,}/gi) || [];
+    const whiteScreen = /tela\s+branca|white\s*screen|blank/i.test(command);
+    const scorePath = (path: string) => {
+      const lower = path.toLowerCase();
+      let score = 0;
+      if (/^(package\.json|vite\.config|index\.html|src\/main|src\/app|src\/pages\/index|src\/pages\/dashboard|src\/contexts\/auth|src\/integrations\/)/i.test(path)) score += 80;
+      if (lower.startsWith('src/pages/') || lower.startsWith('src/components/') || lower.startsWith('src/hooks/') || lower.startsWith('src/lib/')) score += 30;
+      if (whiteScreen && /app|main|index|router|route|auth|layout|error|callback|vite|package/.test(lower)) score += 70;
+      for (const term of terms) if (lower.includes(term.toLowerCase())) score += 18;
+      if (/test|spec|stories|README|CHANGELOG/i.test(path)) score -= 20;
+      return score;
+    };
+
+    const selected = paths
+      .sort((a, b) => scorePath(b) - scorePath(a))
+      .slice(0, Math.min(maxFiles, paths.length));
+
+    const files: { path: string; content: string; type: 'file' | 'dir' }[] = [{
+      path: '_REPOSITORY_MAP.md',
+      type: 'file',
+      content: `Arquivos processáveis no repositório (${paths.length}):\n${paths.slice(0, 600).map((p) => `- ${p}`).join('\n')}`,
+    }];
+
+    for (let i = 0; i < selected.length; i += 6) {
+      const chunk = selected.slice(i, i + 6);
+      const loaded = await Promise.all(chunk.map(async (path) => {
+        try {
+          const { content } = await getFileContent(this.token, this.owner, this.repo, path, this.branch);
+          return { path, content, type: 'file' as const };
+        } catch (error) {
+          console.warn(`Could not read file: ${path}`, error);
+          return null;
+        }
+      }));
+      files.push(...loaded.filter(Boolean) as { path: string; content: string; type: 'file' | 'dir' }[]);
+    }
+
+    return files;
+  }
+
   private shouldProcessFile(path: string): boolean {
     const extensions = [
       '.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.json', '.md', '.html',

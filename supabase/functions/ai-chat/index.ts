@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { messages, fileContent, fileName, repoName, branch } = body;
+    const attachments = Array.isArray(body.attachments) ? body.attachments : [];
 
     // ── Check AI Balances (Super Admin action) ──
     if (body.action === "check-ai-balances") {
@@ -285,8 +286,13 @@ Deno.serve(async (req) => {
     const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;
     const resaleOutput = activePricing?.resale_price_output_per_million ?? 2000;
 
-    const totalInputChars = messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0);
-    const estimatedInputTokens  = Math.max(Math.ceil(totalInputChars / 4), 200);
+    const visibleInputChars = messages.reduce((acc: number, m: any) => acc + String(m.content || "").replace(/data:(image|video)\/[^\s)]+/g, "[media]").length, 0);
+    const mediaTokenEstimate = attachments.reduce((acc: number, a: any) => {
+      if (a?.kind === "image" && a?.dataUrl) return acc + 1200;
+      if (a?.kind === "video" && Array.isArray(a.frames)) return acc + Math.min(a.frames.length, 3) * 1200;
+      return acc;
+    }, 0);
+    const estimatedInputTokens  = Math.max(Math.ceil(visibleInputChars / 4) + mediaTokenEstimate, 200);
     const estimatedOutputTokens = 1000;
 
     const estimatedCostCents = Math.ceil(
@@ -335,6 +341,9 @@ Você ajuda a analisar, editar e melhorar código. Responda sempre em português
 Quando sugerir alterações de código, use blocos de código com a linguagem apropriada.
 Seja conciso e direto.
 
+Se houver repositório conectado, NUNCA peça para o usuário enviar App.tsx, logs, framework ou código. Use o contexto recebido e dê uma resposta acionável.
+Se houver anexos, interprete imagens, quadros de vídeo e arquivos enviados; use-os como referência para diagnóstico e melhorias.
+
 Se o usuário pedir para modificar/editar arquivos do repositório e você receber o conteúdo dos arquivos,
 retorne APENAS um JSON válido (sem markdown) no formato:
 {
@@ -352,6 +361,35 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         : ""
     }`;
 
+    const stripMediaData = (text: string) => String(text || "").replace(/data:(image|video)\/[^\s)]+/g, "[mídia anexada]");
+    const imageParts = attachments.flatMap((file: any) => {
+      if (file?.kind === "image" && file?.dataUrl) return [{ type: "image_url", image_url: { url: file.dataUrl } }];
+      if (file?.kind === "video" && Array.isArray(file.frames)) {
+        return file.frames.slice(0, 3).map((frame: string) => ({ type: "image_url", image_url: { url: frame } }));
+      }
+      return [];
+    });
+
+    const buildGatewayMessages = () => {
+      const clean = messages.map((m: any) => ({ ...m, content: stripMediaData(m.content) }));
+      if (imageParts.length) {
+        const lastUserIndex = clean.map((m: any) => m.role).lastIndexOf("user");
+        if (lastUserIndex >= 0) {
+          clean[lastUserIndex] = {
+            ...clean[lastUserIndex],
+            content: [{ type: "text", text: clean[lastUserIndex].content }, ...imageParts],
+          };
+        }
+      }
+      return [{ role: "system", content: systemPrompt }, ...clean];
+    };
+
+    const dataUrlToGeminiPart = (dataUrl: string) => {
+      const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return null;
+      return { inline_data: { mime_type: match[1], data: match[2] } };
+    };
+
     // ── APIs compatíveis OpenAI (chat/completions) ──
     const callOpenAICompatible = async (
       url: string,
@@ -364,7 +402,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`, ...extraHeaders },
         body: JSON.stringify({
           model: modelName,
-          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          messages: [{ role: "system", content: systemPrompt }, ...messages.map((m: any) => ({ ...m, content: stripMediaData(m.content) }))],
           temperature: 0.7,
           max_tokens: 4096,
         }),
@@ -438,7 +476,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         try {
           const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
           const wantsImage = mid === "google-image";
-          const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+          const promptMessages = buildGatewayMessages();
           const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
@@ -475,8 +513,23 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         `https://generativelanguage.googleapis.com/v1beta/models/${DIRECT_GEMINI_MODEL_BY_ID[mid] || DIRECT_GEMINI_MODEL_BY_ID.gemini}:generateContent?key=${geminiApiKey}`;
       const geminiContents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
+        parts: [{ text: stripMediaData(m.content) }],
       }));
+      if (imageParts.length && geminiContents.length) {
+        const last = geminiContents[geminiContents.length - 1];
+        for (const file of attachments) {
+          if (file?.kind === "image" && file?.dataUrl) {
+            const part = dataUrlToGeminiPart(file.dataUrl);
+            if (part) last.parts.push(part as any);
+          }
+          if (file?.kind === "video" && Array.isArray(file.frames)) {
+            for (const frame of file.frames.slice(0, 3)) {
+              const part = dataUrlToGeminiPart(frame);
+              if (part) last.parts.push(part as any);
+            }
+          }
+        }
+      }
       geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
       const response = await fetchWithTimeout(geminiUrl, {
         method: "POST",
@@ -525,7 +578,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
           system: systemPrompt,
           messages: messages.map((m: any) => ({
             role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
+            content: stripMediaData(m.content),
           })),
         }),
       });

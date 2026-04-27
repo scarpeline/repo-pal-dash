@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
-  Sparkles, Zap, Code2, Bot, User, Copy, Check
+  Code2, Bot, User, Copy, Check, Paperclip, X,
+  FileImage, FileVideo, FileText, File as FileIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
@@ -42,9 +44,21 @@ type ChatMsg = {
   activity?: string[];
 };
 
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  kind: "image" | "video" | "text" | "file";
+  dataUrl?: string;
+  text?: string;
+  frames?: string[];
+  note?: string;
+};
+
 interface AIChatProps {
   messages: ChatMsg[];
-  onSend: (message: string, model?: string) => void;
+  onSend: (message: string, model?: string, attachments?: ChatAttachment[]) => void;
   isThinking: boolean;
   currentActivity?: string[];
   streamingContent?: string;
@@ -52,6 +66,83 @@ interface AIChatProps {
   selectedProvider?: string;
   onProviderChange?: (providerId: string) => void;
 }
+
+const MAX_UPLOAD_FILES = 6;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_TEXT_CHARS = 16_000;
+
+const readAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ""));
+  reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo"));
+  reader.readAsDataURL(file);
+});
+
+const readImageAsOptimizedDataUrl = async (file: File) => {
+  const original = await readAsDataUrl(file);
+  return await new Promise<string>((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 1280;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(original.slice(0, 260_000));
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.onerror = () => resolve(original.slice(0, 260_000));
+    image.src = original;
+  });
+};
+
+const readAsText = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || "").slice(0, MAX_TEXT_CHARS));
+  reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo"));
+  reader.readAsText(file);
+});
+
+const isTextFile = (file: File) =>
+  file.type.startsWith("text/") || /\.(txt|md|json|csv|xml|yaml|yml|toml|js|jsx|ts|tsx|css|scss|html|py|php|java|go|rs|rb|sh|env|log)$/i.test(file.name);
+
+const captureVideoFrames = (file: File) => new Promise<string[]>((resolve) => {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  const canvas = document.createElement("canvas");
+  const frames: string[] = [];
+  video.preload = "metadata";
+  video.muted = true;
+  video.playsInline = true;
+
+  const cleanup = () => URL.revokeObjectURL(url);
+  const grab = () => {
+    if (!video.videoWidth || !video.videoHeight) return;
+    canvas.width = Math.min(video.videoWidth, 960);
+    canvas.height = Math.round((canvas.width / video.videoWidth) * video.videoHeight);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    frames.push(canvas.toDataURL("image/jpeg", 0.72));
+  };
+
+  video.onloadedmetadata = async () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+    const times = [0.1, duration * 0.5, Math.max(duration - 0.1, 0.1)];
+    for (const time of times) {
+      await new Promise<void>((done) => {
+        video.onseeked = () => { grab(); done(); };
+        video.currentTime = Math.min(time, duration);
+      });
+    }
+    cleanup();
+    resolve(frames.slice(0, 3));
+  };
+  video.onerror = () => { cleanup(); resolve([]); };
+  video.src = url;
+});
 
 // 🎨 Componente de bloco de código colapsável
 const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
@@ -262,8 +353,11 @@ const AIChat = ({
   const [selectedModel, setSelectedModel] = useState(selectedProvider);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [availableModelIds, setAvailableModelIds] = useState<Set<string> | null>(null);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [isReadingFiles, setIsReadingFiles] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -283,12 +377,56 @@ const AIChat = ({
       });
   }, []);
 
+  const handleFiles = async (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    setIsReadingFiles(true);
+    try {
+      const slots = Math.max(MAX_UPLOAD_FILES - attachments.length, 0);
+      const incoming = Array.from(fileList).slice(0, slots);
+      if (fileList.length > slots) toast.warning(`Limite de ${MAX_UPLOAD_FILES} anexos por mensagem.`);
+
+      const parsed = await Promise.all(incoming.map(async (file) => {
+        if (file.size > MAX_FILE_BYTES) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, kind: "file" as const, note: "Arquivo acima de 20MB; enviado só como referência de nome/tipo." };
+        }
+        if (file.type.startsWith("image/")) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "image" as const, dataUrl: await readImageAsOptimizedDataUrl(file) };
+        }
+        if (file.type.startsWith("video/")) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "video" as const, frames: await captureVideoFrames(file), note: "Foram extraídos quadros do vídeo para análise visual." };
+        }
+        if (isTextFile(file)) {
+          return { id: crypto.randomUUID(), name: file.name, type: file.type || "text/plain", size: file.size, kind: "text" as const, text: await readAsText(file) };
+        }
+        return { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, kind: "file" as const, note: "Tipo binário anexado como referência; envie PDF/DOCX como texto se precisar ler o conteúdo completo." };
+      }));
+
+      setAttachments(prev => [...prev, ...parsed]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível ler o anexo.");
+    } finally {
+      setIsReadingFiles(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id));
+
+  const getAttachmentIcon = (kind: ChatAttachment["kind"]) => {
+    if (kind === "image") return FileImage;
+    if (kind === "video") return FileVideo;
+    if (kind === "text") return FileText;
+    return FileIcon;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isThinking) return;
+    if ((!input.trim() && attachments.length === 0) || isThinking || isReadingFiles) return;
     const outgoingModel = visibleModels.some((m) => m.id === selectedModel) ? selectedModel : "auto";
-    onSend(input.trim(), outgoingModel === "auto" ? undefined : outgoingModel);
+    const message = input.trim() || "Analise os anexos enviados e aplique as melhorias necessárias.";
+    onSend(message, outgoingModel === "auto" ? undefined : outgoingModel, attachments);
     setInput("");
+    setAttachments([]);
   };
 
   const visibleModels = AI_MODELS.filter((m) => m.id === "auto" || !availableModelIds || availableModelIds.has(MODEL_ID_BY_SHORT_ID[m.id]));
@@ -424,7 +562,40 @@ const AIChat = ({
 
       {/* Input area */}
       <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3">
+        {attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {attachments.map((attachment) => {
+              const Icon = getAttachmentIcon(attachment.kind);
+              return (
+                <div key={attachment.id} className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2 py-1 text-xs text-foreground">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                  <span className="max-w-[120px] truncate">{attachment.name}</span>
+                  <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded text-muted-foreground hover:text-foreground" aria-label={`Remover ${attachment.name}`}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/*,.txt,.md,.json,.csv,.xml,.yaml,.yml,.toml,.js,.jsx,.ts,.tsx,.css,.scss,.html,.py,.php,.java,.go,.rs,.rb,.sh,.env,.log,.pdf,.doc,.docx"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isThinking || isReadingFiles}
+            className="text-muted-foreground hover:text-foreground shrink-0 p-1 hover:bg-background/60 rounded transition-colors disabled:opacity-50"
+            title="Anexar imagem, vídeo ou arquivo"
+          >
+            {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+          </button>
           <button
             type="button"
             onClick={() => setShowModelSelect(!showModelSelect)}
@@ -454,7 +625,7 @@ const AIChat = ({
           
           <Button 
             type="submit" 
-            disabled={isThinking || !input.trim()} 
+            disabled={isThinking || isReadingFiles || (!input.trim() && attachments.length === 0)} 
             size="sm"
             className="shrink-0 h-8 w-8 p-0 rounded-lg"
           >

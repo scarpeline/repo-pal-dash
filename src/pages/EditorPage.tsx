@@ -11,7 +11,7 @@ import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
 import TerminalPanel from "@/components/TerminalPanel";
-import AIChat from "@/components/AIChat";
+import AIChat, { type ChatAttachment } from "@/components/AIChat";
 import PreviewPanel from "@/components/PreviewPanel";
 import UserBalanceBar from "@/components/UserBalanceBar";
 import GitHubConnect from "@/components/GitHubConnect";
@@ -49,11 +49,25 @@ const MAX_CHAT_CONTEXT_MESSAGES = 10;
 const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|conserta\w*|arrum\w*|fix\w*|debug\w*|refator\w*|edit\w*|alter\w*|mud\w*|troc\w*|cri\w*|adicion\w*|remov\w*|delet\w*|apag\w*|implement\w*|ajust\w*|otimiz\w*|melhor\w*|atualiz\w*|resolv\w*|analis\w*|revis\w*|verific\w*|inspecion\w*|scan\w*|varr\w*|le\w*\s+(o|os|esse|esses|este|estes)\s+(arquivo|c[oó]digo|repo)|tela\s+branca|white\s*screen)\b/i;
 const REPO_AGENT_QUESTION_REGEX = /\b(o\s+que|porque|por\s*que|como\s+(funciona|est[aá]|fa[çc]o)|onde\s+est[aá]|qual\s+(arquivo|fun[çc][aã]o|componente))\b/i;
 
-const shouldUseRepositoryAgent = (message: string, hasRepo: boolean) => {
+const shouldUseRepositoryAgent = (message: string, hasRepo: boolean, hasAttachments = false) => {
   if (!hasRepo) return false;
   if (/^\/edit(ar)?\b/i.test(message)) return true;
+  if (hasAttachments) return true;
+  if (/^(oi|ol[aá]|obrigado|obrigada|valeu|bom dia|boa tarde|boa noite|ok|sim|n[aã]o)[!.\s]*$/i.test(message.trim())) return false;
   // Qualquer intenção de ação OU pergunta investigativa sobre o repo dispara o agente.
-  return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message);
+  return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message) || message.trim().length > 12;
+};
+
+const summarizeAttachmentsForPrompt = (attachments: ChatAttachment[] = [], includeMediaData = false) => {
+  if (!attachments.length) return "";
+  const parts = attachments.map((file, index) => {
+    const base = `Anexo ${index + 1}: ${file.name} (${file.type || file.kind}, ${(file.size / 1024).toFixed(1)} KB)`;
+    if (file.kind === "text" && file.text) return `${base}\nConteúdo:\n\`\`\`\n${file.text}\n\`\`\``;
+    if (file.kind === "image" && file.dataUrl) return includeMediaData ? `${base}\nImagem em data URL para análise visual: ${file.dataUrl.slice(0, 180_000)}` : `${base}\nImagem anexada para análise visual.`;
+    if (file.kind === "video" && file.frames?.length) return includeMediaData ? `${base}\nQuadros extraídos do vídeo para análise visual:\n${file.frames.map((frame, i) => `Frame ${i + 1}: ${frame.slice(0, 120_000)}`).join("\n")}` : `${base}\nVídeo anexado; ${file.frames.length} quadros foram extraídos para análise visual.`;
+    return `${base}\nObservação: ${file.note || "Arquivo anexado como referência."}`;
+  });
+  return `\n\nANEXOS ENVIADOS PELO USUÁRIO:\n${parts.join("\n\n")}`;
 };
 
 const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
@@ -324,7 +338,7 @@ const EditorPage = () => {
   const activeFile = openTabs.find(t => t.path === activeTab);
 
   // Manipula modificações de arquivos via IA
-  const handleFileModification = async (message: string, model?: string) => {
+  const handleFileModification = async (message: string, model?: string, attachments: ChatAttachment[] = []) => {
     if (!selectedRepo) {
       setChatMessages(p => [...p, { role: "ai", content: "❌ Nenhum repositório selecionado.", timestamp: new Date() }]);
       return;
@@ -348,8 +362,9 @@ const EditorPage = () => {
       setStreamingProvider(providerBadge);
       setStreamingContent("");
 
+      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}`;
       const result = await modifier.processCommand(
-        message,
+        commandWithAttachments,
         requestedModel,
         addProgress,
         chatMessages.filter(m => m.role !== "system").slice(-8)
@@ -411,7 +426,7 @@ const EditorPage = () => {
     }
   };
 
-  const handleChatSend = useCallback(async (message: string, model?: string) => {
+  const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = []) => {
     const requestedModel = model || activeProvider || "auto";
     const providerBadge = getModelBadge(requestedModel);
 
@@ -429,12 +444,15 @@ const EditorPage = () => {
       console.error("Balance check error", e);
     }
 
-    setChatMessages(p => [...p, { role: "user", content: message, timestamp: new Date() }]);
+    const attachmentLabel = attachments.length
+      ? `\n\n📎 ${attachments.length} anexo(s): ${attachments.map(a => a.name).join(", ")}`
+      : "";
+    setChatMessages(p => [...p, { role: "user", content: `${message}${attachmentLabel}`, timestamp: new Date() }]);
     setIsThinking(true);
 
     try {
-      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true)) {
-        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel);
+      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true, attachments.length > 0)) {
+        await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel, attachments);
         setIsThinking(false);
         return;
       }
@@ -442,7 +460,8 @@ const EditorPage = () => {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
-      const messages = buildChatContext(chatMessages, message);
+      const messageWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}`;
+      const messages = buildChatContext(chatMessages, messageWithAttachments);
 
       setCurrentActivity(["🤖 Conectando à IA..."]);
       setStreamingProvider(providerBadge);
@@ -459,6 +478,7 @@ const EditorPage = () => {
           fileContent: activeFile?.content,
           fileName: activeFile?.name,
           model: requestedModel,
+          attachments,
         }),
       });
 
