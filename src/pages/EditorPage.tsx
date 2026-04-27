@@ -11,7 +11,7 @@ import logoImg from "@/assets/logo-iaprogramador.png";
 import FileTree from "@/components/FileTree";
 import CodeEditorPanel from "@/components/CodeEditorPanel";
 import TerminalPanel from "@/components/TerminalPanel";
-import AIChat from "@/components/AIChat";
+import AIChat, { type ChatAttachment } from "@/components/AIChat";
 import PreviewPanel from "@/components/PreviewPanel";
 import UserBalanceBar from "@/components/UserBalanceBar";
 import GitHubConnect from "@/components/GitHubConnect";
@@ -49,11 +49,25 @@ const MAX_CHAT_CONTEXT_MESSAGES = 10;
 const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|conserta\w*|arrum\w*|fix\w*|debug\w*|refator\w*|edit\w*|alter\w*|mud\w*|troc\w*|cri\w*|adicion\w*|remov\w*|delet\w*|apag\w*|implement\w*|ajust\w*|otimiz\w*|melhor\w*|atualiz\w*|resolv\w*|analis\w*|revis\w*|verific\w*|inspecion\w*|scan\w*|varr\w*|le\w*\s+(o|os|esse|esses|este|estes)\s+(arquivo|c[oó]digo|repo)|tela\s+branca|white\s*screen)\b/i;
 const REPO_AGENT_QUESTION_REGEX = /\b(o\s+que|porque|por\s*que|como\s+(funciona|est[aá]|fa[çc]o)|onde\s+est[aá]|qual\s+(arquivo|fun[çc][aã]o|componente))\b/i;
 
-const shouldUseRepositoryAgent = (message: string, hasRepo: boolean) => {
+const shouldUseRepositoryAgent = (message: string, hasRepo: boolean, hasAttachments = false) => {
   if (!hasRepo) return false;
   if (/^\/edit(ar)?\b/i.test(message)) return true;
+  if (hasAttachments) return true;
+  if (/^(oi|ol[aá]|obrigado|obrigada|valeu|bom dia|boa tarde|boa noite|ok|sim|n[aã]o)[!.\s]*$/i.test(message.trim())) return false;
   // Qualquer intenção de ação OU pergunta investigativa sobre o repo dispara o agente.
-  return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message);
+  return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message) || message.trim().length > 12;
+};
+
+const summarizeAttachmentsForPrompt = (attachments: ChatAttachment[] = []) => {
+  if (!attachments.length) return "";
+  const parts = attachments.map((file, index) => {
+    const base = `Anexo ${index + 1}: ${file.name} (${file.type || file.kind}, ${(file.size / 1024).toFixed(1)} KB)`;
+    if (file.kind === "text" && file.text) return `${base}\nConteúdo:\n\`\`\`\n${file.text}\n\`\`\``;
+    if (file.kind === "image" && file.dataUrl) return `${base}\nImagem em data URL para análise visual: ${file.dataUrl.slice(0, 260_000)}`;
+    if (file.kind === "video" && file.frames?.length) return `${base}\nQuadros extraídos do vídeo para análise visual:\n${file.frames.map((frame, i) => `Frame ${i + 1}: ${frame.slice(0, 180_000)}`).join("\n")}`;
+    return `${base}\nObservação: ${file.note || "Arquivo anexado como referência."}`;
+  });
+  return `\n\nANEXOS ENVIADOS PELO USUÁRIO:\n${parts.join("\n\n")}`;
 };
 
 const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
