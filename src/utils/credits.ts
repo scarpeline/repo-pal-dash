@@ -78,7 +78,7 @@ export function formatUsageText(inputTokens: number, outputTokens: number, costC
       return `_💸 Custo: menos de R$ 0,01_`;
     }
     const reais = (costCents / 100).toFixed(4).replace(".", ",");
-    return `_💸 Custo desta resposta: R$ ${reais}_`;
+    return `_💸 Custo final desta ação: R$ ${reais}_`;
   }
   return "";
 }
