@@ -31,6 +31,8 @@ export default function SuperAdminVIPTab() {
   
   // Form state
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [addMode, setAddMode] = useState<"select" | "email">("select");
   const [markupPercent, setMarkupPercent] = useState("0");
   const [notes, setNotes] = useState("");
   
@@ -86,8 +88,41 @@ export default function SuperAdminVIPTab() {
   };
 
   const handleAddVIP = async () => {
-    if (!selectedUserId) {
-      toast.error("Selecione um usuário");
+    let targetUserId = selectedUserId;
+    
+    // Se estiver no modo email, buscar ou criar usuário
+    if (addMode === "email") {
+      if (!newUserEmail.trim()) {
+        toast.error("Digite um email válido");
+        return;
+      }
+      
+      // Buscar usuário pelo email
+      const { data: userData, error: userError } = await (supabase as any)
+        .from("profiles")
+        .select("id, email, is_vip")
+        .eq("email", newUserEmail.trim())
+        .maybeSingle();
+      
+      if (userError) {
+        toast.error("Erro ao buscar usuário: " + userError.message);
+        return;
+      }
+      
+      if (userData) {
+        if (userData.is_vip) {
+          toast.error("Este usuário já é VIP");
+          return;
+        }
+        targetUserId = userData.id;
+      } else {
+        toast.error("Usuário não encontrado. Ele precisa fazer login primeiro.");
+        return;
+      }
+    }
+    
+    if (!targetUserId) {
+      toast.error(addMode === "select" ? "Selecione um usuário" : "Usuário não encontrado");
       return;
     }
     
@@ -102,13 +137,13 @@ export default function SuperAdminVIPTab() {
           vip_markup_percent: markup,
           vip_notes: notes.trim() || null,
         })
-        .eq("id", selectedUserId);
+        .eq("id", targetUserId);
       
       if (error) throw error;
       
       // Registrar no log de auditoria
       await (supabase as any).from("vip_changes_log").insert({
-        user_id: selectedUserId,
+        user_id: targetUserId,
         changed_by: (await supabase.auth.getUser()).data.user?.id,
         old_is_vip: false,
         new_is_vip: true,
@@ -120,6 +155,7 @@ export default function SuperAdminVIPTab() {
       toast.success("Usuário VIP adicionado!");
       setShowAddForm(false);
       setSelectedUserId("");
+      setNewUserEmail("");
       setMarkupPercent("0");
       setNotes("");
       loadData();
@@ -293,21 +329,58 @@ export default function SuperAdminVIPTab() {
         
         {showAddForm && (
           <CardContent className="space-y-4 border-t pt-4">
-            <div>
-              <Label>Selecionar Usuário</Label>
-              <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
+            {/* Toggle entre selecionar da lista ou digitar email */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={addMode === "select" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAddMode("select")}
+                className="flex-1"
               >
-                <option value="">Selecione um usuário...</option>
-                {allUsers.filter(u => !u.is_vip).map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.email} {u.full_name ? `(${u.full_name})` : ""}
-                  </option>
-                ))}
-              </select>
+                Selecionar da Lista
+              </Button>
+              <Button
+                type="button"
+                variant={addMode === "email" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAddMode("email")}
+                className="flex-1"
+              >
+                Digitar Email
+              </Button>
             </div>
+
+            {addMode === "select" ? (
+              <div>
+                <Label>Selecionar Usuário</Label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione um usuário...</option>
+                  {allUsers.filter(u => !u.is_vip).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email} {u.full_name ? `(${u.full_name})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <Label>Email do Usuário</Label>
+                <Input
+                  type="email"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="usuario@email.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  O usuário deve já ter uma conta no sistema
+                </p>
+              </div>
+            )}
             
             <div>
               <Label>Markup Personalizado (%)</Label>

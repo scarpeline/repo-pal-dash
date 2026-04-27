@@ -116,7 +116,7 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
           const errData = await res.json().catch(() => ({} as Record<string, unknown>));
           const errStr = String((errData as { error?: string }).error || res.status);
           const tried = (errData as { tried_models?: string[] }).tried_models;
-          const triedHint = res.status === 503 && tried?.length === 1 ? " Configure outras chaves (ex.: LOVABLE_API_KEY) no Supabase para fallback." : tried && tried.length > 1 ? ` Tentados: ${tried.join(", ")}.` : "";
+          const triedHint = tried && tried.length > 1 ? ` Tentados: ${tried.join(", ")}.` : "";
           return { message: `❌ Erro da IA: ${errStr}${triedHint}`, modifications: [] };
         }
 

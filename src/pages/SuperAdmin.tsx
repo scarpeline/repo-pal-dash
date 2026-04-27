@@ -1111,7 +1111,16 @@ const SuperAdmin = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {modelPricing.map(mp => {
+                        {modelPricing.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              <div className="space-y-2">
+                                <p className="font-medium">Nenhum modelo de IA cadastrado</p>
+                                <p className="text-xs">Execute a migration para popular a tabela ai_model_pricing</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : modelPricing.map(mp => {
                           const apiIn = Number(getVal(mp, "api_cost_input_per_million"));
                           const apiOut = Number(getVal(mp, "api_cost_output_per_million"));
                           const resIn = Number(getVal(mp, "resale_price_input_per_million"));
@@ -1324,7 +1333,14 @@ const SuperAdmin = () => {
                 )}
               </Card>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {packages.map(pkg => (
+                {packages.length === 0 ? (
+                <div className="col-span-3 text-center py-8 text-muted-foreground">
+                  <p>Nenhum pacote cadastrado</p>
+                  <Button size="sm" variant="outline" className="mt-2" onClick={() => setShowPkgForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" /> Criar primeiro pacote
+                  </Button>
+                </div>
+              ) : packages.map(pkg => (
                   <Card key={pkg.id} className={pkg.is_active ? "" : "opacity-50"}>
                     <CardHeader>
                       <div className="flex justify-between"><Package className="w-6 h-6 text-primary" /><Badge>{pkg.is_active ? "Ativo" : "Inativo"}</Badge></div>
