@@ -23,6 +23,11 @@ interface AISelectorProps {
 }
 
 const providerIcons: Record<string, React.ReactNode> = {
+  "google-code-fast": <Zap className="w-4 h-4 text-primary" />,
+  "google-code-balanced": <Code className="w-4 h-4 text-primary" />,
+  "google-code-pro": <Brain className="w-4 h-4 text-primary" />,
+  "google-image": <Sparkles className="w-4 h-4 text-primary" />,
+  "google-video": <Cpu className="w-4 h-4 text-primary" />,
   gemini: <Sparkles className="w-4 h-4 text-blue-400" />,
   deepseek: <Code className="w-4 h-4 text-purple-400" />,
   groq: <Zap className="w-4 h-4 text-yellow-400" />,
@@ -48,9 +53,8 @@ export function AISelector({
   const [isAuto, setIsAuto] = useState(autoMode);
 
   useEffect(() => {
-    // Chaves ficam no servidor (edge functions); o app só indica quais provedores costumam estar ativos.
-    // Gemini sempre habilitado, os demais dependem de keys no frontend (não usadas aqui)
-    const alwaysEnabled = ["gemini", "deepseek", "kimi", "openrouter", "groq", "claude-sonnet", "claude-haiku", "claude-opus"];
+    // Chaves ficam no servidor; as rotas Google/Lovable AI são resolvidas no backend.
+    const alwaysEnabled = ["google-code-fast", "google-code-balanced", "google-code-pro", "google-image", "google-video", "gemini"];
     const updated = providers.map(p => ({
       ...p,
       enabled: alwaysEnabled.includes(p.id) ? true : !!import.meta.env[p.apiKeyEnv],
@@ -144,7 +148,7 @@ export function AISelector({
         <DropdownMenuSeparator />
         <div className="px-2 py-1.5 text-xs text-muted-foreground space-y-1">
           <p>💡 <strong>Modo Inteligente recomendado</strong></p>
-          <p>🎯 Complexo → Claude Opus | 🚀 Rápido → Groq | 💻 Código → DeepSeek</p>
+          <p>🎯 Complexo → Gemini Pro | 🚀 Rápido → Gemini 3 Flash | 🖼️ Imagem → Gemini Imagem</p>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
