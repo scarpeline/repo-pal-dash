@@ -661,7 +661,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
     const inputTokens  = estimatedInputTokens;
     const outputTokens = Math.max(Math.ceil(content.length / 4), 100);
 
-    const billedPricingModelId = modelIdMap[billingShortId] || "google/gemini-2.5-flash";
+    const billedPricingModelId = modelIdMap[billingShortId] || "google/gemini-3-flash-preview";
     const { data: billedResale } = await supabaseAdmin
       .from("ai_model_pricing")
       .select("resale_price_input_per_million, resale_price_output_per_million")
@@ -677,7 +677,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         (inputTokens  / 1_000_000) * billResaleIn +
         (outputTokens / 1_000_000) * billResaleOut
       ),
-      20
+      MIN_CHAT_CHARGE_CENTS
     );
 
     // ── Re-verificar saldo se houve fallback (preço pode ser diferente) ──
