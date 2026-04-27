@@ -362,7 +362,7 @@ const EditorPage = () => {
       setStreamingProvider(providerBadge);
       setStreamingContent("");
 
-      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments)}`;
+      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}`;
       const result = await modifier.processCommand(
         commandWithAttachments,
         requestedModel,
@@ -460,7 +460,7 @@ const EditorPage = () => {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const { supabase } = await import("@/integrations/supabase/client");
       const session = (await supabase.auth.getSession()).data.session;
-      const messageWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments)}`;
+      const messageWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}`;
       const messages = buildChatContext(chatMessages, messageWithAttachments);
 
       setCurrentActivity(["🤖 Conectando à IA..."]);
