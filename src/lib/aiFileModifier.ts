@@ -25,7 +25,7 @@ export class AIFileModifier {
     model: string = "auto",
     onProgress?: (msg: string) => void,
     chatHistory: { role: string; content: string }[] = []
-  ): Promise<{ message: string; modifications: FileModification[] }> {
+  ): Promise<{ message: string; modifications: FileModification[]; usage?: { input_tokens: number; output_tokens: number; cost_cents: number }; provider?: string }> {
     try {
       onProgress?.("📁 Mapeando o repositório conectado...");
       const files = await this.scanner.scanRelevantFiles(command);
@@ -89,7 +89,8 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
 7. Seja natural no campo "summary", conversando em Português do Brasil de forma prestativa e direta.
 8. NUNCA peça para o usuário enviar App.tsx, logs, código ou arquivos quando o repositório já foi conectado. Você já recebeu mapa e arquivos relevantes; analise-os e aja.
 9. Se a causa não estiver 100% comprovada, faça a melhor correção segura com base no repositório e explique objetivamente no "summary".
-10. Para tela branca, erro de login, build quebrado, roteamento, imports, hooks e runtime, procure primeiro em App/main/routes/auth/components e gere modificações quando encontrar qualquer correção plausível.`;
+10. Para tela branca, erro de login, build quebrado, roteamento, imports, hooks e runtime, procure primeiro em App/main/routes/auth/components e gere modificações quando encontrar qualquer correção plausível.
+11. Se a mensagem do usuário contiver comandos como corrija, aplique, faça, implemente, ajuste, crie, edite, melhore ou resolver, você DEVE devolver pelo menos uma modificação quando houver qualquer arquivo relevante no contexto. Não pare apenas explicando o que faria.`;
 
       const apiMessages = [
         { role: "system", content: systemPrompt },
@@ -126,6 +127,8 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
 
       const data = await res.json();
       const aiContent = data.content || "";
+      const usage = data.usage;
+      const provider = data.provider;
 
       try {
         let jsonStr = aiContent;
@@ -141,9 +144,13 @@ REGRAS OBRIGATÓRIAS DE RESPOSTA FORMATO JSON:
         }));
 
         const summary = parsed.summary || `${modifications.length} arquivo(s) para modificar.`;
-        return { message: `🎯 ${summary}`, modifications };
+        return { message: `🎯 ${summary}`, modifications, usage, provider };
       } catch {
-        return { message: aiContent, modifications: [] };
+        const looksActionable = /\b(corrig|consert|arrum|fix|debug|refator|edit|alter|mud|troc|cri|adicion|remov|implement|ajust|otimiz|melhor|atualiz|resolv|apli|fa[çc]a|tela\s+branca|white\s*screen)\b/i.test(command);
+        const actionHint = looksActionable
+          ? "\n\n⚠️ A IA explicou, mas não devolveu alterações aplicáveis. Reenvie o comando com Auto-fix ligado; o agente agora força modificações para pedidos de ação."
+          : "";
+        return { message: aiContent + actionHint, modifications: [], usage, provider };
       }
 
     } catch (error: unknown) {
