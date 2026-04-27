@@ -476,7 +476,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         try {
           const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
           const wantsImage = mid === "google-image";
-          const promptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+          const promptMessages = buildGatewayMessages();
           const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableGatewayKey}` },
@@ -513,8 +513,23 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         `https://generativelanguage.googleapis.com/v1beta/models/${DIRECT_GEMINI_MODEL_BY_ID[mid] || DIRECT_GEMINI_MODEL_BY_ID.gemini}:generateContent?key=${geminiApiKey}`;
       const geminiContents = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
+        parts: [{ text: stripMediaData(m.content) }],
       }));
+      if (imageParts.length && geminiContents.length) {
+        const last = geminiContents[geminiContents.length - 1];
+        for (const file of attachments) {
+          if (file?.kind === "image" && file?.dataUrl) {
+            const part = dataUrlToGeminiPart(file.dataUrl);
+            if (part) last.parts.push(part as any);
+          }
+          if (file?.kind === "video" && Array.isArray(file.frames)) {
+            for (const frame of file.frames.slice(0, 3)) {
+              const part = dataUrlToGeminiPart(frame);
+              if (part) last.parts.push(part as any);
+            }
+          }
+        }
+      }
       geminiContents.unshift({ role: "user", parts: [{ text: systemPrompt }] });
       const response = await fetchWithTimeout(geminiUrl, {
         method: "POST",
