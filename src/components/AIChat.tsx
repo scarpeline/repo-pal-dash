@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
-  Sparkles, Zap, Code2, Bot, User, Copy, Check
+  Code2, Bot, User, Copy, Check, Paperclip, X,
+  FileImage, FileVideo, FileText, File as FileIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,9 +43,21 @@ type ChatMsg = {
   activity?: string[];
 };
 
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  kind: "image" | "video" | "text" | "file";
+  dataUrl?: string;
+  text?: string;
+  frames?: string[];
+  note?: string;
+};
+
 interface AIChatProps {
   messages: ChatMsg[];
-  onSend: (message: string, model?: string) => void;
+  onSend: (message: string, model?: string, attachments?: ChatAttachment[]) => void;
   isThinking: boolean;
   currentActivity?: string[];
   streamingContent?: string;
@@ -52,6 +65,63 @@ interface AIChatProps {
   selectedProvider?: string;
   onProviderChange?: (providerId: string) => void;
 }
+
+const MAX_UPLOAD_FILES = 6;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_TEXT_CHARS = 16_000;
+
+const readAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ""));
+  reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo"));
+  reader.readAsDataURL(file);
+});
+
+const readAsText = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || "").slice(0, MAX_TEXT_CHARS));
+  reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo"));
+  reader.readAsText(file);
+});
+
+const isTextFile = (file: File) =>
+  file.type.startsWith("text/") || /\.(txt|md|json|csv|xml|yaml|yml|toml|js|jsx|ts|tsx|css|scss|html|py|php|java|go|rs|rb|sh|env|log)$/i.test(file.name);
+
+const captureVideoFrames = (file: File) => new Promise<string[]>((resolve) => {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  const canvas = document.createElement("canvas");
+  const frames: string[] = [];
+  video.preload = "metadata";
+  video.muted = true;
+  video.playsInline = true;
+
+  const cleanup = () => URL.revokeObjectURL(url);
+  const grab = () => {
+    if (!video.videoWidth || !video.videoHeight) return;
+    canvas.width = Math.min(video.videoWidth, 960);
+    canvas.height = Math.round((canvas.width / video.videoWidth) * video.videoHeight);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    frames.push(canvas.toDataURL("image/jpeg", 0.72));
+  };
+
+  video.onloadedmetadata = async () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+    const times = [0.1, duration * 0.5, Math.max(duration - 0.1, 0.1)];
+    for (const time of times) {
+      await new Promise<void>((done) => {
+        video.onseeked = () => { grab(); done(); };
+        video.currentTime = Math.min(time, duration);
+      });
+    }
+    cleanup();
+    resolve(frames.slice(0, 3));
+  };
+  video.onerror = () => { cleanup(); resolve([]); };
+  video.src = url;
+});
 
 // 🎨 Componente de bloco de código colapsável
 const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
