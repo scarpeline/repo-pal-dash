@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Code2, LogOut, Wallet, Shield } from "lucide-react";
+import { Code2, LogOut, Wallet, Shield, Brain } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -12,6 +13,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({ repoName, onBack, onWallet, onAdmin }: AppHeaderProps) {
   const { user, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="h-12 border-b border-border bg-card flex items-center px-4 gap-3 shrink-0">
@@ -31,6 +33,9 @@ export default function AppHeader({ repoName, onBack, onWallet, onAdmin }: AppHe
 
       {user && (
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/obsidian")} className="h-8 w-8" title="Cérebro Obsidian">
+            <Brain className="h-4 w-4" />
+          </Button>
           {isAdmin && onAdmin && (
             <Button variant="ghost" size="icon" onClick={onAdmin} className="h-8 w-8" title="Admin">
               <Shield className="h-4 w-4" />
