@@ -13,9 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
-  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink, LogOut
+  Plus, RefreshCw, Download, Mail, Package, Edit2, Trash2, Save, X, Cpu, TrendingUp, HandCoins, MessageSquare, Ban, CheckCircle, Settings, ExternalLink, LogOut, Crown
 } from "lucide-react";
 import { formatCreditsAsBRL } from "@/utils/credits";
+import SuperAdminVIPTab from "@/components/SuperAdminVIPTab";
+import SuperAdminCTATab from "@/components/SuperAdminCTATab";
 
 interface AdminUser {
   id: string; email: string; full_name: string | null;
@@ -960,6 +962,8 @@ const SuperAdmin = () => {
           <TabsList className="flex-wrap">
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="pricing">💰 Preços IA</TabsTrigger>
+            <TabsTrigger value="vip" className="flex items-center gap-2"><Crown className="w-4 h-4" /> VIP</TabsTrigger>
+            <TabsTrigger value="cta" className="flex items-center gap-2"><ExternalLink className="w-4 h-4" /> CTA</TabsTrigger>
             <TabsTrigger value="remarketing">Remarketing</TabsTrigger>
             <TabsTrigger value="packages">Pacotes</TabsTrigger>
             <TabsTrigger value="withdrawals">Saques</TabsTrigger>
@@ -1184,6 +1188,16 @@ const SuperAdmin = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* VIP Users */}
+          <TabsContent value="vip">
+            <SuperAdminVIPTab />
+          </TabsContent>
+
+          {/* CTA */}
+          <TabsContent value="cta">
+            <SuperAdminCTATab />
           </TabsContent>
 
           {/* Remarketing */}
