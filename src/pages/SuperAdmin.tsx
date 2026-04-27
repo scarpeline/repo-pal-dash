@@ -109,8 +109,15 @@ const SuperAdmin = () => {
     if (pkgsRes.data) setPackages(pkgsRes.data as any[]);
     
     // Fetch app settings
-    const { data: settings } = await supabase.from("app_settings").select("*").eq("key", "primary_gateway").single();
-    if (settings) setPrimaryGateway(settings.value as any);
+    const { data: setts } = await supabase.from("app_settings").select("*").in("key", ["primary_gateway", "manual_deposit_link"]);
+    if (setts) {
+      const pg = setts.find(s => s.key === "primary_gateway");
+      if (pg) setPrimaryGateway(pg.value as any);
+      
+      const ml = setts.find(s => s.key === "manual_deposit_link");
+      if (ml) setManualDepositLink(ml.value as any);
+      else setManualDepositLink("https://w.app/ia_programador");
+    }
 
     if (withdrawalsRes.data) setWithdrawals(withdrawalsRes.data as any[]);
     if (pricingRes.data) {
@@ -999,6 +1006,31 @@ const SuperAdmin = () => {
                         {primaryGateway === "stripe" ? "Ativo" : "Contingência"}
                       </Badge>
                       <span className="font-bold">Stripe (Internacional/Cartão)</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 border-t pt-6">
+                  <h3 className="text-lg font-semibold">Link de Depósito Manual</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Define para onde o botão "Fazer depósito" na carteira do usuário redirecionará.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={manualDepositLink} 
+                      onChange={(e) => setManualDepositLink(e.target.value)} 
+                      placeholder="https://w.app/..." 
+                    />
+                    <Button 
+                      onClick={async () => {
+                        await supabase.from("app_settings").upsert({ 
+                          key: "manual_deposit_link", 
+                          value: manualDepositLink as any 
+                        }, { onConflict: "key" });
+                        toast.success("Link de depósito manual atualizado!");
+                      }}
+                    >
+                      Salvar Link
                     </Button>
                   </div>
                 </div>

@@ -1,7 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Code2, LogOut, Wallet, Shield } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Code2, LogOut, Wallet, Shield, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AppHeaderProps {
   repoName?: string;
@@ -12,6 +19,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({ repoName, onBack, onWallet, onAdmin }: AppHeaderProps) {
   const { user, isAdmin, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
   return (
     <header className="h-12 border-b border-border bg-card flex items-center px-4 gap-3 shrink-0">
@@ -29,25 +37,46 @@ export default function AppHeader({ repoName, onBack, onWallet, onAdmin }: AppHe
 
       <div className="flex-1" />
 
-      {user && (
-        <div className="flex items-center gap-2">
-          {isAdmin && onAdmin && (
-            <Button variant="ghost" size="icon" onClick={onAdmin} className="h-8 w-8" title="Admin">
-              <Shield className="h-4 w-4" />
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title={t("language")}>
+              <Languages className="h-4 w-4" />
             </Button>
-          )}
-          {onWallet && (
-            <Button variant="ghost" size="icon" onClick={onWallet} className="h-8 w-8" title="Carteira">
-              <Wallet className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setLanguage("pt-BR")} className={language === "pt-BR" ? "bg-accent" : ""}>
+              Português (Brasil)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setLanguage("en-US")} className={language === "en-US" ? "bg-accent" : ""}>
+              English (US)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setLanguage("es-ES")} className={language === "es-ES" ? "bg-accent" : ""}>
+              Español (ES)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {user && (
+          <>
+            {isAdmin && onAdmin && (
+              <Button variant="ghost" size="icon" onClick={onAdmin} className="h-8 w-8" title={t("admin")}>
+                <Shield className="h-4 w-4" />
+              </Button>
+            )}
+            {onWallet && (
+              <Button variant="ghost" size="icon" onClick={onWallet} className="h-8 w-8" title={t("wallet")}>
+                <Wallet className="h-4 w-4" />
+              </Button>
+            )}
+            <NotificationBell />
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
+            <Button variant="ghost" size="icon" onClick={logout} className="h-8 w-8" title={t("logout")}>
+              <LogOut className="h-4 w-4 text-muted-foreground" />
             </Button>
-          )}
-          <NotificationBell />
-          <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
-          <Button variant="ghost" size="icon" onClick={logout} className="h-8 w-8">
-            <LogOut className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </header>
   );
 }

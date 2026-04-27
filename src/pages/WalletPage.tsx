@@ -38,6 +38,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
   const [loading, setLoading] = useState(false);
   const [refreshingBalance, setRefreshingBalance] = useState(false);
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
+  const [manualDepositLink, setManualDepositLink] = useState("https://w.app/ia_programador");
   const [pixData, setPixData] = useState<{
     qr: string | null;
     copy: string | null;
@@ -83,9 +84,15 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     const { data: settings } = await supabase
       .from("app_settings")
       .select("*")
-      .eq("key", "primary_gateway")
-      .single();
-    if (settings) setPrimaryGateway(settings.value as any);
+      .in("key", ["primary_gateway", "manual_deposit_link"]);
+
+    if (settings) {
+      const pg = settings.find(s => s.key === "primary_gateway");
+      if (pg) setPrimaryGateway(pg.value as any);
+
+      const ml = settings.find(s => s.key === "manual_deposit_link");
+      if (ml) setManualDepositLink(ml.value as any);
+    }
   };
 
   const loadData = async () => {
@@ -340,8 +347,15 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         {packages.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-5 w-5" /> Escolha um Pacote
+              <CardTitle className="text-lg flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2"><Package className="h-5 w-5" /> Escolha um Pacote</span>
+                <Button 
+                  size="sm" 
+                  className="bg-green-600 hover:bg-green-700 text-white gap-2 h-8"
+                  onClick={() => window.open(manualDepositLink, "_blank")}
+                >
+                  <DollarSign className="h-3.5 w-3.5" /> Fazer depósito
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">

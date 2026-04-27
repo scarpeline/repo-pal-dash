@@ -21,7 +21,11 @@ const translations: Record<Language, Record<string, string>> = {
     "modified": "Modificado",
     "repo_placeholder": "Selecione um arquivo",
     "connect_gh": "Conecte seu GitHub para começar",
-    "change_repo": "Trocar repositório"
+    "change_repo": "Trocar repositório",
+    "language": "Idioma",
+    "logout": "Sair",
+    "wallet": "Carteira",
+    "admin": "Painel Admin"
   },
   "en-US": {
     "welcome": "Welcome",
@@ -35,7 +39,11 @@ const translations: Record<Language, Record<string, string>> = {
     "modified": "Modified",
     "repo_placeholder": "Select a file",
     "connect_gh": "Connect your GitHub to start",
-    "change_repo": "Change repository"
+    "change_repo": "Change repository",
+    "language": "Language",
+    "logout": "Logout",
+    "wallet": "Wallet",
+    "admin": "Admin Panel"
   },
   "es-ES": {
     "welcome": "Bienvenido",
@@ -49,7 +57,11 @@ const translations: Record<Language, Record<string, string>> = {
     "modified": "Modificado",
     "repo_placeholder": "Seleccione un archivo",
     "connect_gh": "Conecta tu GitHub para comenzar",
-    "change_repo": "Cambiar repositorio"
+    "change_repo": "Cambiar repositorio",
+    "language": "Idioma",
+    "logout": "Salir",
+    "wallet": "Billetera",
+    "admin": "Panel Admin"
   }
 };
 
@@ -59,16 +71,16 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguage] = useState<Language>("pt-BR");
 
   useEffect(() => {
-    // Detect system language automatically by region
-    const systemLang = navigator.language;
+    // Detect system language automatically by region/browser settings
     const storedLang = localStorage.getItem("app_lang") as Language | null;
 
     if (storedLang && ["pt-BR", "en-US", "es-ES"].includes(storedLang)) {
       setLanguage(storedLang);
     } else {
-      if (systemLang.startsWith("pt")) {
+      const systemLang = navigator.language.toLowerCase();
+      if (systemLang.includes("pt")) {
         setLanguage("pt-BR");
-      } else if (systemLang.startsWith("es")) {
+      } else if (systemLang.includes("es")) {
         setLanguage("es-ES");
       } else {
         setLanguage("en-US");
@@ -79,10 +91,12 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const changeLanguage = (lang: Language) => {
     setLanguage(lang);
     localStorage.setItem("app_lang", lang);
+    // Update HTML lang attribute for accessibility/SEO
+    document.documentElement.lang = lang.split('-')[0];
   };
 
   const t = (key: string) => {
-    return translations[language][key] || key;
+    return translations[language][key] || translations["en-US"][key] || key;
   };
 
   return (
