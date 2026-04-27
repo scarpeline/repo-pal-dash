@@ -58,13 +58,13 @@ const shouldUseRepositoryAgent = (message: string, hasRepo: boolean, hasAttachme
   return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message) || message.trim().length > 12;
 };
 
-const summarizeAttachmentsForPrompt = (attachments: ChatAttachment[] = []) => {
+const summarizeAttachmentsForPrompt = (attachments: ChatAttachment[] = [], includeMediaData = false) => {
   if (!attachments.length) return "";
   const parts = attachments.map((file, index) => {
     const base = `Anexo ${index + 1}: ${file.name} (${file.type || file.kind}, ${(file.size / 1024).toFixed(1)} KB)`;
     if (file.kind === "text" && file.text) return `${base}\nConteúdo:\n\`\`\`\n${file.text}\n\`\`\``;
-    if (file.kind === "image" && file.dataUrl) return `${base}\nImagem em data URL para análise visual: ${file.dataUrl.slice(0, 260_000)}`;
-    if (file.kind === "video" && file.frames?.length) return `${base}\nQuadros extraídos do vídeo para análise visual:\n${file.frames.map((frame, i) => `Frame ${i + 1}: ${frame.slice(0, 180_000)}`).join("\n")}`;
+    if (file.kind === "image" && file.dataUrl) return includeMediaData ? `${base}\nImagem em data URL para análise visual: ${file.dataUrl.slice(0, 180_000)}` : `${base}\nImagem anexada para análise visual.`;
+    if (file.kind === "video" && file.frames?.length) return includeMediaData ? `${base}\nQuadros extraídos do vídeo para análise visual:\n${file.frames.map((frame, i) => `Frame ${i + 1}: ${frame.slice(0, 120_000)}`).join("\n")}` : `${base}\nVídeo anexado; ${file.frames.length} quadros foram extraídos para análise visual.`;
     return `${base}\nObservação: ${file.note || "Arquivo anexado como referência."}`;
   });
   return `\n\nANEXOS ENVIADOS PELO USUÁRIO:\n${parts.join("\n\n")}`;
