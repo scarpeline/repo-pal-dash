@@ -42,11 +42,19 @@ type ChatMsg = {
 };
 
 const MAX_CHAT_CONTEXT_MESSAGES = 10;
-const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|fix\w*|refator\w*|edit\w*|alter\w*|mud\w*|cri\w*|adicion\w*|remov\w*|implement\w*|ajust\w*|otimiz\w*|resolv\w*|analis\w*|scan\w*|varr\w*)\b/i;
-const REPO_AGENT_SCOPE_REGEX = /\b(arquivo|repo|repositório|código|codebase|componente|tela|página|função|api|endpoint|layout|estilo|css|bug|erro|build|deploy)\b/i;
+// Sempre que houver repositório conectado e a frase tiver QUALQUER intenção de ação/análise,
+// o agente assume o controle, varre o repositório e responde com base no código real.
+// Assim o usuário não precisa decorar comandos como "/edit" e a IA não responde mais
+// "me envie os arquivos" — ela já tem acesso ao repositório.
+const REPO_AGENT_ACTION_REGEX = /\b(corrig\w*|conserta\w*|arrum\w*|fix\w*|debug\w*|refator\w*|edit\w*|alter\w*|mud\w*|troc\w*|cri\w*|adicion\w*|remov\w*|delet\w*|apag\w*|implement\w*|ajust\w*|otimiz\w*|melhor\w*|atualiz\w*|resolv\w*|analis\w*|revis\w*|verific\w*|inspecion\w*|scan\w*|varr\w*|le\w*\s+(o|os|esse|esses|este|estes)\s+(arquivo|c[oó]digo|repo)|tela\s+branca|white\s*screen)\b/i;
+const REPO_AGENT_QUESTION_REGEX = /\b(o\s+que|porque|por\s*que|como\s+(funciona|est[aá]|fa[çc]o)|onde\s+est[aá]|qual\s+(arquivo|fun[çc][aã]o|componente))\b/i;
 
-const shouldUseRepositoryAgent = (message: string) =>
-  /^\/edit(ar)?\b/i.test(message) || (REPO_AGENT_ACTION_REGEX.test(message) && REPO_AGENT_SCOPE_REGEX.test(message));
+const shouldUseRepositoryAgent = (message: string, hasRepo: boolean) => {
+  if (!hasRepo) return false;
+  if (/^\/edit(ar)?\b/i.test(message)) return true;
+  // Qualquer intenção de ação OU pergunta investigativa sobre o repo dispara o agente.
+  return REPO_AGENT_ACTION_REGEX.test(message) || REPO_AGENT_QUESTION_REGEX.test(message);
+};
 
 const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
   ...messages
@@ -425,7 +433,7 @@ const EditorPage = () => {
     setIsThinking(true);
 
     try {
-      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message)) {
+      if (ghToken && selectedRepo && shouldUseRepositoryAgent(message, true)) {
         await handleFileModification(message, requestedModel === "auto" ? undefined : requestedModel);
         setIsThinking(false);
         return;
