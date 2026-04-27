@@ -4,3 +4,6 @@ project_id = "kcwxjmnwdupcqtofejqj"
 enable_signup = true
 # Desativa confirmação de email — usuários são autenticados imediatamente
 enable_confirmations = false
+
+[functions.superadmin-verify]
+verify_jwt = false
