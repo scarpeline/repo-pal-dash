@@ -62,7 +62,12 @@ const buildChatContext = (messages: ChatMsg[], latestMessage: string) => [
 const getModelBadge = (model?: string) => {
   const badges: Record<string, string> = {
     auto: "Auto",
-    gemini: "Gemini",
+    gemini: "Google Gemini",
+    "google-code-fast": "Gemini 3 Flash",
+    "google-code-balanced": "Gemini 2.5 Flash",
+    "google-code-pro": "Gemini 2.5 Pro",
+    "google-image": "Gemini Imagem",
+    "google-video": "Gemini Vídeo",
     deepseek: "DeepSeek",
     groq: "Groq",
     "groq-8b": "Groq 8B",
@@ -474,12 +479,9 @@ const EditorPage = () => {
           const triedLine = tried?.length
             ? `\n\nModelos tentados no servidor: ${tried.join(", ")}.`
             : "";
-          const hint =
-            tried?.length === 1
-              ? "\n\nSó há um provedor configurado nas secrets do Supabase. Adicione LOVABLE_API_KEY ou OPENAI_API_KEY (ou Groq, DeepSeek, etc.) para o fallback automático ter para onde alternar."
-              : tried && tried.length > 1
-                ? "\n\nTodas as chaves configuradas falharam nesta rodada. Confira quotas e secrets no painel do Supabase."
-                : "";
+          const hint = tried?.length
+            ? "\n\nO roteador tentou os modelos disponíveis. Confira créditos e limites das integrações de IA."
+            : "";
           const fullMsg = `${errorMsg}${triedLine}${hint}`;
           toast.error("Nenhuma IA respondeu após tentar os provedores disponíveis.");
           setChatMessages(p => [...p, {
