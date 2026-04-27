@@ -405,16 +405,16 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
       deepseek: "DeepSeek",
       openrouter: "OpenRouter",
       "claude-haiku": "Claude Haiku 4.5",
-      "claude-sonnet": "Claude Sonnet 4.5",
-      "claude-opus": "Claude Opus 4.5",
-      kimi: "Kimi",
-      openai: "GPT-4o mini",
+      "claude-sonnet": "Claude Sonnet 4.6",
+      "claude-opus": "Claude Opus",
+      kimi: "Kimi K2",
+      openai: "GPT-5 Nano",
     };
 
     const claudeApiModel: Record<string, string> = {
-      "claude-haiku": "claude-haiku-4-5",
+      "claude-haiku": "claude-3-5-haiku-latest",
       "claude-sonnet": "claude-sonnet-4-5",
-      "claude-opus": "claude-opus-4-6",
+      "claude-opus": "claude-opus-4-1",
     };
 
     const canAttempt = (mid: string): boolean => {
