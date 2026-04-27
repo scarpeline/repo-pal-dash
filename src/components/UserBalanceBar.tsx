@@ -69,11 +69,11 @@ const UserBalanceBar = () => {
       </button>
       <button
         onClick={() => navigate("/wallet?deposit=1")}
-        className="flex items-center gap-1 px-2 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/25 transition-colors"
+        className="flex items-center gap-1 px-2 py-1.5 bg-accent/40 border border-accent rounded-lg hover:bg-accent/60 transition-colors"
         title="Depositar saldo"
       >
-        <Plus className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="text-xs font-semibold text-emerald-500 hidden sm:inline">Depositar</span>
+        <Plus className="w-3.5 h-3.5 text-accent-foreground" />
+        <span className="text-xs font-semibold text-accent-foreground hidden sm:inline">Depositar</span>
       </button>
     </div>
   );
