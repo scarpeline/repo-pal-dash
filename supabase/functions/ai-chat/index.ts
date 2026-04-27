@@ -402,7 +402,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`, ...extraHeaders },
         body: JSON.stringify({
           model: modelName,
-          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          messages: [{ role: "system", content: systemPrompt }, ...messages.map((m: any) => ({ ...m, content: stripMediaData(m.content) }))],
           temperature: 0.7,
           max_tokens: 4096,
         }),
@@ -578,7 +578,7 @@ Se for uma pergunta normal (não pedido de edição), responda normalmente em te
           system: systemPrompt,
           messages: messages.map((m: any) => ({
             role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
+            content: stripMediaData(m.content),
           })),
         }),
       });
