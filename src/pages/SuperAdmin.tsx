@@ -687,17 +687,33 @@ const SuperAdmin = () => {
     }
   };
 
-  // Verify with password — senha lida de variável de ambiente (nunca hardcoded)
-  const verifyWithPassword = () => {
-    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "";
-    if (!ADMIN_PASSWORD) {
-      toast.error("Senha de admin não configurada. Defina VITE_ADMIN_PASSWORD no .env");
-      return;
+  // Verifica a senha do Super Admin via Edge Function (segredo fica só no backend)
+  const verifyWithPassword = async () => {
+    if (!adminPassword) return;
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/superadmin-verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ password: adminPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        setIsVerified(true);
+        sessionStorage.setItem("superadmin_verified", "true");
+        setAdminPassword("");
+        toast.success("Acesso liberado.");
+      } else {
+        toast.error("Senha incorreta.");
+      }
+    } catch {
+      toast.error("Falha ao verificar. Tente novamente.");
     }
-    if (adminPassword === ADMIN_PASSWORD) {
-      setIsVerified(true);
-      sessionStorage.setItem("superadmin_verified", "true");
-      toast.success("Senha verificada! Acesso liberado ao Super Admin.");
+  };
     } else {
       toast.error("Senha incorreta. Tente novamente.");
     }
