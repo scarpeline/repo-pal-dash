@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { messages, fileContent, fileName, repoName, branch } = body;
+    const attachments = Array.isArray(body.attachments) ? body.attachments : [];
 
     // ── Check AI Balances (Super Admin action) ──
     if (body.action === "check-ai-balances") {
@@ -285,8 +286,13 @@ Deno.serve(async (req) => {
     const resaleInput  = activePricing?.resale_price_input_per_million  ?? 500;
     const resaleOutput = activePricing?.resale_price_output_per_million ?? 2000;
 
-    const totalInputChars = messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0);
-    const estimatedInputTokens  = Math.max(Math.ceil(totalInputChars / 4), 200);
+    const visibleInputChars = messages.reduce((acc: number, m: any) => acc + String(m.content || "").replace(/data:(image|video)\/[^\s)]+/g, "[media]").length, 0);
+    const mediaTokenEstimate = attachments.reduce((acc: number, a: any) => {
+      if (a?.kind === "image" && a?.dataUrl) return acc + 1200;
+      if (a?.kind === "video" && Array.isArray(a.frames)) return acc + Math.min(a.frames.length, 3) * 1200;
+      return acc;
+    }, 0);
+    const estimatedInputTokens  = Math.max(Math.ceil(visibleInputChars / 4) + mediaTokenEstimate, 200);
     const estimatedOutputTokens = 1000;
 
     const estimatedCostCents = Math.ceil(
@@ -334,6 +340,9 @@ Deno.serve(async (req) => {
 Você ajuda a analisar, editar e melhorar código. Responda sempre em português brasileiro.
 Quando sugerir alterações de código, use blocos de código com a linguagem apropriada.
 Seja conciso e direto.
+
+Se houver repositório conectado, NUNCA peça para o usuário enviar App.tsx, logs, framework ou código. Use o contexto recebido e dê uma resposta acionável.
+Se houver anexos, interprete imagens, quadros de vídeo e arquivos enviados; use-os como referência para diagnóstico e melhorias.
 
 Se o usuário pedir para modificar/editar arquivos do repositório e você receber o conteúdo dos arquivos,
 retorne APENAS um JSON válido (sem markdown) no formato:
