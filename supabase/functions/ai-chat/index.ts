@@ -25,6 +25,27 @@ const GOOGLE_MODEL_BY_ID: Record<string, string> = {
   "google-video": "google/gemini-3.1-pro-preview",
 };
 
+const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
+  "auto": "google/gemini-3-flash-preview",
+  "gemini": "google/gemini-3-flash-preview",
+  "google-code-fast": "google/gemini-3-flash-preview",
+  "google-code-balanced": "google/gemini-2.5-flash",
+  "google-code-pro": "google/gemini-2.5-pro",
+  "google-image": "google/gemini-3.1-flash-image-preview",
+  "google-video": "google/gemini-3.1-pro-preview",
+  "deepseek": "deepseek/deepseek-chat",
+  "groq": "groq/llama-4-scout",
+  "groq-8b": "groq/llama-3.1-8b",
+  "kimi": "moonshot/kimi-k2-0711-preview",
+  "openrouter": "openrouter/deepseek-free",
+  "claude-haiku": "anthropic/claude-haiku-4-5",
+  "claude-sonnet": "anthropic/claude-sonnet-4-6",
+  "claude-opus": "anthropic/claude-opus-4-1",
+  "openai": "openai/gpt-5-nano",
+};
+
+const shortIdToPricingModel = (shortId: string) => MODEL_ID_BY_SHORT_ID[shortId] || MODEL_ID_BY_SHORT_ID["google-code-fast"];
+
 const DIRECT_GEMINI_MODEL_BY_ID: Record<string, string> = {
   "gemini": "gemini-2.5-flash",
   "google-code-fast": "gemini-2.5-flash",
