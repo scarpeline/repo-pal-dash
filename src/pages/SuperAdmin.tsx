@@ -871,6 +871,7 @@ const SuperAdmin = () => {
                   <Input
                     id="admin-password"
                     type="password"
+                    autoComplete="new-password"
                     placeholder="Digite a senha..."
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
