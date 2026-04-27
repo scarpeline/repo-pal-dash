@@ -78,6 +78,26 @@ const readAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
+const readImageAsOptimizedDataUrl = async (file: File) => {
+  const original = await readAsDataUrl(file);
+  return await new Promise<string>((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxSide = 1280;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(original.slice(0, 260_000));
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.onerror = () => resolve(original.slice(0, 260_000));
+    image.src = original;
+  });
+};
+
 const readAsText = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(String(reader.result || "").slice(0, MAX_TEXT_CHARS));
@@ -370,7 +390,7 @@ const AIChat = ({
           return { id: crypto.randomUUID(), name: file.name, type: file.type || "application/octet-stream", size: file.size, kind: "file" as const, note: "Arquivo acima de 20MB; enviado só como referência de nome/tipo." };
         }
         if (file.type.startsWith("image/")) {
-          return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "image" as const, dataUrl: await readAsDataUrl(file) };
+          return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "image" as const, dataUrl: await readImageAsOptimizedDataUrl(file) };
         }
         if (file.type.startsWith("video/")) {
           return { id: crypto.randomUUID(), name: file.name, type: file.type, size: file.size, kind: "video" as const, frames: await captureVideoFrames(file), note: "Foram extraídos quadros do vídeo para análise visual." };
