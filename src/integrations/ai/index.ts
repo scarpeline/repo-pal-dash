@@ -358,9 +358,15 @@ export async function sendMessageToAI(
 
   switch (provider.id) {
     case "gemini":
+    case "google-code-fast":
+    case "google-code-balanced":
+    case "google-code-pro":
+    case "google-image":
+    case "google-video":
       return sendToGemini(messages, apiKey, provider);
     case "deepseek":
     case "groq":
+    case "claude-haiku":
     case "claude-sonnet":
     case "claude-opus":
     case "kimi":
