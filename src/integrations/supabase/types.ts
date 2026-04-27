@@ -271,6 +271,8 @@ export type Database = {
       profiles: {
         Row: {
           affiliate_code: string | null
+          asaas_customer_id: string | null
+          asaas_wallet_id: string | null
           avatar_url: string | null
           created_at: string
           email: string | null
@@ -279,10 +281,13 @@ export type Database = {
           pix_key: string | null
           referral_code: string | null
           referred_by: string | null
+          stripe_customer_id: string | null
           updated_at: string
         }
         Insert: {
           affiliate_code?: string | null
+          asaas_customer_id?: string | null
+          asaas_wallet_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
@@ -291,10 +296,13 @@ export type Database = {
           pix_key?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
         }
         Update: {
           affiliate_code?: string | null
+          asaas_customer_id?: string | null
+          asaas_wallet_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
@@ -303,6 +311,7 @@ export type Database = {
           pix_key?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
         }
         Relationships: [
