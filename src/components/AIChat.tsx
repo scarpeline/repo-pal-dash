@@ -286,7 +286,8 @@ const AIChat = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isThinking) return;
-    onSend(input.trim(), selectedModel === "auto" ? undefined : selectedModel);
+    const outgoingModel = visibleModels.some((m) => m.id === selectedModel) ? selectedModel : "auto";
+    onSend(input.trim(), outgoingModel === "auto" ? undefined : outgoingModel);
     setInput("");
   };
 
