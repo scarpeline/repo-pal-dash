@@ -521,7 +521,44 @@ const AIChat = ({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      
+
+      {/* 🧠 Barra superior: Modo Inteligente + Auto-fix sempre visíveis acima do chat */}
+      <div className="border-b border-border bg-card/60 backdrop-blur px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <button
+          type="button"
+          onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); }}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
+            selectedModel === "auto"
+              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+          }`}
+          title="Modo Inteligente: a IA escolhe automaticamente o melhor modelo para cada pergunta."
+        >
+          <Wand2 className="w-3.5 h-3.5" />
+          🧠 Modo Inteligente {selectedModel === "auto" ? "ON" : "OFF"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAutoFix((v) => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
+            autoFix
+              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40"
+              : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+          }`}
+          title={autoFix
+            ? "Auto-correção de erros: ATIVADA — a IA varre o repositório, identifica bugs e aplica correções."
+            : "Auto-correção de erros: DESATIVADA — a IA executa apenas o que for pedido."}
+        >
+          <Check className="w-3.5 h-3.5" />
+          🪄 Auto-fix {autoFix ? "ON" : "OFF"}
+        </button>
+
+        <span className="ml-auto text-[10px] text-muted-foreground truncate max-w-[160px]">
+          {selectedModel === "auto" ? "Roteamento automático ativo" : `Usando: ${currentModel.label}`}
+        </span>
+      </div>
+
       {/* Área de mensagens */}
       <div className="flex-1 overflow-auto p-3 space-y-3">
         {messages.map((m, i) => renderMessage(m, i))}
