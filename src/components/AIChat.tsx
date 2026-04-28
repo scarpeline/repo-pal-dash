@@ -696,15 +696,16 @@ const AIChat = ({
           </button>
         </div>
 
-        {/* Campo de digitação expansível */}
-        <div className="flex items-end gap-2 bg-muted rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+        {/* Campo de digitação expansível — texto explicitamente visível */}
+        <div className="flex items-end gap-2 bg-background border border-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onPaste={handlePaste}
             rows={1}
-            className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground resize-none leading-relaxed max-h-[220px] overflow-y-auto"
+            style={{ color: "hsl(var(--foreground))", caretColor: "hsl(var(--primary))" }}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none leading-relaxed max-h-[220px] overflow-y-auto selection:bg-primary/30"
             placeholder={isThinking ? "Aguarde a resposta..." : "Digite o comando ou cole um print da tela... (Shift+Enter para nova linha)"}
             disabled={isThinking}
             onKeyDown={(e) => {
