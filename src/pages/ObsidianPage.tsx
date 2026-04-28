@@ -210,26 +210,43 @@ export default function ObsidianPage() {
             {
               role: "system",
               content:
-                "Você é um assistente que cria notas no estilo Obsidian/Zettelkasten. Responda APENAS com JSON válido no formato: {\"title\":\"...\",\"content\":\"# Título\\n\\nConteúdo em markdown com [[links]] para conceitos relacionados e #tags.\"}. Use links [[wiki]] generosamente para conectar ideias.",
+                "Você cria notas no estilo Obsidian/Zettelkasten em markdown. Responda APENAS com JSON válido (sem ```), no formato exato: {\"title\":\"Título curto\",\"content\":\"# Título\\n\\nConteúdo em markdown com [[wiki-links]] para conceitos relacionados e #tags.\"}. Use [[links]] generosamente para conectar ideias.",
             },
             { role: "user", content: aiPrompt },
           ],
-          model: "google/gemini-2.5-flash",
+          model: "google-code-balanced",
         },
       });
-      if (error) throw error;
-      const text: string = data?.content || data?.message || "";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("IA não retornou JSON válido");
-      const parsed = JSON.parse(jsonMatch[0]);
-      const title = (parsed.title || "Nova Nota").replace(/[\\/:*?"<>|]/g, "-");
+      if (error) throw new Error(error.message || "Falha ao chamar IA");
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const text: string = (data as any)?.content || (data as any)?.message || "";
+      if (!text.trim()) throw new Error("IA retornou resposta vazia");
+
+      // Tentar JSON estrito; se falhar, tratar como markdown puro
+      let title = "Nova Nota";
+      let body = text;
+      const jsonMatch = text.match(/\{[\s\S]*?"title"[\s\S]*?"content"[\s\S]*?\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.title) title = String(parsed.title);
+          if (parsed.content) body = String(parsed.content);
+        } catch {
+          // mantém fallback
+        }
+      } else {
+        // Extrair primeiro título # do markdown
+        const h1 = text.match(/^#\s+(.+)$/m);
+        if (h1) title = h1[1].trim();
+      }
+      title = title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80);
       const path = `${title}.md`;
-      await saveNote(token, config, path, parsed.content, `IA: ${title}`);
+      await saveNote(token, config, path, body, `IA: ${title}`);
       toast.success(`Nota "${title}" criada!`);
       setAiPrompt("");
       refreshNotes();
       setActiveNote({ path, name: title });
-      setContent(parsed.content);
+      setContent(body);
       setTab("notes");
     } catch (e) {
       toast.error("Erro IA: " + (e as Error).message);
