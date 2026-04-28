@@ -80,6 +80,7 @@ const SuperAdmin = () => {
   const [pkgAsaasLinkId, setPkgAsaasLinkId] = useState("");
   const [pkgStripePriceId, setPkgStripePriceId] = useState("");
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
+  const [manualDepositLink, setManualDepositLink] = useState<string>("https://w.app/ia_programador");
   const [showCredit, setShowCredit] = useState(true);
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitPercent, setSplitPercent] = useState("30");
