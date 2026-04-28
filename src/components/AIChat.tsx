@@ -455,7 +455,8 @@ const AIChat = ({
     setAttachments([]);
   };
 
-  const visibleModels = AI_MODELS.filter((m) => m.id === "auto" || !availableModelIds || availableModelIds.has(MODEL_ID_BY_SHORT_ID[m.id]));
+  // Sempre exibir todos os modelos. Se algum estiver desativado pelo backend, ele cairá no fallback automático do Modo Inteligente.
+  const visibleModels = AI_MODELS;
   const currentModel = visibleModels.find(m => m.id === selectedModel) || visibleModels[0] || AI_MODELS[0];
 
   // Renderização de mensagem individual
