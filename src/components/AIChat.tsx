@@ -537,65 +537,68 @@ const AIChat = ({
   return (
     <div className="flex flex-col h-full bg-background">
 
-      {/* Área de mensagens */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-        {/* Seção de Configurações (Header) — Restorada conforme solicitado */}
-        <div className="bg-card/50 border border-border/50 rounded-xl p-4 space-y-4 mb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Settings2 className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold">CONFIGURAÇÕES DE IA</h3>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Otimização & Inteligência</p>
-              </div>
+      {/* Barra superior de funcionalidades (Auto Flix e Auto Inteligente) */}
+      <div className="border-b border-border bg-muted/30 p-3 space-y-3 shrink-0">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Settings2 className="w-4 h-4 text-primary" />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  const next = selectedModel === "auto" ? "google-code-balanced" : "auto";
-                  setSelectedModel(next);
-                  onProviderChange?.(next);
-                }}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-300 ${
-                  selectedModel === "auto"
-                    ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105"
-                    : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                }`}
-              >
-                <Bot className={`w-3.5 h-3.5 ${selectedModel === "auto" ? "animate-pulse" : ""}`} />
-                Modo Inteligente
-              </button>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider">Configurações de IA</h3>
+              <p className="text-[10px] text-muted-foreground uppercase">Otimização & Inteligência</p>
             </div>
           </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const next = selectedModel === "auto" ? "google-code-balanced" : "auto";
+                setSelectedModel(next);
+                onProviderChange?.(next);
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all duration-300 ${
+                selectedModel === "auto"
+                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                  : "bg-background text-muted-foreground border-border hover:bg-muted"
+              }`}
+            >
+              <Bot className={`w-3.5 h-3.5 ${selectedModel === "auto" ? "animate-pulse" : ""}`} />
+              Auto Inteligente
+            </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className={`p-3 rounded-lg border transition-all duration-300 ${
-              selectedModel === "auto" ? "bg-primary/5 border-primary/20" : "bg-muted/30 border-border/50"
-            }`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Wand2 className={`w-3.5 h-3.5 ${selectedModel === "auto" ? "text-primary" : "text-muted-foreground"}`} />
-                <span className="text-xs font-medium">Auto Inteligência</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Roteamento automático entre Gemini, Claude e DeepSeek para o melhor resultado em cada tarefa.
-              </p>
-            </div>
-            <div className={`p-3 rounded-lg border transition-all duration-300 ${
-              autoFix ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/30 border-border/50"
-            }`}>
-              <div className="flex items-center gap-2 mb-1">
-                <RefreshCw className={`w-3.5 h-3.5 ${autoFix ? "text-emerald-500" : "text-muted-foreground"}`} />
-                <span className="text-xs font-medium">Modo Auto-Fix</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                A IA detecta erros de console e de build em tempo real e propõe a solução automaticamente.
-              </p>
-            </div>
+            <button
+              onClick={() => setAutoFix((v) => !v)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all duration-300 ${
+                autoFix
+                  ? "bg-emerald-500 text-white border-emerald-600 shadow-lg shadow-emerald-500/20"
+                  : "bg-background text-muted-foreground border-border hover:bg-muted"
+              }`}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${autoFix ? "animate-spin-slow" : ""}`} />
+              Auto Flix
+            </button>
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className={`p-2 rounded-lg border text-[10px] ${selectedModel === "auto" ? "bg-primary/5 border-primary/20" : "bg-background/50 border-border/50"}`}>
+            <span className="font-bold flex items-center gap-1.5 mb-0.5">
+              <Wand2 className="w-3 h-3 text-primary" /> Auto Inteligência
+            </span>
+            <p className="text-muted-foreground leading-tight">Roteamento automático para o melhor resultado.</p>
+          </div>
+          <div className={`p-2 rounded-lg border text-[10px] ${autoFix ? "bg-emerald-500/5 border-emerald-500/20" : "bg-background/50 border-border/50"}`}>
+            <span className="font-bold flex items-center gap-1.5 mb-0.5">
+              <RefreshCw className="w-3 h-3 text-emerald-500" /> Auto Flix (Correção)
+            </span>
+            <p className="text-muted-foreground leading-tight">IA detecta e corrige erros automaticamente.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Área de mensagens */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <div className="space-y-3">
           {messages.map((m, i) => renderMessage(m, i))}
         </div>
