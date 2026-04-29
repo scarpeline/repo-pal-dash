@@ -511,6 +511,27 @@ const SuperAdmin = () => {
     setPkgStripePriceId(pkg.stripe_price_id || "");
     setShowPkgForm(true);
   };
+  const saveAllPricing = async () => {
+    try {
+      setLoading(true);
+      const updatePromises = Object.keys(editingPricing).map(id => {
+        const edits = editingPricing[id];
+        return supabase.from("ai_model_pricing").update({
+          ...edits,
+          updated_at: new Date().toISOString()
+        } as any).eq("id", id);
+      });
+      
+      await Promise.all(updatePromises);
+      setEditingPricing({});
+      toast.success("Todos os preços foram salvos!");
+      fetchAll();
+    } catch (err: any) {
+      toast.error("Erro ao salvar preços: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetPkgForm = () => {
     setEditingPkg(null);
