@@ -1055,7 +1055,10 @@ const SuperAdmin = () => {
                           <TableCell>{u.roles.map(r => <Badge key={r} variant={r === "blocked" ? "destructive" : "secondary"} className="mr-1">{r}</Badge>)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-100" onClick={() => quickMessage(u.id)} title="Enviar Mensagem">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-100" onClick={() => openEditUser(u)} title="Editar Usuário">
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:text-orange-700 hover:bg-orange-100" onClick={() => quickMessage(u.id)} title="Enviar Mensagem">
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-100" onClick={() => quickDonate(u.id)} title="Doar Crédito">
