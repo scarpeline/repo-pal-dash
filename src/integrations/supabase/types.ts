@@ -278,11 +278,14 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          is_vip: boolean | null
           pix_key: string | null
           referral_code: string | null
           referred_by: string | null
           stripe_customer_id: string | null
           updated_at: string
+          vip_markup_percent: number | null
+          vip_notes: string | null
         }
         Insert: {
           affiliate_code?: string | null
@@ -293,11 +296,14 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          is_vip?: boolean | null
           pix_key?: string | null
           referral_code?: string | null
           referred_by?: string | null
           stripe_customer_id?: string | null
           updated_at?: string
+          vip_markup_percent?: number | null
+          vip_notes?: string | null
         }
         Update: {
           affiliate_code?: string | null
@@ -308,11 +314,14 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          is_vip?: boolean | null
           pix_key?: string | null
           referral_code?: string | null
           referred_by?: string | null
           stripe_customer_id?: string | null
           updated_at?: string
+          vip_markup_percent?: number | null
+          vip_notes?: string | null
         }
         Relationships: [
           {
@@ -449,6 +458,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vip_changes_log: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          new_is_vip: boolean | null
+          new_markup_percent: number | null
+          notes: string | null
+          old_is_vip: boolean | null
+          old_markup_percent: number | null
+          user_id: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_is_vip?: boolean | null
+          new_markup_percent?: number | null
+          notes?: string | null
+          old_is_vip?: boolean | null
+          old_markup_percent?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          new_is_vip?: boolean | null
+          new_markup_percent?: number | null
+          notes?: string | null
+          old_is_vip?: boolean | null
+          old_markup_percent?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vip_changes_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       withdrawal_requests: {
         Row: {
