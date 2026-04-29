@@ -163,7 +163,7 @@ const SuperAdmin = () => {
   const fetchAll = async () => {
     setLoading(true);
     const [profilesRes, balancesRes, rolesRes, leadsRes, pkgsRes, withdrawalsRes, pricingRes] = await Promise.all([
-      supabase.from("profiles").select("id, email, full_name, affiliate_code"),
+      supabase.from("profiles").select("id, email, full_name, affiliate_code, is_vip, vip_markup_percent, vip_notes"),
       supabase.from("balances").select("user_id, balance_cents, total_spent_cents, total_deposited_cents"),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("lead_captures").select("*").order("created_at", { ascending: false }),
