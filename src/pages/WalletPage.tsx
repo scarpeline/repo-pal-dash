@@ -619,7 +619,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         </Card>
 
         {/* Pacotes + Recarga unificados */}
-        <Card>
+        <Card className="deposit-section">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Adicionar saldo</CardTitle>
           </CardHeader>
