@@ -646,9 +646,13 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         case "gemini":
           return await runGemini("gemini");
         case "deepseek":
+          if (!deepseekApiKey) {
+            if (openrouterApiKey) return await runOne("openrouter");
+            throw new Error("DeepSeek sem chave");
+          }
           return await callOpenAICompatible(
             "https://api.deepseek.com/v1/chat/completions",
-            deepseekApiKey!,
+            deepseekApiKey,
             "deepseek-chat",
           );
         case "kimi":
