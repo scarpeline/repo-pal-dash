@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye } from "lucide-react";
-import UserBalanceBar from "./UserBalanceBar";
 
 interface PreviewPanelProps {
   url: string;
@@ -95,11 +94,6 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
             {url || fileName || "preview"}
           </div>
         )}
-
-        {/* Carteira e Saldo - Sempre visíveis no Preview */}
-        <div className="hidden sm:flex items-center shrink-0">
-          <UserBalanceBar />
-        </div>
 
         {/* Viewport controls */}
         <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
