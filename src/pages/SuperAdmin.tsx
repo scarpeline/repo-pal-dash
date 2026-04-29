@@ -1080,6 +1080,48 @@ const SuperAdmin = () => {
                 )}
               </CardContent>
             </Card>
+
+            <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Editar Usuário</DialogTitle>
+                  <DialogDescription>
+                    Altere o nome e as funções do usuário {editingUser?.email}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Nome</Label>
+                    <Input id="name" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Funções</Label>
+                    <div className="col-span-3 flex flex-wrap gap-2">
+                      {["admin", "moderator", "user", "affiliate", "blocked", "api_cost_only"].map(role => (
+                        <Badge
+                          key={role}
+                          variant={newUserRoles.includes(role) ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setNewUserRoles(prev => 
+                              prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+                            );
+                          }}
+                        >
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleSaveUser} disabled={loading}>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    Salvar Alterações
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Withdrawals */}
