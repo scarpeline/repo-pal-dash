@@ -65,6 +65,10 @@ const SuperAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [creditUserId, setCreditUserId] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [newFullName, setNewFullName] = useState("");
+  const [newUserRoles, setNewUserRoles] = useState<string[]>([]);
 
   // Calculator
   const [calcModel, setCalcModel] = useState("");
