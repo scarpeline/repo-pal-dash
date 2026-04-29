@@ -1113,26 +1113,27 @@ const SuperAdmin = () => {
             </Card>
 
             <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Editar Usuário</DialogTitle>
                   <DialogDescription>
-                    Altere o nome e as funções do usuário {editingUser?.email}.
+                    Altere o nome, funções e status VIP do usuário {editingUser?.email}.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Nome</Label>
-                    <Input id="name" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="col-span-3" />
+                    <Label htmlFor="name" className="text-right text-xs">Nome</Label>
+                    <Input id="name" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="col-span-3 h-8 text-sm" />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">Funções</Label>
-                    <div className="col-span-3 flex flex-wrap gap-2">
+                  
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label className="text-right text-xs pt-1">Funções</Label>
+                    <div className="col-span-3 flex flex-wrap gap-1.5">
                       {["admin", "moderator", "user", "affiliate", "blocked", "api_cost_only"].map(role => (
                         <Badge
                           key={role}
                           variant={newUserRoles.includes(role) ? "default" : "outline"}
-                          className="cursor-pointer"
+                          className="cursor-pointer text-[10px] py-0"
                           onClick={() => {
                             setNewUserRoles(prev => 
                               prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
@@ -1144,9 +1145,37 @@ const SuperAdmin = () => {
                       ))}
                     </div>
                   </div>
+
+                  <div className="border-t pt-4 space-y-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Crown className="w-3 h-3 text-yellow-500" /> Configurações VIP
+                    </p>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label className="text-right text-xs">Status VIP</Label>
+                      <div className="col-span-3">
+                        <button
+                          onClick={() => setIsVIP(!isVIP)}
+                          className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isVIP ? 'bg-yellow-500' : 'bg-muted'}`}
+                        >
+                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isVIP ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label className="text-right text-xs">Markup VIP (%)</Label>
+                      <Input type="number" value={vipMarkup} onChange={(e) => setVipMarkup(e.target.value)} className="col-span-3 h-8 text-sm" placeholder="0 = custo puro" />
+                    </div>
+
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right text-xs pt-1">Notas VIP</Label>
+                      <Textarea value={vipNotes} onChange={(e) => setVipNotes(e.target.value)} className="col-span-3 text-xs min-h-[60px]" placeholder="Observações sobre este usuário VIP..." />
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
-                  <Button onClick={handleSaveUser} disabled={loading}>
+                  <Button onClick={handleSaveUser} disabled={loading} className="w-full">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                     Salvar Alterações
                   </Button>
