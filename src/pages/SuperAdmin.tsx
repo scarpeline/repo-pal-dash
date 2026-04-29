@@ -25,6 +25,7 @@ interface AdminUser {
   id: string; email: string; full_name: string | null;
   balance_cents: number; total_spent_cents: number; total_deposited_cents: number;
   affiliate_code: string | null; roles: string[];
+  is_vip: boolean; vip_markup_percent: number; vip_notes: string | null;
 }
 
 interface Lead {
