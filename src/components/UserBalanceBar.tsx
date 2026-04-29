@@ -36,8 +36,8 @@ const UserBalanceBar = () => {
     fetchBalance(user.id);
 
     // Realtime: atualiza saldo quando muda no banco
-    const channel = supabase
-      .channel(`balance-${user.id}`)
+    const channel = supabase.channel(`balance-${user.id}-${Math.random().toString(36).slice(2)}`);
+    channel
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "balances", filter: `user_id=eq.${user.id}` },
