@@ -562,7 +562,11 @@ const SuperAdmin = () => {
 
   // Pricing management
   const updatePricingField = (id: string, field: string, value: string) => {
-    const nextValue = field === "is_active" ? value === "1" : parseInt(value) || 0;
+    let nextValue: any;
+    if (field === "is_active") nextValue = value === "1";
+    else if (field === "model_label") nextValue = value;
+    else nextValue = parseInt(value) || 0;
+    
     setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: nextValue } }));
   };
 
