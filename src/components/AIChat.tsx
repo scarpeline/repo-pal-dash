@@ -507,6 +507,19 @@ const AIChat = ({
           {/* Conteúdo da mensagem */}
           <div className="text-sm">
             <ParsedContent content={m.content} />
+            
+            {/* Link para Carteira se houver erro de saldo */}
+            {m.role === "system" && m.content.toLowerCase().includes("saldo insuficiente") && (
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="mt-2 w-full gap-2 border-primary/20 hover:border-primary/40 bg-primary/5"
+                onClick={() => window.location.href = "/wallet?deposit=1"}
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                Recarregar agora
+              </Button>
+            )}
           </div>
           
           {/* Atividades (se houver) */}
