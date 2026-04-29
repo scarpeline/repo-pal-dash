@@ -1300,7 +1300,9 @@ const SuperAdmin = () => {
                           return (
                             <TableRow key={mp.id}>
                               <TableCell>
-                                <div className="font-medium text-sm">{mp.model_label}</div>
+                                <Input className="h-7 text-sm font-medium mb-1"
+                                  value={getVal(mp, "model_label")}
+                                  onChange={e => updatePricingField(mp.id, "model_label", e.target.value)} />
                                 <div className="text-[10px] text-muted-foreground font-mono">{mp.model_id}</div>
                               </TableCell>
                               <TableCell className="text-center">
