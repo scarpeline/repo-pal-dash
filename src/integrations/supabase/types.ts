@@ -546,7 +546,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin_email: { Args: { _user_id: string }; Returns: boolean }
+      is_admin_email:
+        | { Args: { _user_id: string }; Returns: boolean }
+        | { Args: { email_to_check: string }; Returns: boolean }
     }
     Enums: {
       app_role:
