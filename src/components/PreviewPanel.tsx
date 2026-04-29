@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye } from "lucide-react";
+import UserBalanceBar from "./UserBalanceBar";
 
 interface PreviewPanelProps {
   url: string;
@@ -77,7 +78,7 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
     <div className="flex flex-col h-full bg-editor-bg">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 bg-muted border-b border-border">
-        <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors" title="Recarregar">
+        <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-muted-foreground/10 rounded-lg shrink-0" title="Recarregar">
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
 
@@ -87,13 +88,18 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
             placeholder="Cole aqui a URL live da sua aplicação (Ex: seu-site.vercel.app)"
-            className="flex-1 bg-input/50 focus:bg-input border border-border rounded px-2.5 py-1 text-sm text-foreground font-mono outline-none focus:border-primary placeholder:text-muted-foreground/50 transition-colors"
+            className="flex-1 bg-input/50 focus:bg-input border border-border rounded px-2.5 py-1 text-sm text-foreground font-mono outline-none focus:border-primary placeholder:text-muted-foreground/50 transition-colors min-w-0"
           />
         ) : (
-          <div className="flex-1 bg-input border border-border rounded px-2.5 py-1 text-sm text-muted-foreground font-mono truncate">
+          <div className="flex-1 bg-input border border-border rounded px-2.5 py-1 text-sm text-muted-foreground font-mono truncate min-w-0">
             {url || fileName || "preview"}
           </div>
         )}
+
+        {/* Carteira e Saldo - Sempre visíveis no Preview */}
+        <div className="hidden sm:flex items-center shrink-0">
+          <UserBalanceBar />
+        </div>
 
         {/* Viewport controls */}
         <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">

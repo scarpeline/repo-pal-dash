@@ -81,7 +81,14 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
     const canceled = searchParams.get("canceled");
     if (canceled) { toast.error("Pagamento cancelado."); return; }
     if (successParam === "true" && sessionId) verifyStripeSession(sessionId);
-  }, []);
+
+    if (searchParams.get("deposit") === "1") {
+      setTimeout(() => {
+        const depositEl = document.querySelector(".deposit-section") || document.querySelector("button:contains('Adicionar saldo')")?.closest(".card");
+        if (depositEl) depositEl.scrollIntoView({ behavior: "smooth" });
+      }, 500);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadData();
@@ -612,7 +619,7 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         </Card>
 
         {/* Pacotes + Recarga unificados */}
-        <Card>
+        <Card className="deposit-section">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold">Adicionar saldo</CardTitle>
           </CardHeader>
