@@ -78,9 +78,13 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
     <div className="flex flex-col h-full bg-editor-bg">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 bg-muted border-b border-border">
-        <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors" title="Recarregar">
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 hover:bg-muted-foreground/10 rounded-lg" title="Recarregar">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+          <div className="hidden xs:block border-r border-border h-4 mx-1" />
+          <UserBalanceBar />
+        </div>
 
         {onUrlChange ? (
           <input
