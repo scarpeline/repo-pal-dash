@@ -22,6 +22,8 @@ const AI_MODELS = [
   { id: "claude-opus",          label: "Claude Opus",               desc: "Anthropic · raciocínio profundo e tarefas difíceis" },
   { id: "kimi",                 label: "Kimi K2",                   desc: "Moonshot · contexto longo e análise" },
   { id: "deepseek",             label: "DeepSeek Coder",            desc: "DeepSeek · programação, debug e refatoração" },
+  { id: "openai-4o",            label: "GPT-4o",                    desc: "OpenAI · raciocínio avançado e visão" },
+  { id: "openai-4o-mini",       label: "GPT-4o Mini",               desc: "OpenAI · inteligência rápida e econômica" },
 ];
 
 const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
@@ -35,6 +37,8 @@ const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
   "claude-opus": "anthropic/claude-opus-4-1",
   kimi: "moonshot/kimi-k2-0711-preview",
   deepseek: "deepseek/deepseek-chat",
+  "openai-4o": "openai/gpt-4o",
+  "openai-4o-mini": "openai/gpt-4o-mini",
 };
 
 type ChatMsg = { 
