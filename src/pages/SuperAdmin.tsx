@@ -321,6 +321,9 @@ const SuperAdmin = () => {
     setEditingUser(user);
     setNewFullName(user.full_name || "");
     setNewUserRoles(user.roles);
+    setIsVIP(user.is_vip);
+    setVipMarkup(user.vip_markup_percent.toString());
+    setVipNotes(user.vip_notes || "");
     setIsUserDialogOpen(true);
   };
 
