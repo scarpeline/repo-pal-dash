@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { 
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
   Code2, Bot, User, Copy, Check, Paperclip, X,
-  FileImage, FileVideo, FileText, File as FileIcon, Wand2
+  FileImage, FileVideo, FileText, File as FileIcon, Wand2,
+  Wallet, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
