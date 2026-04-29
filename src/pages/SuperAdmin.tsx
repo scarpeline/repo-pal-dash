@@ -295,10 +295,13 @@ const SuperAdmin = () => {
       // Update profile
       await supabase.from("profiles").update({ 
         full_name: newFullName,
+        is_vip: isVIP,
+        vip_markup_percent: parseInt(vipMarkup) || 0,
+        vip_notes: vipNotes || null,
         updated_at: new Date().toISOString()
       }).eq("id", editingUser.id);
       
-      // Update roles (remove all, then add new ones)
+      // Update roles
       await supabase.from("user_roles").delete().eq("user_id", editingUser.id);
       
       if (newUserRoles.length > 0) {
