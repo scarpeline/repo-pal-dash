@@ -42,6 +42,8 @@ const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
   "claude-sonnet": "anthropic/claude-sonnet-4-6",
   "claude-opus": "anthropic/claude-opus-4-1",
   "openai": "openai/gpt-5-nano",
+  "openai-4o": "openai/gpt-4o",
+  "openai-4o-mini": "openai/gpt-4o-mini",
 };
 
 const shortIdToPricingModel = (shortId: string) => MODEL_ID_BY_SHORT_ID[shortId] || MODEL_ID_BY_SHORT_ID["google-code-fast"];
@@ -455,6 +457,8 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
       "claude-opus": "Claude Opus",
       kimi: "Kimi K2",
       openai: "GPT-5 Nano",
+      "openai-4o": "GPT-4o",
+      "openai-4o-mini": "GPT-4o Mini",
     };
 
     const claudeApiModel: Record<string, string> = {
@@ -482,6 +486,8 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         case "claude-opus":
           return !!anthropicApiKey;
         case "openai":
+        case "openai-4o":
+        case "openai-4o-mini":
           return !!(openaiDirectKey || lovableGatewayKey);
         default:
           return false;
@@ -622,19 +628,26 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
       );
     };
 
-    const runOpenAI = async (): Promise<string> => {
+    const runOpenAI = async (mid = "openai"): Promise<string> => {
+      const modelMap: Record<string, string> = {
+        "openai": "gpt-5-nano",
+        "openai-4o": "gpt-4o",
+        "openai-4o-mini": "gpt-4o-mini",
+      };
+      const apiModel = modelMap[mid] || "gpt-4o-mini";
+
       if (openaiDirectKey) {
         return callOpenAICompatible(
           "https://api.openai.com/v1/chat/completions",
           openaiDirectKey,
-          "gpt-4o-mini",
+          apiModel.includes("gpt-5") ? "gpt-4o" : apiModel,
         );
       }
       if (lovableGatewayKey) {
         return callOpenAICompatible(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           lovableGatewayKey,
-          "openai/gpt-5-nano",
+          `openai/${apiModel}`,
         );
       }
       throw new Error("OpenAI sem chave");
@@ -676,6 +689,10 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         case "claude-sonnet":
         case "claude-opus":
           return await runClaude(mid);
+        case "openai":
+        case "openai-4o":
+        case "openai-4o-mini":
+          return await runOpenAI(mid);
         case "openai":
           return await runOpenAI();
         default:
