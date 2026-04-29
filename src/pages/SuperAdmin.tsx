@@ -1208,7 +1208,14 @@ const SuperAdmin = () => {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
+                    {Object.keys(editingPricing).length > 0 && (
+                      <Button onClick={saveAllPricing} className="gap-2" disabled={loading}>
+                        <Save className="w-4 h-4" /> Salvar Tudo
+                      </Button>
+                    )}
+                  </div>
                   <CardDescription>Configure preços e ative/desative quais IAs aparecem e podem ser usadas no app do usuário.</CardDescription>
                 </CardHeader>
                 <CardContent>
