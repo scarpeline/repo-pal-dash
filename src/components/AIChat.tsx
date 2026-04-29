@@ -523,41 +523,49 @@ const AIChat = ({
   return (
     <div className="flex flex-col h-full bg-background">
 
-      {/* 🧠 Barra superior: Modo Inteligente + Auto-fix sempre visíveis acima do chat */}
-      <div className="border-b border-border bg-card/60 backdrop-blur px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
-        <button
-          type="button"
-          onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); }}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
-            selectedModel === "auto"
-              ? "bg-primary text-primary-foreground border-primary shadow-sm"
-              : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:bg-muted"
-          }`}
-          title="Modo Inteligente: a IA escolhe automaticamente o melhor modelo para cada pergunta."
-        >
-          <Wand2 className="w-3.5 h-3.5" />
-          🧠 Modo Inteligente {selectedModel === "auto" ? "ON" : "OFF"}
-        </button>
+      {/* 🧠 Painel de Controle: Modo Inteligente + Auto-fix */}
+      <div className="px-3 py-2.5 bg-muted/30 border-b border-border space-y-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Bot className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Configurações de IA</span>
+          </div>
+          <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">Agente V2.0</span>
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold border transition-all duration-300 ${
+              selectedModel === "auto"
+                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-[1.02]"
+                : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <Wand2 className={`w-3.5 h-3.5 ${selectedModel === "auto" ? "animate-pulse" : ""}`} />
+            🧠 Modo Inteligente
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setAutoFix((v) => !v)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all ${
-            autoFix
-              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40"
-              : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:bg-muted"
-          }`}
-          title={autoFix
-            ? "Auto-correção de erros: ATIVADA — a IA varre o repositório, identifica bugs e aplica correções."
-            : "Auto-correção de erros: DESATIVADA — a IA executa apenas o que for pedido."}
-        >
-          <Check className="w-3.5 h-3.5" />
-          🪄 Auto-fix {autoFix ? "ON" : "OFF"}
-        </button>
-
-        <span className="ml-auto text-[10px] text-muted-foreground truncate max-w-[160px]">
-          {selectedModel === "auto" ? "Roteamento automático ativo" : `Usando: ${currentModel.label}`}
-        </span>
+          <button
+            type="button"
+            onClick={() => setAutoFix((v) => !v)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold border transition-all duration-300 ${
+              autoFix
+                ? "bg-emerald-500 text-white border-emerald-600 shadow-lg shadow-emerald-500/20 scale-[1.02]"
+                : "bg-background text-muted-foreground border-border hover:border-emerald-500/50 hover:text-foreground"
+            }`}
+          >
+            <Check className="w-3.5 h-3.5" />
+            🪄 Auto-fix
+          </button>
+        </div>
+        
+        <p className="text-[10px] text-center text-muted-foreground italic">
+          {autoFix 
+            ? "✨ Auto-fix: Ativado. Vou varrer seu código e corrigir erros automaticamente." 
+            : "⚠️ Auto-fix: Desativado. Farei apenas o que você pedir especificamente."}
+        </p>
       </div>
 
       {/* Área de mensagens */}
@@ -678,23 +686,7 @@ const AIChat = ({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-md border ${
-              autoFix
-                ? "bg-primary/15 text-primary border-primary/30"
-                : "bg-transparent text-muted-foreground border-border hover:text-foreground"
-            }`}
-            title={autoFix
-              ? "Correção automática de erros: ATIVADA — a IA analisa o repositório, identifica bugs/conflitos e aplica correções."
-              : "Correção automática de erros: DESATIVADA — a IA executa só o que for pedido."}
-          >
-            <Wand2 className="w-4 h-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide">
-              Auto-fix {autoFix ? "ON" : "OFF"}
-            </span>
-          </button>
+          {/* Redundância removida: controles agora no topo do chat */}
         </div>
 
         {/* Campo de digitação expansível — texto explicitamente visível */}
