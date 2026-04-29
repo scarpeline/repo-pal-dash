@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye } from "lucide-react";
+import UserBalanceBar from "./UserBalanceBar";
 
 interface PreviewPanelProps {
   url: string;
@@ -94,6 +95,9 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
             {url || fileName || "preview"}
           </div>
         )}
+
+        {/* Barra de Saldo e Depósito */}
+        <UserBalanceBar />
 
         {/* Viewport controls */}
         <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
