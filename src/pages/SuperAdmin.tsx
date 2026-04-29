@@ -70,6 +70,9 @@ const SuperAdmin = () => {
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [newFullName, setNewFullName] = useState("");
   const [newUserRoles, setNewUserRoles] = useState<string[]>([]);
+  const [isVIP, setIsVIP] = useState(false);
+  const [vipMarkup, setVipMarkup] = useState("0");
+  const [vipNotes, setVipNotes] = useState("");
 
   // Calculator
   const [calcModel, setCalcModel] = useState("");
