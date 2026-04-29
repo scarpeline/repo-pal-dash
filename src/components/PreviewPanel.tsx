@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye } from "lucide-react";
+import UserBalanceBar from "./UserBalanceBar";
 
 interface PreviewPanelProps {
   url: string;
