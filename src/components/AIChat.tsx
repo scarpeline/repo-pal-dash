@@ -686,23 +686,7 @@ const AIChat = ({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-md border ${
-              autoFix
-                ? "bg-primary/15 text-primary border-primary/30"
-                : "bg-transparent text-muted-foreground border-border hover:text-foreground"
-            }`}
-            title={autoFix
-              ? "Correção automática de erros: ATIVADA — a IA analisa o repositório, identifica bugs/conflitos e aplica correções."
-              : "Correção automática de erros: DESATIVADA — a IA executa só o que for pedido."}
-          >
-            <Wand2 className="w-4 h-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide">
-              Auto-fix {autoFix ? "ON" : "OFF"}
-            </span>
-          </button>
+          {/* Redundância removida: controles agora no topo do chat */}
         </div>
 
         {/* Campo de digitação expansível — texto explicitamente visível */}
