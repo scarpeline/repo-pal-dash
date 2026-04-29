@@ -283,6 +283,42 @@ const SuperAdmin = () => {
     setCreditAmount(""); setCreditUserId("");
     fetchAll();
   };
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+    try {
+      setLoading(true);
+      
+      // Update profile
+      await supabase.from("profiles").update({ 
+        full_name: newFullName,
+        updated_at: new Date().toISOString()
+      }).eq("id", editingUser.id);
+      
+      // Update roles (remove all, then add new ones)
+      await supabase.from("user_roles").delete().eq("user_id", editingUser.id);
+      
+      if (newUserRoles.length > 0) {
+        await supabase.from("user_roles").insert(
+          newUserRoles.map(role => ({ user_id: editingUser.id, role: role as any }))
+        );
+      }
+      
+      toast.success("Usuário atualizado com sucesso!");
+      setIsUserDialogOpen(false);
+      fetchAll();
+    } catch (err: any) {
+      toast.error("Erro ao atualizar usuário: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditUser = (user: AdminUser) => {
+    setEditingUser(user);
+    setNewFullName(user.full_name || "");
+    setNewUserRoles(user.roles);
+    setIsUserDialogOpen(true);
+  };
 
   const toggleUserBlock = async (userId: string, roles: string[]) => {
     const isBlocked = roles.includes("blocked");
