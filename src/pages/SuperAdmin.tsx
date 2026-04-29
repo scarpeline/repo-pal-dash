@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Users, DollarSign, Activity, Calculator, Shield, Loader2,
@@ -23,6 +25,7 @@ interface AdminUser {
   id: string; email: string; full_name: string | null;
   balance_cents: number; total_spent_cents: number; total_deposited_cents: number;
   affiliate_code: string | null; roles: string[];
+  is_vip: boolean; vip_markup_percent: number; vip_notes: string | null;
 }
 
 interface Lead {
@@ -63,6 +66,13 @@ const SuperAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [creditUserId, setCreditUserId] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [newFullName, setNewFullName] = useState("");
+  const [newUserRoles, setNewUserRoles] = useState<string[]>([]);
+  const [isVIP, setIsVIP] = useState(false);
+  const [vipMarkup, setVipMarkup] = useState("0");
+  const [vipNotes, setVipNotes] = useState("");
 
   // Calculator
   const [calcModel, setCalcModel] = useState("");
@@ -157,7 +167,7 @@ const SuperAdmin = () => {
   const fetchAll = async () => {
     setLoading(true);
     const [profilesRes, balancesRes, rolesRes, leadsRes, pkgsRes, withdrawalsRes, pricingRes] = await Promise.all([
-      supabase.from("profiles").select("id, email, full_name, affiliate_code"),
+      supabase.from("profiles").select("id, email, full_name, affiliate_code, is_vip, vip_markup_percent, vip_notes"),
       supabase.from("balances").select("user_id, balance_cents, total_spent_cents, total_deposited_cents"),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("lead_captures").select("*").order("created_at", { ascending: false }),
@@ -276,6 +286,48 @@ const SuperAdmin = () => {
     toast.success(`R$ ${creditAmount} adicionado!`);
     setCreditAmount(""); setCreditUserId("");
     fetchAll();
+  };
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+    try {
+      setLoading(true);
+      
+      // Update profile
+      await supabase.from("profiles").update({ 
+        full_name: newFullName,
+        is_vip: isVIP,
+        vip_markup_percent: parseInt(vipMarkup) || 0,
+        vip_notes: vipNotes || null,
+        updated_at: new Date().toISOString()
+      }).eq("id", editingUser.id);
+      
+      // Update roles
+      await supabase.from("user_roles").delete().eq("user_id", editingUser.id);
+      
+      if (newUserRoles.length > 0) {
+        await supabase.from("user_roles").insert(
+          newUserRoles.map(role => ({ user_id: editingUser.id, role: role as any }))
+        );
+      }
+      
+      toast.success("Usuário atualizado com sucesso!");
+      setIsUserDialogOpen(false);
+      fetchAll();
+    } catch (err: any) {
+      toast.error("Erro ao atualizar usuário: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditUser = (user: AdminUser) => {
+    setEditingUser(user);
+    setNewFullName(user.full_name || "");
+    setNewUserRoles(user.roles);
+    setIsVIP(user.is_vip);
+    setVipMarkup(user.vip_markup_percent.toString());
+    setVipNotes(user.vip_notes || "");
+    setIsUserDialogOpen(true);
   };
 
   const toggleUserBlock = async (userId: string, roles: string[]) => {
@@ -469,6 +521,27 @@ const SuperAdmin = () => {
     setPkgStripePriceId(pkg.stripe_price_id || "");
     setShowPkgForm(true);
   };
+  const saveAllPricing = async () => {
+    try {
+      setLoading(true);
+      const updatePromises = Object.keys(editingPricing).map(id => {
+        const edits = editingPricing[id];
+        return supabase.from("ai_model_pricing").update({
+          ...edits,
+          updated_at: new Date().toISOString()
+        } as any).eq("id", id);
+      });
+      
+      await Promise.all(updatePromises);
+      setEditingPricing({});
+      toast.success("Todos os preços foram salvos!");
+      fetchAll();
+    } catch (err: any) {
+      toast.error("Erro ao salvar preços: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetPkgForm = () => {
     setEditingPkg(null);
@@ -489,7 +562,11 @@ const SuperAdmin = () => {
 
   // Pricing management
   const updatePricingField = (id: string, field: string, value: string) => {
-    const nextValue = field === "is_active" ? value === "1" : parseInt(value) || 0;
+    let nextValue: any;
+    if (field === "is_active") nextValue = value === "1";
+    else if (field === "model_label") nextValue = value;
+    else nextValue = parseInt(value) || 0;
+    
     setEditingPricing(prev => ({ ...prev, [id]: { ...prev[id], [field]: nextValue } }));
   };
 
@@ -1013,7 +1090,10 @@ const SuperAdmin = () => {
                           <TableCell>{u.roles.map(r => <Badge key={r} variant={r === "blocked" ? "destructive" : "secondary"} className="mr-1">{r}</Badge>)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-100" onClick={() => quickMessage(u.id)} title="Enviar Mensagem">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-100" onClick={() => openEditUser(u)} title="Editar Usuário">
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-500 hover:text-orange-700 hover:bg-orange-100" onClick={() => quickMessage(u.id)} title="Enviar Mensagem">
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:text-green-700 hover:bg-green-100" onClick={() => quickDonate(u.id)} title="Doar Crédito">
@@ -1035,6 +1115,77 @@ const SuperAdmin = () => {
                 )}
               </CardContent>
             </Card>
+
+            <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+              <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Editar Usuário</DialogTitle>
+                  <DialogDescription>
+                    Altere o nome, funções e status VIP do usuário {editingUser?.email}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right text-xs">Nome</Label>
+                    <Input id="name" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="col-span-3 h-8 text-sm" />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label className="text-right text-xs pt-1">Funções</Label>
+                    <div className="col-span-3 flex flex-wrap gap-1.5">
+                      {["admin", "moderator", "user", "affiliate", "blocked", "api_cost_only"].map(role => (
+                        <Badge
+                          key={role}
+                          variant={newUserRoles.includes(role) ? "default" : "outline"}
+                          className="cursor-pointer text-[10px] py-0"
+                          onClick={() => {
+                            setNewUserRoles(prev => 
+                              prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+                            );
+                          }}
+                        >
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Crown className="w-3 h-3 text-yellow-500" /> Configurações VIP
+                    </p>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label className="text-right text-xs">Status VIP</Label>
+                      <div className="col-span-3">
+                        <button
+                          onClick={() => setIsVIP(!isVIP)}
+                          className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isVIP ? 'bg-yellow-500' : 'bg-muted'}`}
+                        >
+                          <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isVIP ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label className="text-right text-xs">Markup VIP (%)</Label>
+                      <Input type="number" value={vipMarkup} onChange={(e) => setVipMarkup(e.target.value)} className="col-span-3 h-8 text-sm" placeholder="0 = custo puro" />
+                    </div>
+
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right text-xs pt-1">Notas VIP</Label>
+                      <Textarea value={vipNotes} onChange={(e) => setVipNotes(e.target.value)} className="col-span-3 text-xs min-h-[60px]" placeholder="Observações sobre este usuário VIP..." />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleSaveUser} disabled={loading} className="w-full">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                    Salvar Alterações
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Withdrawals */}
@@ -1100,7 +1251,14 @@ const SuperAdmin = () => {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2"><Cpu className="w-5 h-5" /> Custos e Preços de Revenda por Modelo</CardTitle>
+                    {Object.keys(editingPricing).length > 0 && (
+                      <Button onClick={saveAllPricing} className="gap-2" disabled={loading}>
+                        <Save className="w-4 h-4" /> Salvar Tudo
+                      </Button>
+                    )}
+                  </div>
                   <CardDescription>Configure preços e ative/desative quais IAs aparecem e podem ser usadas no app do usuário.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1142,7 +1300,9 @@ const SuperAdmin = () => {
                           return (
                             <TableRow key={mp.id}>
                               <TableCell>
-                                <div className="font-medium text-sm">{mp.model_label}</div>
+                                <Input className="h-7 text-sm font-medium mb-1"
+                                  value={getVal(mp, "model_label")}
+                                  onChange={e => updatePricingField(mp.id, "model_label", e.target.value)} />
                                 <div className="text-[10px] text-muted-foreground font-mono">{mp.model_id}</div>
                               </TableCell>
                               <TableCell className="text-center">
