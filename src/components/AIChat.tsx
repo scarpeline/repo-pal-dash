@@ -627,9 +627,6 @@ const AIChat = ({
 
         {/* Barra de controles ACIMA do campo de digitação */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] text-muted-foreground mr-auto">
-            Cole um print com Ctrl+V para a IA analisar a tela.
-          </span>
           <input
             ref={fileInputRef}
             type="file"
@@ -642,22 +639,25 @@ const AIChat = ({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 p-1.5 hover:bg-muted rounded-md transition-colors disabled:opacity-50"
-            title="Anexar imagem, vídeo ou arquivo"
+            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50"
+            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
           >
             {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            <span className="text-xs">Anexar</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setShowModelSelect(!showModelSelect)}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 hover:bg-muted rounded-md border border-border"
-            title={`Modelo: ${currentModel.label}`}
+            onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); toast.success("🧠 Modo Auto-Inteligente ativado"); }}
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-md border text-xs font-medium ${
+              selectedModel === "auto"
+                ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
+                : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
+            }`}
+            title="Roteia automaticamente para o melhor modelo (código, imagem, vídeo)"
           >
-            <Settings2 className="w-4 h-4" />
-            <span className="text-xs max-w-[140px] truncate">
-              {currentModel.label}
-            </span>
+            <Wand2 className="w-3.5 h-3.5" />
+            <span>🧠 Auto-Inteligente</span>
           </button>
 
           <button
@@ -668,12 +668,28 @@ const AIChat = ({
                 ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40 hover:bg-emerald-500/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
             }`}
-            title={autoFix ? "Auto-fix ativado" : "Auto-fix desativado"}
+            title={autoFix ? "Auto-fix ativado: corrige bugs colaterais automaticamente" : "Auto-fix desativado"}
           >
             <Check className="w-3.5 h-3.5" />
             <span>Auto-fix {autoFix ? "ON" : "OFF"}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowModelSelect(!showModelSelect)}
+            className="ml-auto text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 hover:bg-muted rounded-md border border-border"
+            title={`Modelo: ${currentModel.label}`}
+          >
+            <Settings2 className="w-4 h-4" />
+            <span className="text-xs max-w-[140px] truncate">
+              {currentModel.label}
+            </span>
+          </button>
         </div>
+
+        <p className="text-[10px] text-muted-foreground px-1">
+          📎 Anexe arquivos · 📋 Cole prints com Ctrl+V · 🧠 Auto-Inteligente escolhe o melhor modelo · 🪄 Auto-fix corrige bugs colaterais
+        </p>
 
         {/* Campo de digitação expansível — texto explicitamente visível */}
         <div className="flex items-end gap-2 bg-background border border-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">

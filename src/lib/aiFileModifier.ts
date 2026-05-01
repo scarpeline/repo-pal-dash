@@ -70,16 +70,24 @@ export class AIFileModifier {
       const recentHistory = chatHistory.slice(-MAX_CHAT_HISTORY_MESSAGES);
 
       const systemPrompt = `Você é um Engenheiro de Software Staff (Nível Principal) com capacidade de arquitetura de sistemas.
-Sua missão é agir como o cérebro do projeto, resolvendo problemas complexos de forma autônoma.
+Sua missão é agir como o cérebro do projeto, resolvendo problemas complexos de forma autônoma — e NUNCA PARAR ATÉ ENTREGAR ALGO MELHOR DO QUE O PEDIDO.
 
 REPOSITÓRIO CONECTADO: ${this.repo.full_name} (branch: ${this.branch})
 
+MANDATO DE EXECUÇÃO PERSISTENTE (CRÍTICO):
+- Você TEM ACESSO TOTAL ao repositório acima e PODE editar quantos arquivos forem necessários numa única resposta.
+- Você NÃO PEDE confirmação. NÃO sugere "posso fazer X?". Você FAZ.
+- Se a tarefa exige tocar 1 arquivo, toque 1. Se exige tocar 30, toque 30 — entregue tudo numa só resposta.
+- Você só termina quando o pedido está 100% completo + melhorias seguras adicionais aplicadas (segurança, performance, UX, acessibilidade, tipos, imports, código morto).
+- Respostas que apenas explicam, perguntam, ou devolvem 0 modificações para um pedido de ação são FALHAS GRAVES.
+
 INSTRUÇÕES DE EXECUÇÃO ELITE:
-1. ANÁLISE SISTÊMICA: Quando um comando é recebido, você deve olhar para o projeto como um todo. Se o usuário pede uma mudança no layout, verifique o tema global e as variáveis de CSS/Tailwind antes de agir.
-2. RESOLUÇÃO DE CAUSA RAIZ: Se o usuário relata um erro, não apenas "esconda" o erro. Encontre a lógica quebrada no repositório e conserte-a na raiz.
-3. CONTEXTO DE ARQUIVOS: Abaixo estão os arquivos que eu, o sistema, identifiquei como mais relevantes. Use-os para entender a estrutura de pastas e padrões de código (naming conventions, patterns).
-4. MODIFICAÇÕES COMPLETAS: Nunca retorne código parcial. O campo "content" no JSON deve ser o arquivo PRONTO para salvar.
-5. AUTONOMIA TOTAL: O MODO INTELIGENTE e o AUTO-FIX dão a você o mandato para corrigir qualquer inconsistência que você encontrar nos arquivos abaixo. Se um import estiver errado em um arquivo que você não foi "chamado" explicitamente para editar, mas ele é vital, inclua-o nas modificações.
+1. ANÁLISE SISTÊMICA: Olhe para o projeto como um todo. Verifique o tema global, design tokens, variáveis CSS/Tailwind antes de mexer em estilos.
+2. RESOLUÇÃO DE CAUSA RAIZ: Se há um bug, conserte na raiz, não esconda o sintoma.
+3. CONTEXTO DE ARQUIVOS: Abaixo estão os arquivos relevantes. Use-os para inferir padrões de código.
+4. MODIFICAÇÕES COMPLETAS: NUNCA código parcial. O campo "content" deve ser o arquivo INTEIRO pronto para salvar.
+5. AUTONOMIA TOTAL: Corrija qualquer inconsistência colateral que encontrar enquanto trabalha.
+6. ENTREGA SUPERIOR: Sempre adicione 1 ou 2 melhorias além do pedido (ex: melhor acessibilidade, loading state, tratamento de erro, comentários úteis) e mencione no "summary".
 
 ARQUIVOS CARREGADOS PARA ANÁLISE:
 ${fileMap.map(f => `--- ARQUIVO: ${f.path} ---
@@ -97,14 +105,22 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
       let lastUsage: any;
       let lastProvider: string | undefined;
 
-      for (let attempt = 0; attempt < (looksActionable ? 2 : 1); attempt++) {
+      const MAX_ATTEMPTS = looksActionable ? 4 : 1;
+      const retryPrompts = [
+        command,
+        `${command}\n\nSua resposta anterior parou em explicação. Continue ATÉ O FIM: devolva JSON puro com "modifications" contendo TODOS os arquivos completos alterados. Nada de explicações antes do JSON.`,
+        `${command}\n\nVocê ainda não entregou. Lembre-se: você tem acesso total ao repositório. Aplique TODAS as alterações necessárias agora — arquivos completos no campo "content". Não pare até concluir.`,
+        `${command}\n\nÚltima tentativa. Devolva APENAS o JSON { "modifications": [...], "summary": "..." } com cada arquivo pronto para salvar. Inclua melhorias seguras adicionais (correções de bugs, acessibilidade, performance leve). NÃO entregue resposta vazia.`,
+      ];
+
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         const apiMessages = [
           { role: "system", content: systemPrompt },
           ...recentHistory.map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: m.content })),
-          { role: "user", content: attempt === 0 ? command : `${command}\n\nSua resposta anterior parou em explicação. Continue até o fim: devolva JSON com modifications contendo os arquivos completos alterados.` }
+          { role: "user", content: retryPrompts[Math.min(attempt, retryPrompts.length - 1)] }
         ];
 
-        if (attempt > 0) onProgress?.("🛠️ Continuando automaticamente até gerar alterações aplicáveis...");
+        if (attempt > 0) onProgress?.(`🛠️ Tentativa ${attempt + 1}/${MAX_ATTEMPTS}: insistindo até concluir o pedido...`);
 
         const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
           method: "POST",
@@ -117,6 +133,7 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
           const errStr = String((errData as { error?: string }).error || res.status);
           const tried = (errData as { tried_models?: string[] }).tried_models;
           const triedHint = tried && tried.length > 1 ? ` Tentados: ${tried.join(", ")}.` : "";
+          if (attempt < MAX_ATTEMPTS - 1) { onProgress?.(`⚠️ Erro temporário (${errStr}). Reentrando...`); continue; }
           return { message: `❌ Erro da IA: ${errStr}${triedHint}`, modifications: [] };
         }
 
@@ -132,9 +149,9 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
           const parsed = JSON.parse(jsonStr);
           const modifications: FileModification[] = (parsed.modifications || []).map((m: any) => ({ path: m.path, content: m.content, operation: m.operation || 'update', message: m.message || `Modificação via IA: ${command}` }));
           const summary = parsed.summary || `${modifications.length} arquivo(s) para modificar.`;
-          if (modifications.length > 0 || !looksActionable || attempt === 1) return { message: `🎯 ${summary}`, modifications, usage: lastUsage, provider: lastProvider };
+          if (modifications.length > 0 || !looksActionable || attempt === MAX_ATTEMPTS - 1) return { message: `🎯 ${summary}`, modifications, usage: lastUsage, provider: lastProvider };
         } catch {
-          if (!looksActionable || attempt === 1) return { message: lastText, modifications: [], usage: lastUsage, provider: lastProvider };
+          if (!looksActionable || attempt === MAX_ATTEMPTS - 1) return { message: lastText, modifications: [], usage: lastUsage, provider: lastProvider };
         }
       }
 

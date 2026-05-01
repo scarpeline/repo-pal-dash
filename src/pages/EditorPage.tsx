@@ -553,9 +553,20 @@ const EditorPage = () => {
 ${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
         : "";
 
+      // 🌊 Streamer visual: revela a resposta em chunks antes de consolidar
+      setCurrentActivity([]);
+      const fullText = aiContent + usageInfo;
+      const chunkSize = Math.max(8, Math.ceil(fullText.length / 60));
+      for (let i = chunkSize; i < fullText.length; i += chunkSize) {
+        setStreamingContent(fullText.slice(0, i));
+        await new Promise(r => setTimeout(r, 18));
+      }
+      setStreamingContent(fullText);
+      await new Promise(r => setTimeout(r, 80));
+
       setChatMessages(p => [...p, {
         role: "ai",
-        content: aiContent + usageInfo,
+        content: fullText,
         timestamp: new Date(),
         provider,
         activity: ["✅ Resposta recebida"],
