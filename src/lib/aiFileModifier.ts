@@ -105,14 +105,22 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
       let lastUsage: any;
       let lastProvider: string | undefined;
 
-      for (let attempt = 0; attempt < (looksActionable ? 2 : 1); attempt++) {
+      const MAX_ATTEMPTS = looksActionable ? 4 : 1;
+      const retryPrompts = [
+        command,
+        `${command}\n\nSua resposta anterior parou em explicação. Continue ATÉ O FIM: devolva JSON puro com "modifications" contendo TODOS os arquivos completos alterados. Nada de explicações antes do JSON.`,
+        `${command}\n\nVocê ainda não entregou. Lembre-se: você tem acesso total ao repositório. Aplique TODAS as alterações necessárias agora — arquivos completos no campo "content". Não pare até concluir.`,
+        `${command}\n\nÚltima tentativa. Devolva APENAS o JSON { "modifications": [...], "summary": "..." } com cada arquivo pronto para salvar. Inclua melhorias seguras adicionais (correções de bugs, acessibilidade, performance leve). NÃO entregue resposta vazia.`,
+      ];
+
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         const apiMessages = [
           { role: "system", content: systemPrompt },
           ...recentHistory.map(m => ({ role: m.role === "ai" ? "assistant" : m.role, content: m.content })),
-          { role: "user", content: attempt === 0 ? command : `${command}\n\nSua resposta anterior parou em explicação. Continue até o fim: devolva JSON com modifications contendo os arquivos completos alterados.` }
+          { role: "user", content: retryPrompts[Math.min(attempt, retryPrompts.length - 1)] }
         ];
 
-        if (attempt > 0) onProgress?.("🛠️ Continuando automaticamente até gerar alterações aplicáveis...");
+        if (attempt > 0) onProgress?.(`🛠️ Tentativa ${attempt + 1}/${MAX_ATTEMPTS}: insistindo até concluir o pedido...`);
 
         const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ai-chat`, {
           method: "POST",
@@ -125,6 +133,7 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
           const errStr = String((errData as { error?: string }).error || res.status);
           const tried = (errData as { tried_models?: string[] }).tried_models;
           const triedHint = tried && tried.length > 1 ? ` Tentados: ${tried.join(", ")}.` : "";
+          if (attempt < MAX_ATTEMPTS - 1) { onProgress?.(`⚠️ Erro temporário (${errStr}). Reentrando...`); continue; }
           return { message: `❌ Erro da IA: ${errStr}${triedHint}`, modifications: [] };
         }
 
@@ -140,9 +149,9 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
           const parsed = JSON.parse(jsonStr);
           const modifications: FileModification[] = (parsed.modifications || []).map((m: any) => ({ path: m.path, content: m.content, operation: m.operation || 'update', message: m.message || `Modificação via IA: ${command}` }));
           const summary = parsed.summary || `${modifications.length} arquivo(s) para modificar.`;
-          if (modifications.length > 0 || !looksActionable || attempt === 1) return { message: `🎯 ${summary}`, modifications, usage: lastUsage, provider: lastProvider };
+          if (modifications.length > 0 || !looksActionable || attempt === MAX_ATTEMPTS - 1) return { message: `🎯 ${summary}`, modifications, usage: lastUsage, provider: lastProvider };
         } catch {
-          if (!looksActionable || attempt === 1) return { message: lastText, modifications: [], usage: lastUsage, provider: lastProvider };
+          if (!looksActionable || attempt === MAX_ATTEMPTS - 1) return { message: lastText, modifications: [], usage: lastUsage, provider: lastProvider };
         }
       }
 
