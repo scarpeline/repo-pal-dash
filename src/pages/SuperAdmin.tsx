@@ -665,13 +665,18 @@ const SuperAdmin = () => {
     "escarpelineparticular@gmail.com",
     "escarpelineparticular2@gmail.com",
     "empresasescarpeline@gmail.com",
-  ];
-  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
+    "sistemasescarpeline@gmail.com",
+  ].map(e => e.toLowerCase());
+  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "")
+    .split(",")
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean);
   const ADMIN_EMAILS = Array.from(new Set([...HARDCODED_ADMIN_EMAILS, ...ENV_ADMIN_EMAILS]));
-  const isAdminEmail = ADMIN_EMAILS.includes((user?.email || "").toLowerCase()) || ADMIN_EMAILS.includes(user?.email || "");
+  const userEmailNorm = (user?.email || "").toLowerCase();
+  const isAdminEmail = ADMIN_EMAILS.includes(userEmailNorm);
   const hasAccess = isAdmin || isAdminEmail;
 
-  // Tentativa de login direto pela tela do Super Admin (não vaza nenhum email no DOM)
+  // Login direto na tela do Super Admin: email autorizado + senha já libera tudo (sem 2º passo)
   const handleGateLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailNorm = gateEmail.trim().toLowerCase();
@@ -679,9 +684,8 @@ const SuperAdmin = () => {
       toast.error("Preencha email e senha.");
       return;
     }
-    const allowed = ADMIN_EMAILS.map(x => x.toLowerCase()).includes(emailNorm);
+    const allowed = ADMIN_EMAILS.includes(emailNorm);
     if (!allowed) {
-      // Mensagem genérica — não revela whitelist
       toast.error("Credenciais inválidas.");
       return;
     }
@@ -692,9 +696,12 @@ const SuperAdmin = () => {
       toast.error("Credenciais inválidas.");
       return;
     }
+    // Email autorizado + senha correta = acesso liberado direto, sem código/segunda senha
+    sessionStorage.setItem("superadmin_verified", "true");
+    setIsVerified(true);
     setGateEmail("");
     setGatePassword("");
-    toast.success("Login realizado.");
+    toast.success("Acesso de Super Admin liberado.");
   };
 
   // Generate and send verification code
