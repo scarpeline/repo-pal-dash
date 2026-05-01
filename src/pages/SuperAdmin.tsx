@@ -665,10 +665,15 @@ const SuperAdmin = () => {
     "escarpelineparticular@gmail.com",
     "escarpelineparticular2@gmail.com",
     "empresasescarpeline@gmail.com",
-  ];
-  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).filter(Boolean);
+    "sistemasescarpeline@gmail.com",
+  ].map(e => e.toLowerCase());
+  const ENV_ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "")
+    .split(",")
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean);
   const ADMIN_EMAILS = Array.from(new Set([...HARDCODED_ADMIN_EMAILS, ...ENV_ADMIN_EMAILS]));
-  const isAdminEmail = ADMIN_EMAILS.includes((user?.email || "").toLowerCase()) || ADMIN_EMAILS.includes(user?.email || "");
+  const userEmailNorm = (user?.email || "").toLowerCase();
+  const isAdminEmail = ADMIN_EMAILS.includes(userEmailNorm);
   const hasAccess = isAdmin || isAdminEmail;
 
   // Tentativa de login direto pela tela do Super Admin (não vaza nenhum email no DOM)
