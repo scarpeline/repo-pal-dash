@@ -37,7 +37,13 @@ Deno.serve(async (req) => {
     // Pequeno delay para reduzir brute force
     await new Promise((r) => setTimeout(r, 250));
 
-    const valid = safeEqual(password, expected);
+    // Normalizar espaços e caracteres invisíveis
+    const normalizedPassword = password.trim();
+    const normalizedExpected = expected.trim();
+
+    console.log(`Verifying password. Length input: ${normalizedPassword.length}, Expected length: ${normalizedExpected.length}`);
+
+    const valid = safeEqual(normalizedPassword, normalizedExpected);
     return new Response(JSON.stringify({ ok: valid }), {
       status: valid ? 200 : 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
