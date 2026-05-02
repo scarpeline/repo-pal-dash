@@ -211,9 +211,9 @@ const AffiliateDashboard = () => {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Ganhe <span className="text-primary font-bold">25% de comissão</span> sobre o lucro total da plataforma em cada indicação!
+            Ganhe <span className="text-primary font-bold">30% de comissão</span> sobre o lucro total da plataforma em cada indicação!
             <br />
-            <span className="text-[10px] opacity-70">Ex: A cada R$ 100,00 de lucro você ganha R$ 25,00.</span>
+            <span className="text-[10px] opacity-70">Ex: A cada R$ 100,00 de lucro você ganha R$ 30,00.</span>
           </p>
           <Button onClick={activateAffiliate} disabled={activatingAffiliate}>
             {activatingAffiliate && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -245,10 +245,10 @@ const AffiliateDashboard = () => {
             <div className="space-y-2">
               <h4 className="font-bold text-sm flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                25% de Comissão Real
+                30% de Comissão Real
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Você recebe <span className="text-foreground font-bold">25% sobre o lucro total</span> gerado por cada recarga dos seus indicados. Diferente de outros programas, nossa comissão é calculada sobre o valor líquido que entra na plataforma.
+                Você recebe <span className="text-foreground font-bold">30% sobre o lucro total</span> gerado por cada recarga dos seus indicados. Diferente de outros programas, nossa comissão é calculada sobre o valor líquido que entra na plataforma.
               </p>
             </div>
             <div className="space-y-2">
@@ -303,7 +303,7 @@ const AffiliateDashboard = () => {
           <CardContent className="p-4">
             <DollarSign className="w-8 h-8 text-[hsl(var(--success))]" />
             <p className="text-2xl font-bold text-foreground mt-2">R$ {(totalEarned / 100).toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">Lucro Total Acumulado (25%)</p>
+            <p className="text-xs text-muted-foreground">Lucro Total Acumulado (30%)</p>
           </CardContent>
         </Card>
         <Card>
