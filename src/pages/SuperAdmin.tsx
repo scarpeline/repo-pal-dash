@@ -743,12 +743,11 @@ const SuperAdmin = () => {
       }
 
       if (data.user) {
-        // Email autorizado + senha correta = acesso liberado direto, sem código/segunda senha
-        sessionStorage.setItem("superadmin_verified", "true");
-        setIsVerified(true);
+        // Email autorizado + senha correta = envia para o segundo passo (senha de super admin)
+        setIsVerified(false); 
         setGateEmail("");
         setGatePassword("");
-        toast.success("Acesso de Super Admin liberado.");
+        toast.success("Login realizado. Agora verifique sua senha de Super Admin.");
         
         // Pequeno delay para garantir que o AuthContext atualizou o 'user'
         setTimeout(() => {
