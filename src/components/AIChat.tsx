@@ -637,6 +637,18 @@ const AIChat = ({
               setInput(msg);
               inputRef.current?.focus();
             }}
+        {/* Botões de Ações Rápidas ACIMA da barra de controles */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary shrink-0"
+            onClick={() => {
+              const msg = "Analise este código e sugira refatorações para torná-lo mais limpo, performático e seguindo as melhores práticas.";
+              setInput(msg);
+              inputRef.current?.focus();
+            }}
           >
             <RefreshCw className="w-3 h-3" />
             Refatorar
@@ -688,80 +700,6 @@ const AIChat = ({
             variant="outline"
             size="sm"
             className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 shrink-0"
-            onClick={() => {
-              const msg = "Crie testes unitários abrangentes para este código usando Vitest ou Jest, cobrindo casos de sucesso e erro.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Check className="w-3 h-3" />
-            Gerar Testes
-          </Button>
-        </div>
-
-        {/* Botões de Ações Rápidas ACIMA da barra de controles */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar mask-fade-right">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary-foreground/90 shrink-0"
-            onClick={() => {
-              const msg = "Analise este código e sugira refatorações para torná-lo mais limpo, performático e seguindo as melhores práticas.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <RefreshCw className="w-3 h-3" />
-            Refatorar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 shrink-0"
-            onClick={() => {
-              const msg = "Encontre e corrija possíveis bugs, erros de lógica ou vulnerabilidades de segurança no código abaixo.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Wand2 className="w-3 h-3" />
-            Fix Bugs
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 shrink-0"
-            onClick={() => {
-              const msg = "Explique detalhadamente como este código funciona, o que cada parte faz e qual o objetivo principal.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Code2 className="w-3 h-3" />
-            Explicar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 shrink-0"
-            onClick={() => {
-              const msg = "Adicione comentários JSDoc/TSDoc e documentação clara para este código, explicando parâmetros e retornos.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <FileText className="w-3 h-3" />
-            Documentar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-400 shrink-0"
             onClick={() => {
               const msg = "Crie testes unitários abrangentes para este código usando Vitest ou Jest, cobrindo casos de sucesso e erro.";
               setInput(msg);
