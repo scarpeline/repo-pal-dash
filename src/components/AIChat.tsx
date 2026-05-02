@@ -625,92 +625,6 @@ const AIChat = ({
           </div>
         )}
 
-        {/* Botões de Ações Rápidas ACIMA da barra de controles */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary shrink-0"
-            onClick={() => {
-              const msg = "Analise este código e sugira refatorações para torná-lo mais limpo, performático e seguindo as melhores práticas.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-        {/* Botões de Ações Rápidas ACIMA da barra de controles */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary shrink-0"
-            onClick={() => {
-              const msg = "Analise este código e sugira refatorações para torná-lo mais limpo, performático e seguindo as melhores práticas.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <RefreshCw className="w-3 h-3" />
-            Refatorar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 shrink-0"
-            onClick={() => {
-              const msg = "Encontre e corrija possíveis bugs, erros de lógica ou vulnerabilidades de segurança no código abaixo.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Wand2 className="w-3 h-3" />
-            Fix Bugs
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-500 shrink-0"
-            onClick={() => {
-              const msg = "Explique detalhadamente como este código funciona, o que cada parte faz e qual o objetivo principal.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Code2 className="w-3 h-3" />
-            Explicar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-500 shrink-0"
-            onClick={() => {
-              const msg = "Adicione comentários JSDoc/TSDoc e documentação clara para este código, explicando parâmetros e retornos.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <FileText className="w-3 h-3" />
-            Documentar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 shrink-0"
-            onClick={() => {
-              const msg = "Crie testes unitários abrangentes para este código usando Vitest ou Jest, cobrindo casos de sucesso e erro.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Check className="w-3 h-3" />
-            Gerar Testes
-          </Button>
-        </div>
-
         {/* Barra de controles ACIMA do campo de digitação */}
         <div className="flex items-center gap-2 flex-wrap">
           <input
@@ -721,30 +635,6 @@ const AIChat = ({
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50"
-            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
-          >
-            {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-            <span className="text-xs">Anexar</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); toast.success("🧠 Modo Auto-Inteligente ativado"); }}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-md border text-xs font-medium ${
-              selectedModel === "auto"
-                ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
-                : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
-            }`}
-            title="Roteia automaticamente para o melhor modelo (código, imagem, vídeo)"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            <span>🧠 Auto-Inteligente</span>
-          </button>
 
           <button
             type="button"
@@ -758,6 +648,17 @@ const AIChat = ({
           >
             <Check className="w-3.5 h-3.5" />
             <span>Auto-fix {autoFix ? "ON" : "OFF"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isThinking || isReadingFiles}
+            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50"
+            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
+          >
+            {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            <span className="text-xs">Anexar</span>
           </button>
 
           <button
