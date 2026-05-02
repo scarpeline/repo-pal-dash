@@ -487,10 +487,10 @@ const AIChat = ({
         key={idx}
         className={`flex ${isUser ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}
       >
-        <div className={`max-w-[90%] rounded-lg px-4 py-3 shadow-sm ${
+        <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
           isUser 
-            ? "bg-primary text-primary-foreground" 
-            : "bg-card text-foreground border border-border"
+            ? "bg-primary text-primary-foreground rounded-tr-none" 
+            : "bg-muted/50 text-foreground border border-border/50 rounded-tl-none"
         }`}>
           {/* Header da mensagem */}
           <div className="flex items-center gap-2 mb-2">
@@ -694,8 +694,19 @@ const AIChat = ({
 
           <button
             type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isThinking || isReadingFiles}
+            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted rounded-full border border-border transition-colors disabled:opacity-50 text-[11px] font-medium"
+            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
+          >
+            {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+            <span>Anexar Arquivo</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-full border text-[11px] font-medium ${
               autoFix
                 ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40 hover:bg-emerald-500/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
@@ -708,27 +719,16 @@ const AIChat = ({
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1.5 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50 text-[11px]"
-            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
-          >
-            {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-            <span>Anexar / Print</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setShowModelSelect(true)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-full border text-[11px] font-medium ${
               selectedModel === "auto"
                 ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
             }`}
             title="Escolher modelo ou usar Auto-Inteligente"
           >
-            <Wand2 className="w-3.5 h-3.5" />
-            <span>{selectedModel === "auto" ? "Auto-Inteligente" : currentModel.label}</span>
+            <Bot className="w-3.5 h-3.5" />
+            <span>{selectedModel === "auto" ? "Modo Inteligente" : currentModel.label}</span>
           </button>
         </div>
 
