@@ -85,9 +85,9 @@ const getModelBadge = (model?: string) => {
   const badges: Record<string, string> = {
     auto: "Auto",
     gemini: "Google Gemini",
-    "google-code-fast": "Gemini 3 Flash",
-    "google-code-balanced": "Gemini 2.5 Flash",
-    "google-code-pro": "Gemini 2.5 Pro",
+    "google-code-fast": "Gemini 2.0 Flash",
+    "google-code-balanced": "Gemini 2.0 Flash",
+    "google-code-pro": "Gemini 1.5 Pro",
     "google-image": "Gemini Imagem",
     "google-video": "Gemini Vídeo",
     deepseek: "DeepSeek",
@@ -95,9 +95,9 @@ const getModelBadge = (model?: string) => {
     "groq-8b": "Groq 8B",
     kimi: "Kimi",
     openrouter: "OpenRouter",
-    "claude-haiku": "Claude Haiku",
-    "claude-sonnet": "Claude Sonnet",
-    "claude-opus": "Claude Opus",
+    "claude-haiku": "Claude 3.5 Haiku",
+    "claude-sonnet": "Claude 3.5 Sonnet",
+    "claude-opus": "Claude 3 Opus",
     openai: "GPT-4o mini",
   };
 

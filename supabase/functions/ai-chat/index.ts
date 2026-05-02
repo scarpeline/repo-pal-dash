@@ -17,31 +17,31 @@ function envFirst(...names: string[]): string | undefined {
 const MIN_CHAT_CHARGE_CENTS = 1;
 
 const GOOGLE_MODEL_BY_ID: Record<string, string> = {
-  "gemini": "google/gemini-3-flash-preview",
-  "google-code-fast": "google/gemini-3-flash-preview",
-  "google-code-balanced": "google/gemini-2.5-flash",
-  "google-code-pro": "google/gemini-2.5-pro",
-  "google-image": "google/gemini-3.1-flash-image-preview",
-  "google-video": "google/gemini-3.1-pro-preview",
+  "gemini": "google/gemini-2.0-flash",
+  "google-code-fast": "google/gemini-2.0-flash",
+  "google-code-balanced": "google/gemini-2.0-flash",
+  "google-code-pro": "google/gemini-1.5-pro",
+  "google-image": "google/gemini-2.0-flash",
+  "google-video": "google/gemini-1.5-pro",
 };
 
 const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
-  "auto": "google/gemini-3-flash-preview",
-  "gemini": "google/gemini-3-flash-preview",
-  "google-code-fast": "google/gemini-3-flash-preview",
-  "google-code-balanced": "google/gemini-2.5-flash",
-  "google-code-pro": "google/gemini-2.5-pro",
-  "google-image": "google/gemini-3.1-flash-image-preview",
-  "google-video": "google/gemini-3.1-pro-preview",
+  "auto": "google/gemini-2.0-flash",
+  "gemini": "google/gemini-2.0-flash",
+  "google-code-fast": "google/gemini-2.0-flash",
+  "google-code-balanced": "google/gemini-2.0-flash",
+  "google-code-pro": "google/gemini-1.5-pro",
+  "google-image": "google/gemini-2.0-flash",
+  "google-video": "google/gemini-1.5-pro",
   "deepseek": "deepseek/deepseek-chat",
-  "groq": "groq/llama-4-scout",
+  "groq": "groq/llama-3.3-70b-versatile",
   "groq-8b": "groq/llama-3.1-8b",
-  "kimi": "moonshot/kimi-k2-0711-preview",
+  "kimi": "moonshot/kimi-k1.5-pro",
   "openrouter": "openrouter/deepseek-free",
-  "claude-haiku": "anthropic/claude-haiku-4-5",
-  "claude-sonnet": "anthropic/claude-sonnet-4-6",
-  "claude-opus": "anthropic/claude-opus-4-1",
-  "openai": "openai/gpt-5-nano",
+  "claude-haiku": "anthropic/claude-3-5-haiku-20241022",
+  "claude-sonnet": "anthropic/claude-3-5-sonnet-20241022",
+  "claude-opus": "anthropic/claude-3-opus-20240229",
+  "openai": "openai/gpt-4o-mini",
   "openai-4o": "openai/gpt-4o",
   "openai-4o-mini": "openai/gpt-4o-mini",
 };
@@ -218,26 +218,19 @@ Deno.serve(async (req) => {
     
     // Map any full model path back to short ID
     const fullPathToShortId: Record<string, string> = {
-      "google/gemini-2.5-flash": "google-code-balanced",
-      "google/gemini-3-flash-preview": "google-code-fast",
-      "google/gemini-2.5-pro": "google-code-pro",
-      "google/gemini-3.1-flash-image-preview": "google-image",
-      "google/gemini-3.1-pro-preview": "google-video",
+      "google/gemini-2.0-flash": "google-code-balanced",
+      "google/gemini-1.5-pro": "google-code-pro",
       "deepseek/deepseek-chat": "deepseek",
       "deepseek/deepseek-coder": "deepseek",
-      "groq/llama-4-scout": "groq",
+      "groq/llama-3.3-70b-versatile": "groq",
       "groq/llama-3.1-8b": "groq-8b",
-      
-      "moonshot/kimi-k2-0711-preview": "kimi",
-      "moonshot/moonshot-v1-32k": "kimi",
+      "moonshot/kimi-k1.5-pro": "kimi",
       "openrouter/deepseek-free": "openrouter",
-      "anthropic/claude-haiku-4-5": "claude-haiku",
-      "anthropic/claude-sonnet-4-6": "claude-sonnet",
-      "anthropic/claude-sonnet-4-5": "claude-sonnet",
-      "anthropic/claude-opus-4-1": "claude-opus",
-      "anthropic/claude-opus-4-6": "claude-opus",
-      "openai/gpt-4o-mini": "openai",
-      "openai/gpt-5-nano": "openai",
+      "anthropic/claude-3-5-haiku-20241022": "claude-haiku",
+      "anthropic/claude-3-5-sonnet-20241022": "claude-sonnet",
+      "anthropic/claude-3-opus-20240229": "claude-opus",
+      "openai/gpt-4o": "openai-4o",
+      "openai/gpt-4o-mini": "openai-4o-mini",
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
@@ -443,28 +436,28 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
 
     const modelDisplayName: Record<string, string> = {
       gemini: "Google Gemini Flash",
-      "google-code-fast": "Google Gemini 3 Flash",
-      "google-code-balanced": "Google Gemini 2.5 Flash",
-      "google-code-pro": "Google Gemini 2.5 Pro",
+      "google-code-fast": "Google Gemini 2.0 Flash",
+      "google-code-balanced": "Google Gemini 2.0 Flash",
+      "google-code-pro": "Google Gemini 1.5 Pro",
       "google-image": "Google Gemini Imagem",
       "google-video": "Google Gemini Vídeo",
       "groq-8b": "Llama 3.1 8B (Groq)",
-      groq: "Llama 4 Scout (Groq)",
+      groq: "Llama 3.3 70B (Groq)",
       deepseek: "DeepSeek",
       openrouter: "OpenRouter",
-      "claude-haiku": "Claude Haiku 4.5",
-      "claude-sonnet": "Claude Sonnet 4.6",
-      "claude-opus": "Claude Opus",
-      kimi: "Kimi K2",
-      openai: "GPT-5 Nano",
+      "claude-haiku": "Claude 3.5 Haiku",
+      "claude-sonnet": "Claude 3.5 Sonnet",
+      "claude-opus": "Claude 3 Opus",
+      kimi: "Kimi K1.5 Pro",
+      openai: "GPT-4o Mini",
       "openai-4o": "GPT-4o",
       "openai-4o-mini": "GPT-4o Mini",
     };
 
     const claudeApiModel: Record<string, string> = {
-      "claude-haiku": "claude-3-5-haiku-latest",
-      "claude-sonnet": "claude-sonnet-4-5",
-      "claude-opus": "claude-opus-4-1",
+      "claude-haiku": "claude-3-5-haiku-20241022",
+      "claude-sonnet": "claude-3-5-sonnet-20241022",
+      "claude-opus": "claude-3-opus-20240229",
     };
 
     const canAttempt = (mid: string): boolean => {
@@ -618,7 +611,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
     const runGroq = async (mid: "groq" | "groq-8b"): Promise<string> => {
       if (!groqApiKey) throw new Error("Groq sem chave");
       const groqModelMap: Record<string, string> = {
-        groq: "meta-llama/llama-4-scout-17b-16e-instruct",
+        groq: "llama-3.3-70b-versatile",
         "groq-8b": "llama-3.1-8b-instant",
       };
       return callOpenAICompatible(
@@ -630,7 +623,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
 
     const runOpenAI = async (mid = "openai"): Promise<string> => {
       const modelMap: Record<string, string> = {
-        "openai": "gpt-5-nano",
+        "openai": "gpt-4o-mini",
         "openai-4o": "gpt-4o",
         "openai-4o-mini": "gpt-4o-mini",
       };
@@ -640,7 +633,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         return callOpenAICompatible(
           "https://api.openai.com/v1/chat/completions",
           openaiDirectKey,
-          apiModel.includes("gpt-5") ? "gpt-4o" : apiModel,
+          apiModel,
         );
       }
       if (lovableGatewayKey) {
@@ -693,8 +686,6 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         case "openai-4o":
         case "openai-4o-mini":
           return await runOpenAI(mid);
-        case "openai":
-          return await runOpenAI();
         default:
           if (canAttempt("gemini")) return await runGemini();
           throw new Error(`Modelo não suportado: ${mid}`);
