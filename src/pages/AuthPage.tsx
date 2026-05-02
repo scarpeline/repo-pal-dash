@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import logoImg from "@/assets/logo-iaprogramador.png";
+import SocialProofPopup from "@/components/SocialProofPopup";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
