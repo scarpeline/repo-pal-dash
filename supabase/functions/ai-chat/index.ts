@@ -49,11 +49,11 @@ const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
 const shortIdToPricingModel = (shortId: string) => MODEL_ID_BY_SHORT_ID[shortId] || MODEL_ID_BY_SHORT_ID["google-code-fast"];
 
 const DIRECT_GEMINI_MODEL_BY_ID: Record<string, string> = {
-  "gemini": "gemini-2.5-flash",
-  "google-code-fast": "gemini-2.5-flash",
-  "google-code-balanced": "gemini-2.5-flash",
-  "google-code-pro": "gemini-2.5-pro",
-  "google-video": "gemini-2.5-pro",
+  "gemini": "gemini-1.5-flash",
+  "google-code-fast": "gemini-1.5-flash",
+  "google-code-balanced": "gemini-1.5-flash",
+  "google-code-pro": "gemini-1.5-pro",
+  "google-video": "gemini-1.5-pro",
 };
 
 const isGoogleRoute = (id: string) => Boolean(GOOGLE_MODEL_BY_ID[id]);
@@ -490,7 +490,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
     const runGemini = async (mid = "gemini"): Promise<string> => {
       if (lovableGatewayKey) {
         try {
-          const modelName = GOOGLE_MODEL_BY_ID[mid] || GOOGLE_MODEL_BY_ID.gemini;
+          const modelName = GOOGLE_MODEL_BY_ID[mid] || "google/gemini-2.0-flash";
           const wantsImage = mid === "google-image";
           const promptMessages = buildGatewayMessages();
           const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
