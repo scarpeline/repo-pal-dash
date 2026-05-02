@@ -686,8 +686,6 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         case "openai-4o":
         case "openai-4o-mini":
           return await runOpenAI(mid);
-        case "openai":
-          return await runOpenAI();
         default:
           if (canAttempt("gemini")) return await runGemini();
           throw new Error(`Modelo não suportado: ${mid}`);
