@@ -611,7 +611,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
     const runGroq = async (mid: "groq" | "groq-8b"): Promise<string> => {
       if (!groqApiKey) throw new Error("Groq sem chave");
       const groqModelMap: Record<string, string> = {
-        groq: "meta-llama/llama-4-scout-17b-16e-instruct",
+        groq: "llama-3.3-70b-versatile",
         "groq-8b": "llama-3.1-8b-instant",
       };
       return callOpenAICompatible(
@@ -623,7 +623,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
 
     const runOpenAI = async (mid = "openai"): Promise<string> => {
       const modelMap: Record<string, string> = {
-        "openai": "gpt-5-nano",
+        "openai": "gpt-4o-mini",
         "openai-4o": "gpt-4o",
         "openai-4o-mini": "gpt-4o-mini",
       };
@@ -633,7 +633,7 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
         return callOpenAICompatible(
           "https://api.openai.com/v1/chat/completions",
           openaiDirectKey,
-          apiModel.includes("gpt-5") ? "gpt-4o" : apiModel,
+          apiModel,
         );
       }
       if (lovableGatewayKey) {
