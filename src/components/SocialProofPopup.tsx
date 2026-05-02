@@ -13,15 +13,15 @@ interface SocialProof {
 
 const socialProofs: SocialProof[] = [
   { id: 1, name: "Rodrigo", action: "recarregou", amount: "R$ 20", city: "São Paulo, SP", time: "há 2 min", icon: "recharge" },
-  { id: 2, name: "Márcio", action: "comprou o pacote", amount: "100 Mil Créditos", city: "Curitiba, PR", time: "há 5 min", icon: "package" },
+  { id: 2, name: "Márcio", action: "recarregou", amount: "R$ 100", city: "Curitiba, PR", time: "há 5 min", icon: "recharge" },
   { id: 3, name: "Ana Paula", action: "recarregou", amount: "R$ 50", city: "Rio de Janeiro, RJ", time: "há 8 min", icon: "recharge" },
-  { id: 4, name: "Juliano", action: "comprou o pacote", amount: "500 Mil Créditos", city: "Belo Horizonte, MG", time: "há 12 min", icon: "package" },
+  { id: 4, name: "Juliano", action: "recarregou", amount: "R$ 200", city: "Belo Horizonte, MG", time: "há 12 min", icon: "recharge" },
   { id: 5, name: "Fernanda", action: "recarregou", amount: "R$ 10", city: "Salvador, BA", time: "há 15 min", icon: "recharge" },
-  { id: 6, name: "Ricardo", action: "comprou o pacote", amount: "1 Milhão de Créditos", city: "Florianópolis, SC", time: "há 18 min", icon: "package" },
+  { id: 6, name: "Ricardo", action: "recarregou", amount: "R$ 150", city: "Florianópolis, SC", time: "há 18 min", icon: "recharge" },
   { id: 7, name: "Lucas", action: "recarregou", amount: "R$ 30", city: "Fortaleza, CE", time: "há 22 min", icon: "recharge" },
-  { id: 8, name: "Patrícia", action: "comprou o pacote", amount: "250 Mil Créditos", city: "Porto Alegre, RS", time: "há 25 min", icon: "package" },
+  { id: 8, name: "Patrícia", action: "recarregou", amount: "R$ 80", city: "Porto Alegre, RS", time: "há 25 min", icon: "recharge" },
   { id: 9, name: "Gustavo", action: "recarregou", amount: "R$ 100", city: "Brasília, DF", time: "há 30 min", icon: "recharge" },
-  { id: 10, name: "Camila", action: "comprou o pacote", amount: "Elite 2 Milhões", city: "Goiânia, GO", time: "há 35 min", icon: "package" },
+  { id: 10, name: "Camila", action: "recarregou", amount: "R$ 500", city: "Goiânia, GO", time: "há 35 min", icon: "recharge" },
 ];
 
 export const SocialProofPopup = () => {
