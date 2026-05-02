@@ -165,7 +165,7 @@ const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
   };
   
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-border bg-[#1e1e2e] animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="my-3 rounded-xl overflow-hidden border border-white/10 bg-[#0f172a] shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-[#2d2d3d] border-b border-border">
         <div className="flex items-center gap-2">
@@ -198,7 +198,7 @@ const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
       
       {/* Code content */}
       <div className="p-3 overflow-x-auto">
-        <pre className="text-xs font-mono text-green-400 leading-relaxed">
+        <pre className="text-[13px] font-mono text-emerald-400 leading-relaxed">
           {displayLines.join('\n')}
           {!isExpanded && hasMore && (
             <span className="text-muted-foreground block mt-1">...</span>
