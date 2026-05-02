@@ -700,7 +700,7 @@ const AIChat = ({
         </div>
 
         {/* Barra de controles ACIMA do campo de digitação */}
-        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar py-1">
           <input
             ref={fileInputRef}
             type="file"
@@ -732,13 +732,27 @@ const AIChat = ({
             title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
           >
             {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-            <span>Anexar</span>
+            <span>Anexar / Print</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); toast.success("🧠 Modo Auto-Inteligente ativado"); }}
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
+              selectedModel === "auto"
+                ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
+                : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
+            }`}
+            title="Roteia automaticamente para o melhor modelo (código, imagem, vídeo)"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            <span>Auto-Inteligente</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowModelSelect(!showModelSelect)}
-            className="shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 hover:bg-muted rounded-md border border-border text-muted-foreground hover:text-foreground text-[11px]"
+            className="shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 hover:bg-muted rounded-md border border-border text-muted-foreground hover:text-foreground text-[11px] ml-auto"
             title={`Modelo: ${currentModel.label}`}
           >
             <Settings2 className="w-3.5 h-3.5" />
