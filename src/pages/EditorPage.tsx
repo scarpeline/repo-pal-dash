@@ -717,7 +717,6 @@ const EditorPage = () => {
           </button>
         </div>
       </div>
-
       <div className="flex-1 flex overflow-hidden gap-1 md:gap-2">
         {/* Sidebar */}
         {sidebarOpen && (
