@@ -604,11 +604,13 @@ const EditorPage = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background p-2 gap-2 text-foreground font-sans">
+    <div className="h-screen flex overflow-hidden bg-background p-2 gap-2 text-foreground font-sans relative">
       <AuthErrorHandler />
 
-      {/* Title bar - Mobile otimizado */}
-      <div className="h-14 md:h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-3 md:px-4 shrink-0 transition-all safe-area-pt">
+      {/* Main Container para suportar o chat lateral de ponta a ponta */}
+      <div className="flex-1 flex flex-col overflow-hidden gap-2">
+        {/* Title bar - Mobile otimizado */}
+        <div className="h-14 md:h-12 bg-card border border-border rounded-xl shadow-sm flex items-center justify-between px-3 md:px-4 shrink-0 transition-all safe-area-pt">
         <div className="flex items-center gap-2 md:gap-3">
           {/* Botão menu mobile maior */}
           <button 
