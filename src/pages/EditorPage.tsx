@@ -886,7 +886,6 @@ const EditorPage = () => {
                   <p className="text-sm text-muted-foreground/60 mt-1">Navegue pelos arquivos ou abra o painel de preview no menu superior.</p>
                 </div>
               )}
-              </div>
             </div>
           </div>
         </div>
