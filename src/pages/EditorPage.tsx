@@ -801,41 +801,40 @@ const EditorPage = () => {
           </div>
         )}
 
-        {/* Main content wrapper with flex-row for vertical Chat */}
-        <div className="flex-1 flex overflow-hidden gap-2 relative">
-          
-          {/* Vertical Panel: Chat & Terminal */}
-          {bottomOpen && (
-            <div className="absolute inset-y-0 left-0 z-30 md:z-40 w-full md:w-80 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-left duration-300">
-              <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
-                <div className="flex items-center gap-1">
-                  {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
-                    <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${bottomTab === tab.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
-                      <tab.icon className="w-3.5 h-3.5" /> {tab.label}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
-              </div>
-              <div className="flex-1 overflow-hidden min-h-0 bg-slate-950/40 backdrop-blur-md">
-                {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
-                  <AIChat 
-                    messages={chatMessages} 
-                    onSend={handleChatSend} 
-                    isThinking={isThinking}
-                    currentActivity={currentActivity}
-                    streamingContent={streamingContent}
-                    streamingProvider={streamingProvider}
-                    selectedProvider={activeProvider}
-                    onProviderChange={setActiveProvider}
-                  />
-                )}
-              </div>
-            </div>
-          )}
+      </div>
 
-          {/* Editor & Preview Area */}
-          <div className={`flex-1 flex flex-col overflow-hidden gap-2 ${bottomOpen ? 'md:pl-80' : ''}`}>
+      {/* Vertical Panel: Chat & Terminal - Movido para fora para ocupar do topo à base */}
+      {bottomOpen && (
+        <div className="absolute inset-y-2 left-2 z-40 w-[calc(100%-16px)] md:w-80 bg-card border border-border rounded-xl shadow-2xl flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-left duration-300">
+          <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
+            <div className="flex items-center gap-1">
+              {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
+                <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${bottomTab === tab.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+                  <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
+          </div>
+          <div className="flex-1 overflow-hidden min-h-0 bg-slate-950/40 backdrop-blur-md">
+            {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
+              <AIChat 
+                messages={chatMessages} 
+                onSend={handleChatSend} 
+                isThinking={isThinking}
+                currentActivity={currentActivity}
+                streamingContent={streamingContent}
+                streamingProvider={streamingProvider}
+                selectedProvider={activeProvider}
+                onProviderChange={setActiveProvider}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main content wrapper */}
+      <div className={`flex-1 flex overflow-hidden gap-2 ${bottomOpen ? 'md:ml-80' : ''}`}>
             <div className="flex-1 flex overflow-hidden gap-2">
               
               {/* Editor Panel - Only visible if there are open tabs */}
