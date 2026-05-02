@@ -218,26 +218,19 @@ Deno.serve(async (req) => {
     
     // Map any full model path back to short ID
     const fullPathToShortId: Record<string, string> = {
-      "google/gemini-2.5-flash": "google-code-balanced",
-      "google/gemini-3-flash-preview": "google-code-fast",
-      "google/gemini-2.5-pro": "google-code-pro",
-      "google/gemini-3.1-flash-image-preview": "google-image",
-      "google/gemini-3.1-pro-preview": "google-video",
+      "google/gemini-2.0-flash": "google-code-balanced",
+      "google/gemini-1.5-pro": "google-code-pro",
       "deepseek/deepseek-chat": "deepseek",
       "deepseek/deepseek-coder": "deepseek",
-      "groq/llama-4-scout": "groq",
+      "groq/llama-3.3-70b-versatile": "groq",
       "groq/llama-3.1-8b": "groq-8b",
-      
-      "moonshot/kimi-k2-0711-preview": "kimi",
-      "moonshot/moonshot-v1-32k": "kimi",
+      "moonshot/kimi-k1.5-pro": "kimi",
       "openrouter/deepseek-free": "openrouter",
-      "anthropic/claude-haiku-4-5": "claude-haiku",
-      "anthropic/claude-sonnet-4-6": "claude-sonnet",
-      "anthropic/claude-sonnet-4-5": "claude-sonnet",
-      "anthropic/claude-opus-4-1": "claude-opus",
-      "anthropic/claude-opus-4-6": "claude-opus",
-      "openai/gpt-4o-mini": "openai",
-      "openai/gpt-5-nano": "openai",
+      "anthropic/claude-3-5-haiku-20241022": "claude-haiku",
+      "anthropic/claude-3-5-sonnet-20241022": "claude-sonnet",
+      "anthropic/claude-3-opus-20240229": "claude-opus",
+      "openai/gpt-4o": "openai-4o",
+      "openai/gpt-4o-mini": "openai-4o-mini",
     };
 
     const selectedModel = fullPathToShortId[rawModel] || rawModel;
