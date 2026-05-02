@@ -113,7 +113,7 @@ const SuperAdmin = () => {
   const [leadFilter, setLeadFilter] = useState<"all" | "active" | "inactive" | "never_paid">("all");
 
   // AI Balances
-  const [aiBalances, setAiBalances] = useState<Record<string, { balance: string | null; error: string | null; currency: string }> | null>(null);
+  const [aiBalances, setAiBalances] = useState<Record<string, { balance: string | null; error: string | null; currency: string; low?: boolean }> | null>(null);
   const [loadingAiBalances, setLoadingAiBalances] = useState(false);
   const [aiBalancesCheckedAt, setAiBalancesCheckedAt] = useState<string | null>(null);
 
@@ -162,7 +162,16 @@ const SuperAdmin = () => {
   const [gateLoading, setGateLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim().toLowerCase()).includes((user?.email || "").toLowerCase()))) fetchAll();
+    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim().toLowerCase()).includes((user?.email || "").toLowerCase()))) {
+      fetchAll();
+      
+      // Sincroniza saldo de IA a cada 5 minutos
+      const aiSyncInterval = setInterval(() => {
+        fetchAiBalances();
+      }, 5 * 60 * 1000);
+      
+      return () => clearInterval(aiSyncInterval);
+    }
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -2097,7 +2106,7 @@ const SuperAdmin = () => {
                     ].map(({ id, name, icon, color }) => {
                       const info = aiBalances[id];
                       const hasBalance = info?.balance !== null;
-                      const isLow = false;
+                      const isLow = info?.low || false;
                       const hasError = !!info?.error;
                       return (
                         <Card key={id} className={`border ${isLow ? "border-yellow-500/60 bg-yellow-500/5" : hasBalance ? "border-green-500/30 bg-green-500/5" : "border-destructive/30 bg-destructive/5"}`}>
