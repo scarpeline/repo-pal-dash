@@ -162,7 +162,7 @@ const SuperAdmin = () => {
   const [gateLoading, setGateLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim()).includes(user?.email || ""))) fetchAll();
+    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim().toLowerCase()).includes((user?.email || "").toLowerCase()))) fetchAll();
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
@@ -891,18 +891,16 @@ const SuperAdmin = () => {
             <CardTitle>Área restrita</CardTitle>
             <CardDescription>Faça login para continuar.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleGateLogin} className="space-y-4" autoComplete="off">
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="gate-email">Email</Label>
+                <Label htmlFor="gate-email">Email de Admin</Label>
                 <Input
                   id="gate-email"
                   type="email"
-                  autoComplete="off"
-                  placeholder="seu@email.com"
+                  placeholder="admin@email.com"
                   value={gateEmail}
                   onChange={(e) => setGateEmail(e.target.value)}
-                  required
                 />
               </div>
               <div className="space-y-2">
@@ -910,18 +908,23 @@ const SuperAdmin = () => {
                 <Input
                   id="gate-password"
                   type="password"
-                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={gatePassword}
                   onChange={(e) => setGatePassword(e.target.value)}
-                  required
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={gateLoading}>
-                {gateLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Entrar
+              <Button 
+                onClick={handleGateLogin} 
+                className="w-full" 
+                disabled={gateLoading || !gateEmail || !gatePassword}
+              >
+                {gateLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Entrar como Admin"}
               </Button>
-              {user?.email && (
+            </div>
+            
+            {user?.email && (
+              <div className="pt-4 border-t">
+                <p className="text-xs text-center text-muted-foreground mb-2">Conectado como: {user.email}</p>
                 <Button
                   type="button"
                   variant="ghost"
@@ -931,8 +934,8 @@ const SuperAdmin = () => {
                 >
                   Sair da sessão atual
                 </Button>
-              )}
-            </form>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
