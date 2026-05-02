@@ -210,9 +210,9 @@ const AffiliateDashboard = () => {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Ganhe <span className="text-primary font-bold">30% de comissão</span> sobre o lucro total da plataforma em cada indicação!
+            Ganhe <span className="text-primary font-bold">25% de comissão</span> sobre o lucro total da plataforma em cada indicação!
             <br />
-            <span className="text-[10px] opacity-70">Ex: A cada R$ 100,00 você ganha R$ 30,00.</span>
+            <span className="text-[10px] opacity-70">Ex: A cada R$ 100,00 de lucro você ganha R$ 25,00.</span>
           </p>
           <Button onClick={activateAffiliate} disabled={activatingAffiliate}>
             {activatingAffiliate && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -223,19 +223,22 @@ const AffiliateDashboard = () => {
     );
   }
 
+  const activeCount = new Set(commissions.filter(c => c.status !== 'failed').map(c => c.referred_email)).size;
+  const isApproved = activeCount >= 3;
+
   return (
     <div className="space-y-6">
       {profile?.affiliate_code && (
         <Card>
           <CardContent className="p-4 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Seu link de indicação</p>
+              <p className="text-xs text-muted-foreground mb-1">Seu link único de compartilhamento</p>
               <p className="text-sm font-mono text-foreground break-all">
                 {window.location.origin}/?ref={profile.affiliate_code}
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={copyLink}>
-              <Copy className="w-4 h-4" /> Copiar
+              <Copy className="w-4 h-4" /> Copiar Link
             </Button>
           </CardContent>
         </Card>
@@ -246,25 +249,30 @@ const AffiliateDashboard = () => {
           <CardContent className="p-4">
             <DollarSign className="w-8 h-8 text-[hsl(var(--success))]" />
             <p className="text-2xl font-bold text-foreground mt-2">R$ {(totalEarned / 100).toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">Total ganho</p>
+            <p className="text-xs text-muted-foreground">Total ganho (25% comissão)</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <DollarSign className="w-8 h-8 text-[hsl(var(--warning))]" />
             <p className="text-2xl font-bold text-foreground mt-2">R$ {(pendingEarned / 100).toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">Pendente</p>
+            <p className="text-xs text-muted-foreground">Aguardando Saque</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={isApproved ? "border-green-500/50" : "border-yellow-500/50"}>
           <CardContent className="p-4 flex flex-col justify-between h-full">
-            <Users className="w-8 h-8 text-primary" />
-            <div className="mt-2">
-              <p className="text-2xl font-bold text-foreground">{new Set(commissions.map(c => c.referred_email)).size}</p>
-              <p className="text-xs text-muted-foreground">Indicações Ativas</p>
+            <div className="flex justify-between items-start">
+              <Users className={`w-8 h-8 ${isApproved ? "text-green-500" : "text-yellow-500"}`} />
+              <Badge variant={isApproved ? "default" : "secondary"}>
+                {isApproved ? "Afiliado Aprovado" : "Aprovação Pendente"}
+              </Badge>
             </div>
-            <Button className="mt-4 w-full" variant="outline" size="sm" onClick={handleWithdraw}>
-              Realizar Saque
+            <div className="mt-2">
+              <p className="text-2xl font-bold text-foreground">{activeCount}</p>
+              <p className="text-xs text-muted-foreground">Indicados Depositantes (Mínimo 3)</p>
+            </div>
+            <Button className="mt-4 w-full" variant={isApproved ? "default" : "outline"} size="sm" onClick={handleWithdraw}>
+              Solicitar Saque (Manual/PIX)
             </Button>
           </CardContent>
         </Card>

@@ -1251,10 +1251,12 @@ const SuperAdmin = () => {
                         <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma solicitação pendente</TableCell></TableRow>
                       ) : withdrawals.map((w) => {
                         const u = users.find(usr => usr.id === w.user_id);
+                        // Verificar se o afiliado tem pelo menos 3 indicados depositantes para destacar aprovação
                         return (
                           <TableRow key={w.id}>
                             <TableCell>
                               <div className="font-medium text-xs">{u?.email || "ID: " + w.user_id.slice(0,8)}</div>
+                              <div className="text-[10px] text-muted-foreground">Chave PIX: {w.pix_key}</div>
                             </TableCell>
                             <TableCell className="font-bold text-[hsl(var(--success))]">R$ {(w.amount_cents / 100).toFixed(2)}</TableCell>
                             <TableCell>
@@ -1269,7 +1271,7 @@ const SuperAdmin = () => {
                             <TableCell className="text-right">
                               {w.status === "pending" && (
                                 <div className="flex justify-end gap-1">
-                                  <Button size="sm" variant="outline" className="h-7 text-xs text-green-600 border-green-200" onClick={() => updateWithdrawalStatus(w.id, 'paid')}>Pagar</Button>
+                                  <Button size="sm" variant="default" className="h-7 text-xs text-green-600 border-green-200" onClick={() => updateWithdrawalStatus(w.id, 'paid')}>Pagar Manual (PIX Enviado)</Button>
                                   <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500" onClick={() => updateWithdrawalStatus(w.id, 'rejected')}>Rejeitar</Button>
                                 </div>
                               )}
