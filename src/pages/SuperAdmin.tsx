@@ -328,6 +328,7 @@ const SuperAdmin = () => {
     setIsVIP(user.is_vip);
     setVipMarkup(user.vip_markup_percent.toString());
     setVipNotes(user.vip_notes || "");
+    setNewBalance((user.balance_cents / 100).toString());
     setIsUserDialogOpen(true);
   };
 
