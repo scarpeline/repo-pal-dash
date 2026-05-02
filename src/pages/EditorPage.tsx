@@ -835,7 +835,8 @@ const EditorPage = () => {
 
       {/* Main content wrapper */}
       <div className={`flex-1 flex overflow-hidden gap-2 ${bottomOpen ? 'md:ml-80' : ''}`}>
-        <div className="flex-1 flex overflow-hidden gap-2">
+        <div className="flex-1 flex flex-col overflow-hidden gap-2">
+          <div className="flex-1 flex overflow-hidden gap-2">
           {/* Editor Panel - Only visible if there are open tabs */}
               {openTabs.length > 0 && (
                 <div className={`flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden ${showPreview ? "hidden lg:flex w-1/2" : "flex-1"}`}>
@@ -885,6 +886,7 @@ const EditorPage = () => {
                   <p className="text-sm text-muted-foreground/60 mt-1">Navegue pelos arquivos ou abra o painel de preview no menu superior.</p>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
