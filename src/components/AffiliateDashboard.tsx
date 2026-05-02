@@ -303,7 +303,7 @@ const AffiliateDashboard = () => {
           <CardContent className="p-4">
             <DollarSign className="w-8 h-8 text-[hsl(var(--success))]" />
             <p className="text-2xl font-bold text-foreground mt-2">R$ {(totalEarned / 100).toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">Total ganho (25% comissão)</p>
+            <p className="text-xs text-muted-foreground">Lucro Total Acumulado (25%)</p>
           </CardContent>
         </Card>
         <Card>
