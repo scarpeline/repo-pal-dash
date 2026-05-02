@@ -1,4 +1,4 @@
-import { Github, LogOut, Link2, Loader2, CheckCircle, Zap, Edit3, ShieldCheck, Info } from "lucide-react";
+import { Github, LogOut, Link2, Loader2, CheckCircle, Zap, Edit3, ShieldCheck, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
@@ -16,6 +16,7 @@ interface GitHubConnectProps {
 const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnected }: GitHubConnectProps) => {
   const [cloneUrl, setCloneUrl] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Escutar mensagens do popup via BroadcastChannel
   useEffect(() => {
@@ -131,25 +132,30 @@ const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnecte
   }
 
   return (
-    <div className="p-3 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {user?.avatar_url && <img src={user.avatar_url} className="w-6 h-6 rounded-full" alt="" />}
-          <span className="text-xs font-medium text-foreground">@{user?.login}</span>
-        </div>
-        <button onClick={onDisconnect} className="text-muted-foreground hover:text-destructive">
+    <div className="p-2 space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded transition-colors"
+        >
+          {user?.avatar_url && <img src={user.avatar_url} className="w-5 h-5 rounded-full border border-primary/30" alt="" />}
+          <span className="text-[11px] font-bold text-foreground">@{user?.login}</span>
+          {isCollapsed ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronUp className="w-3 h-3 text-muted-foreground" />}
+        </button>
+        <button onClick={onDisconnect} className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-destructive/10 transition-colors" title="Desconectar">
           <LogOut className="w-3.5 h-3.5" />
         </button>
       </div>
-      {onCloneUrl && (
-        <div className="flex gap-1">
+      
+      {!isCollapsed && onCloneUrl && (
+        <div className="flex gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
           <Input
             value={cloneUrl}
             onChange={(e) => setCloneUrl(e.target.value)}
-            placeholder="https://github.com/user/repo"
-            className="text-xs h-7"
+            placeholder="Cole a URL do repo..."
+            className="text-[10px] h-7 bg-muted/30 border-border/50 focus:border-primary/50"
           />
-          <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => { if (cloneUrl) { onCloneUrl(cloneUrl); setCloneUrl(""); } }}>
+          <Button size="sm" variant="secondary" className="h-7 px-2 shrink-0 bg-primary/10 text-primary hover:bg-primary/20" onClick={() => { if (cloneUrl) { onCloneUrl(cloneUrl); setCloneUrl(""); } }}>
             <Link2 className="w-3 h-3" />
           </Button>
         </div>
