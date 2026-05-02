@@ -310,6 +310,25 @@ const SuperAdmin = () => {
           newUserRoles.map(role => ({ user_id: editingUser.id, role: role as any }))
         );
       }
+
+      // Update balance if changed
+      const balanceCents = Math.round(parseFloat(newBalance.replace(",", ".")) * 100);
+      if (balanceCents !== editingUser.balance_cents) {
+        const diff = balanceCents - editingUser.balance_cents;
+        await supabase.from("balances").update({
+          balance_cents: balanceCents,
+          updated_at: new Date().toISOString(),
+        } as any).eq("user_id", editingUser.id);
+
+        await supabase.from("transactions").insert({
+          user_id: editingUser.id,
+          type: diff > 0 ? "deposit" : "withdrawal",
+          amount_cents: Math.abs(diff),
+          description: `Ajuste manual de saldo pelo Admin (De R$ ${(editingUser.balance_cents / 100).toFixed(2)} para R$ ${(balanceCents / 100).toFixed(2)})`,
+          payment_method: "admin_adjustment",
+          status: "confirmed",
+        } as any);
+      }
       
       toast.success("Usuário atualizado com sucesso!");
       setIsUserDialogOpen(false);
