@@ -3,7 +3,7 @@ import {
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
   Code2, Bot, User, Copy, Check, Paperclip, X,
   FileImage, FileVideo, FileText, File as FileIcon, Wand2,
-  Wallet, RefreshCw
+  Wallet, RefreshCw, Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -586,28 +586,10 @@ const AIChat = ({
         <div ref={bottomRef} />
       </div>
 
-      {/* Seletor de modelo (dropdown) — abre para cima, altura máxima */}
-      {showModelSelect && (
-        <div className="border-t border-border bg-card overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
-          <div className="p-2 space-y-1 overflow-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
-            {visibleModels.map(m => (
-              <button
-                key={m.id}
-                onClick={() => { setSelectedModel(m.id); onProviderChange?.(m.id); setShowModelSelect(false); }}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm flex flex-col gap-0.5 hover:bg-muted transition-all duration-200 ${
-                  selectedModel === m.id ? "bg-primary/10 text-primary border border-primary/20" : "text-foreground"
-                }`}
-              >
-                <span className="font-medium">{m.label}</span>
-                <span className="text-muted-foreground text-xs">{m.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Input area */}
-      <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3 space-y-2 shrink-0">
+      <form onSubmit={handleSubmit} className="relative border-t border-border bg-card p-3 space-y-2 shrink-0">
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => {
@@ -737,30 +719,105 @@ const AIChat = ({
 
           <button
             type="button"
-            onClick={() => { setSelectedModel("auto"); onProviderChange?.("auto"); toast.success("🧠 Modo Auto-Inteligente ativado"); }}
+            onClick={() => setShowModelSelect(true)}
             className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
               selectedModel === "auto"
                 ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
             }`}
-            title="Roteia automaticamente para o melhor modelo (código, imagem, vídeo)"
+            title="Escolher modelo ou usar Auto-Inteligente"
           >
             <Wand2 className="w-3.5 h-3.5" />
-            <span>Auto-Inteligente</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowModelSelect(!showModelSelect)}
-            className="shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 hover:bg-muted rounded-md border border-border text-muted-foreground hover:text-foreground text-[11px] ml-auto"
-            title={`Modelo: ${currentModel.label}`}
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            <span className="max-w-[120px] truncate">
-              {currentModel.label}
-            </span>
+            <span>{selectedModel === "auto" ? "Auto-Inteligente" : currentModel.label}</span>
           </button>
         </div>
+
+        {/* Overlay de Seleção de IA - Sobrepõe tudo */}
+        {showModelSelect && (
+          <div className="absolute inset-0 z-[100] bg-background/95 backdrop-blur-sm p-4 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Brain className="w-4 h-4 text-primary" />
+                Selecione a Inteligência Artificial
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setShowModelSelect(false)}
+                className="p-1 hover:bg-muted rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+              {/* Opção Auto-Inteligente em Destaque */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedModel("auto");
+                  onProviderChange?.("auto");
+                  setShowModelSelect(false);
+                  toast.success("🧠 Modo Auto-Inteligente ativado");
+                }}
+                className={`w-full text-left p-3 rounded-lg border transition-all ${
+                  selectedModel === "auto" 
+                    ? "bg-primary/10 border-primary shadow-sm" 
+                    : "bg-card border-border hover:border-primary/50 hover:bg-muted/50"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs flex items-center gap-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-primary" />
+                    Auto-Inteligente (Recomendado)
+                  </span>
+                  {selectedModel === "auto" && <Check className="w-3.5 h-3.5 text-primary" />}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  O sistema escolhe automaticamente a melhor IA para cada tarefa baseado em custo e complexidade.
+                </p>
+              </button>
+
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pt-2 pb-1">
+                Modelos Disponíveis
+              </div>
+
+              {/* Lista de todas as IAs */}
+              <div className="grid grid-cols-1 gap-2">
+                {visibleModels.filter(m => m.id !== 'auto').map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedModel(opt.id);
+                      onProviderChange?.(opt.id);
+                      setShowModelSelect(false);
+                      toast.success(`Modelo ${opt.label} selecionado`);
+                    }}
+                    className={`w-full text-left p-2.5 rounded-lg border transition-all ${
+                      selectedModel === opt.id 
+                        ? "bg-primary/5 border-primary" 
+                        : "bg-card/50 border-border hover:border-primary/30"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="font-medium text-[11px]">{opt.label}</span>
+                      {selectedModel === opt.id && <Check className="w-3 h-3 text-primary" />}
+                    </div>
+                    <p className="text-[9px] text-muted-foreground leading-tight line-clamp-2">
+                      {opt.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="mt-4 p-2 bg-muted/30 rounded-md text-center">
+              <p className="text-[9px] text-muted-foreground">
+                Dica: O modo Auto-Inteligente economiza créditos escolhendo IAs mais baratas para tarefas simples.
+              </p>
+            </div>
+          </div>
+        )}
 
         <p className="text-[10px] text-muted-foreground px-1">
           📎 Anexe arquivos · 📋 Cole prints com Ctrl+V · 🧠 Auto-Inteligente escolhe o melhor modelo · 🪄 Auto-fix corrige bugs colaterais
