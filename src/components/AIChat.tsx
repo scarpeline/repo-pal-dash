@@ -487,10 +487,10 @@ const AIChat = ({
         key={idx}
         className={`flex ${isUser ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}
       >
-        <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+        <div className={`max-w-[85%] rounded-2xl px-5 py-3.5 shadow-md ${
           isUser 
             ? "bg-primary text-primary-foreground rounded-tr-none" 
-            : "bg-muted/50 text-foreground border border-border/50 rounded-tl-none"
+            : "bg-[#1e293b] text-white border border-white/10 rounded-tl-none shadow-lg"
         }`}>
           {/* Header da mensagem */}
           <div className="flex items-center gap-2 mb-2">
