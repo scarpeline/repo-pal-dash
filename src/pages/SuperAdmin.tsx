@@ -162,7 +162,16 @@ const SuperAdmin = () => {
   const [gateLoading, setGateLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim().toLowerCase()).includes((user?.email || "").toLowerCase()))) fetchAll();
+    if (!authLoading && (isAdmin || (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").map((e: string) => e.trim().toLowerCase()).includes((user?.email || "").toLowerCase()))) {
+      fetchAll();
+      
+      // Sincroniza saldo de IA a cada 5 minutos
+      const aiSyncInterval = setInterval(() => {
+        fetchAiBalances();
+      }, 5 * 60 * 1000);
+      
+      return () => clearInterval(aiSyncInterval);
+    }
   }, [authLoading, isAdmin]);
 
   const fetchAll = async () => {
