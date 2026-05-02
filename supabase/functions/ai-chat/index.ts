@@ -436,28 +436,28 @@ CONTEXTO DO REPOSITÓRIO ATUAL:${
 
     const modelDisplayName: Record<string, string> = {
       gemini: "Google Gemini Flash",
-      "google-code-fast": "Google Gemini 3 Flash",
-      "google-code-balanced": "Google Gemini 2.5 Flash",
-      "google-code-pro": "Google Gemini 2.5 Pro",
+      "google-code-fast": "Google Gemini 2.0 Flash",
+      "google-code-balanced": "Google Gemini 2.0 Flash",
+      "google-code-pro": "Google Gemini 1.5 Pro",
       "google-image": "Google Gemini Imagem",
       "google-video": "Google Gemini Vídeo",
       "groq-8b": "Llama 3.1 8B (Groq)",
-      groq: "Llama 4 Scout (Groq)",
+      groq: "Llama 3.3 70B (Groq)",
       deepseek: "DeepSeek",
       openrouter: "OpenRouter",
-      "claude-haiku": "Claude Haiku 4.5",
-      "claude-sonnet": "Claude Sonnet 4.6",
-      "claude-opus": "Claude Opus",
-      kimi: "Kimi K2",
-      openai: "GPT-5 Nano",
+      "claude-haiku": "Claude 3.5 Haiku",
+      "claude-sonnet": "Claude 3.5 Sonnet",
+      "claude-opus": "Claude 3 Opus",
+      kimi: "Kimi K1.5 Pro",
+      openai: "GPT-4o Mini",
       "openai-4o": "GPT-4o",
       "openai-4o-mini": "GPT-4o Mini",
     };
 
     const claudeApiModel: Record<string, string> = {
-      "claude-haiku": "claude-3-5-haiku-latest",
-      "claude-sonnet": "claude-sonnet-4-5",
-      "claude-opus": "claude-opus-4-1",
+      "claude-haiku": "claude-3-5-haiku-20241022",
+      "claude-sonnet": "claude-3-5-sonnet-20241022",
+      "claude-opus": "claude-3-opus-20240229",
     };
 
     const canAttempt = (mid: string): boolean => {
