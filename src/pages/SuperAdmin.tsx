@@ -73,6 +73,7 @@ const SuperAdmin = () => {
   const [isVIP, setIsVIP] = useState(false);
   const [vipMarkup, setVipMarkup] = useState("0");
   const [vipNotes, setVipNotes] = useState("");
+  const [newBalance, setNewBalance] = useState("0");
 
   // Calculator
   const [calcModel, setCalcModel] = useState("");
