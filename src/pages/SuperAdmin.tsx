@@ -73,6 +73,7 @@ const SuperAdmin = () => {
   const [isVIP, setIsVIP] = useState(false);
   const [vipMarkup, setVipMarkup] = useState("0");
   const [vipNotes, setVipNotes] = useState("");
+  const [newBalance, setNewBalance] = useState("0");
 
   // Calculator
   const [calcModel, setCalcModel] = useState("");
@@ -309,6 +310,25 @@ const SuperAdmin = () => {
           newUserRoles.map(role => ({ user_id: editingUser.id, role: role as any }))
         );
       }
+
+      // Update balance if changed
+      const balanceCents = Math.round(parseFloat(newBalance.replace(",", ".")) * 100);
+      if (balanceCents !== editingUser.balance_cents) {
+        const diff = balanceCents - editingUser.balance_cents;
+        await supabase.from("balances").update({
+          balance_cents: balanceCents,
+          updated_at: new Date().toISOString(),
+        } as any).eq("user_id", editingUser.id);
+
+        await supabase.from("transactions").insert({
+          user_id: editingUser.id,
+          type: diff > 0 ? "deposit" : "withdrawal",
+          amount_cents: Math.abs(diff),
+          description: `Ajuste manual de saldo pelo Admin (De R$ ${(editingUser.balance_cents / 100).toFixed(2)} para R$ ${(balanceCents / 100).toFixed(2)})`,
+          payment_method: "admin_adjustment",
+          status: "confirmed",
+        } as any);
+      }
       
       toast.success("Usuário atualizado com sucesso!");
       setIsUserDialogOpen(false);
@@ -327,6 +347,7 @@ const SuperAdmin = () => {
     setIsVIP(user.is_vip);
     setVipMarkup(user.vip_markup_percent.toString());
     setVipNotes(user.vip_notes || "");
+    setNewBalance((user.balance_cents / 100).toString());
     setIsUserDialogOpen(true);
   };
 
@@ -368,24 +389,34 @@ const SuperAdmin = () => {
   };
 
   const quickDonate = async (userId: string) => {
-    const amtStr = prompt("Quantos Reais (R$) adicionar ao saldo deste usuário?");
+    const amtStr = prompt("Quantos Reais (R$) ADICIONAR ou REMOVER (use sinal de -) do saldo deste usuário?");
     if (!amtStr) return;
-    const cents = Math.round(parseFloat(amtStr) * 100);
-    if (isNaN(cents) || cents <= 0) return toast.error("Valor inválido");
+    const amount = parseFloat(amtStr.replace(",", "."));
+    const cents = Math.round(amount * 100);
+    if (isNaN(cents) || cents === 0) return toast.error("Valor inválido");
     
     const { data: bal } = await supabase.from("balances").select("balance_cents, total_deposited_cents").eq("user_id", userId).single();
     if (bal) {
       const current = bal as any;
+      const newBalanceCents = current.balance_cents + cents;
+      
       await supabase.from("balances").update({
-        balance_cents: current.balance_cents + cents,
-        total_deposited_cents: current.total_deposited_cents + cents,
+        balance_cents: newBalanceCents,
+        // Só adiciona ao total depositado se for positivo
+        total_deposited_cents: cents > 0 ? current.total_deposited_cents + cents : current.total_deposited_cents,
         updated_at: new Date().toISOString(),
       } as any).eq("user_id", userId);
+
       await supabase.from("transactions").insert({
-        user_id: userId, type: "deposit", amount_cents: cents,
-        description: "Bônus manual (Super Admin)", payment_method: "admin_credit", status: "confirmed",
+        user_id: userId, 
+        type: cents > 0 ? "deposit" : "withdrawal", 
+        amount_cents: Math.abs(cents),
+        description: cents > 0 ? "Bônus manual (Super Admin)" : "Remoção manual de crédito (Super Admin)", 
+        payment_method: "admin_adjustment", 
+        status: "confirmed",
       } as any);
-      toast.success(`R$ ${amtStr} doados com sucesso!`);
+
+      toast.success(`R$ ${Math.abs(amount).toFixed(2)} ${cents > 0 ? "adicionados" : "removidos"} com sucesso!`);
       fetchAll();
     }
   };
@@ -1166,6 +1197,18 @@ const SuperAdmin = () => {
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right text-xs">Nome</Label>
                     <Input id="name" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="col-span-3 h-8 text-sm" />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="balance" className="text-right text-xs">Saldo (R$)</Label>
+                    <Input 
+                      id="balance" 
+                      type="number" 
+                      step="0.01"
+                      value={newBalance} 
+                      onChange={(e) => setNewBalance(e.target.value)} 
+                      className="col-span-3 h-8 text-sm font-bold text-[hsl(var(--success))]" 
+                    />
                   </div>
                   
                   <div className="grid grid-cols-4 items-start gap-4">
