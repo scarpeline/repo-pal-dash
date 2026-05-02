@@ -6,6 +6,7 @@ import { InstallPWA } from "@/components/InstallPWA";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import GlobalCTA from "@/components/GlobalCTA";
+import SocialProofPopup from "@/components/SocialProofPopup";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import GitHubCallback from "./pages/GitHubCallback";
@@ -26,6 +27,7 @@ const App = () => (
       <Sonner />
       <InstallPWA />
       <GlobalCTA />
+      <SocialProofPopup />
       <BrowserRouter>
         <AuthProvider>
           <LanguageProvider>
