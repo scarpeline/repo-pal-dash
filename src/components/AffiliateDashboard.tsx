@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Link2, DollarSign, Users, Copy, Loader2, Shield, Save, Wallet, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { Link2, DollarSign, Users, Copy, Loader2, Shield, Save, Wallet, CheckCircle2, ChevronDown, ChevronUp, Zap } from "lucide-react";
 
 interface Commission {
   id: string;
