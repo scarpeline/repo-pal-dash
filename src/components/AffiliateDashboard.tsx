@@ -229,6 +229,59 @@ const AffiliateDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Seção Informativa de Comissões */}
+      <Card className="border-primary/20 bg-primary/5 overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-3 opacity-10">
+          <DollarSign className="w-16 h-16" />
+        </div>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
+            Regras do Programa de Afiliados
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                25% de Comissão Real
+              </h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Você recebe <span className="text-foreground font-bold">25% sobre o lucro total</span> gerado por cada recarga dos seus indicados. Diferente de outros programas, nossa comissão é calculada sobre o valor líquido que entra na plataforma.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-500" />
+                Regra de Aprovação
+              </h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Para desbloquear seu primeiro saque, você precisa de no mínimo <span className="text-foreground font-bold">3 indicados ativos</span> (que realizaram ao menos um depósito). Isso garante a integridade e sustentabilidade do nosso ecossistema.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-emerald-500" />
+                Saques e Pagamentos
+              </h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                O valor mínimo para saque é de <span className="text-foreground font-bold">R$ 5,00</span>. Os pagamentos são processados via PIX. Lembre-se que há uma taxa de transferência de R$ 5,00 cobrada pelo Asaas por transação.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500" />
+                Link Vitalício
+              </h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Uma vez que um usuário se cadastra com seu link, ele se torna seu indicado para sempre. Todas as futuras recargas dele gerarão comissões automáticas para você.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {profile?.affiliate_code && (
         <Card>
           <CardContent className="p-4 flex items-center justify-between gap-4">
