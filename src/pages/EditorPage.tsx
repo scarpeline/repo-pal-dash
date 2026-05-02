@@ -815,7 +815,7 @@ const EditorPage = () => {
                 </div>
                 <button onClick={() => setBottomOpen(false)} className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50"><X className="w-3.5 h-3.5" /></button>
               </div>
-              <div className="flex-1 overflow-hidden min-h-0">
+              <div className="flex-1 overflow-hidden min-h-0 bg-background/50 backdrop-blur-sm">
                 {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
                   <AIChat 
                     messages={chatMessages} 

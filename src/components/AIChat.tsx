@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto",                 label: "🧠 Auto inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente" },
+  { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente" },
   { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código" },
   { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar" },
   { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo" },
@@ -487,10 +487,10 @@ const AIChat = ({
         key={idx}
         className={`flex ${isUser ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}
       >
-        <div className={`max-w-[90%] rounded-lg px-4 py-3 shadow-sm ${
+        <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
           isUser 
-            ? "bg-primary text-primary-foreground" 
-            : "bg-card text-foreground border border-border"
+            ? "bg-primary text-primary-foreground rounded-tr-none" 
+            : "bg-muted/50 text-foreground border border-border/50 rounded-tl-none"
         }`}>
           {/* Header da mensagem */}
           <div className="flex items-center gap-2 mb-2">
@@ -694,8 +694,19 @@ const AIChat = ({
 
           <button
             type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isThinking || isReadingFiles}
+            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted rounded-full border border-border transition-colors disabled:opacity-50 text-[11px] font-medium"
+            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
+          >
+            {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+            <span>Anexar Arquivo</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-full border text-[11px] font-medium ${
               autoFix
                 ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40 hover:bg-emerald-500/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
@@ -708,27 +719,16 @@ const AIChat = ({
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1.5 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50 text-[11px]"
-            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
-          >
-            {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-            <span>Anexar / Print</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setShowModelSelect(true)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-full border text-[11px] font-medium ${
               selectedModel === "auto"
                 ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
             }`}
             title="Escolher modelo ou usar Auto-Inteligente"
           >
-            <Wand2 className="w-3.5 h-3.5" />
-            <span>{selectedModel === "auto" ? "Auto-Inteligente" : currentModel.label}</span>
+            <Bot className="w-3.5 h-3.5" />
+            <span>{selectedModel === "auto" ? "Modo Inteligente" : currentModel.label}</span>
           </button>
         </div>
 
@@ -757,7 +757,7 @@ const AIChat = ({
                   setSelectedModel("auto");
                   onProviderChange?.("auto");
                   setShowModelSelect(false);
-                  toast.success("🧠 Modo Auto-Inteligente ativado");
+                  toast.success("🧠 Modo Inteligente ativado");
                 }}
                 className={`w-full text-left p-3 rounded-lg border transition-all ${
                   selectedModel === "auto" 
@@ -768,7 +768,7 @@ const AIChat = ({
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-bold text-xs flex items-center gap-1.5">
                     <Wand2 className="w-3.5 h-3.5 text-primary" />
-                    Auto-Inteligente (Recomendado)
+                    Modo Inteligente (Recomendado)
                   </span>
                   {selectedModel === "auto" && <Check className="w-3.5 h-3.5 text-primary" />}
                 </div>
@@ -813,18 +813,18 @@ const AIChat = ({
             
             <div className="mt-4 p-2 bg-muted/30 rounded-md text-center">
               <p className="text-[9px] text-muted-foreground">
-                Dica: O modo Auto-Inteligente economiza créditos escolhendo IAs mais baratas para tarefas simples.
+                Dica: O modo Inteligente economiza créditos escolhendo IAs mais baratas para tarefas simples.
               </p>
             </div>
           </div>
         )}
 
         <p className="text-[10px] text-muted-foreground px-1">
-          📎 Anexe arquivos · 📋 Cole prints com Ctrl+V · 🧠 Auto-Inteligente escolhe o melhor modelo · 🪄 Auto-fix corrige bugs colaterais
+          📎 Anexe arquivos · 📋 Cole prints com Ctrl+V · 🧠 Modo Inteligente escolhe o melhor modelo · 🪄 Auto-fix corrige bugs colaterais
         </p>
 
-        {/* Campo de digitação expansível — texto explicitamente visível */}
-        <div className="flex items-end gap-2 bg-background border border-border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+        {/* Campo de digitação expansível — Estilo Lovable */}
+        <div className="flex items-end gap-2 bg-muted/30 border border-border/50 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 focus-within:bg-muted/50 transition-all">
           <textarea
             ref={inputRef}
             value={input}
@@ -833,7 +833,7 @@ const AIChat = ({
             rows={1}
             style={{ color: "hsl(var(--foreground))", caretColor: "hsl(var(--primary))" }}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none leading-relaxed max-h-[220px] overflow-y-auto selection:bg-primary/30"
-            placeholder={isThinking ? "Aguarde a resposta..." : "Digite o comando ou cole um print da tela... (Shift+Enter para nova linha)"}
+            placeholder={isThinking ? "Aguarde a resposta..." : "Como posso ajudar no seu projeto hoje?"}
             disabled={isThinking}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
