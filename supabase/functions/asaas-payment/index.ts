@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
       const results = [];
       for (const pkg of pkgs || []) {
         if (!pkg.asaas_plan_id) {
-          const localRef = `pkg_${pkg.id.slice(0, 8)}`;
+          const localRef = pkg.id.slice(0, 15);
           await supabase
             .from("packages")
             .update({ asaas_plan_id: localRef })

@@ -389,8 +389,8 @@ export default function WalletPage({ onBack }: { onBack?: () => void } = {}) {
         {/* Modal PIX inline */}
         {pixModal && (
           <Card className={`border-2 ${paid ? "border-green-500 bg-green-500/5" : "border-primary/40 bg-primary/5"} relative`}>
-            <button onClick={closeModal} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
-              <X className="w-4 h-4" />
+            <button onClick={closeModal} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground z-10">
+              <X className="w-5 h-5" />
             </button>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
