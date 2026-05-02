@@ -731,11 +731,14 @@ const SuperAdmin = () => {
     }
     setGateLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: emailNorm, password: gatePassword });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email: emailNorm, 
+        password: gatePassword.trim() 
+      });
       
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          toast.error("Senha incorreta para este email de admin.");
+        if (error.message.includes("Invalid login credentials") || error.message.includes("invalid claim")) {
+          toast.error("Email ou senha incorretos para acesso admin.");
         } else {
           toast.error("Erro ao entrar: " + error.message);
         }
@@ -857,7 +860,7 @@ const SuperAdmin = () => {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ password: adminPassword }),
+        body: JSON.stringify({ password: adminPassword.trim() }),
       });
       
       const data = await res.json().catch(() => ({}));
