@@ -901,6 +901,7 @@ const EditorPage = () => {
       
       {/* Mobile padding para safe area */}
       <div className="md:hidden h-[72px] safe-area-pb" />
+      </div>
     </div>
   );
 };
