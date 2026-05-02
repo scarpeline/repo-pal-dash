@@ -375,7 +375,7 @@ const EditorPage = () => {
 
       if (result.modifications.length === 0) {
         const usageInfo = result.usage
-          ? `\n\n${formatUsageText(result.usage.input_tokens, result.usage.output_tokens, result.usage.cost_cents)}`
+          ? `\n\n💰 Custo da ação: R$ ${(result.usage.cost_cents / 100).toFixed(4)}`
           : "";
         setChatMessages(p => [...p, {
           role: "ai",
@@ -393,7 +393,7 @@ const EditorPage = () => {
       addProgress("⚡ Aplicando alterações no GitHub...");
       const executionResult = await modifier.executeModifications(result.modifications);
       const usageInfo = result.usage
-        ? `\n\n${formatUsageText(result.usage.input_tokens, result.usage.output_tokens, result.usage.cost_cents)}`
+        ? `\n\n💰 Custo da ação: R$ ${(result.usage.cost_cents / 100).toFixed(4)}`
         : "";
 
       setChatMessages(p => [...p, {
@@ -548,9 +548,7 @@ const EditorPage = () => {
       const aiContent = data.content || "Sem resposta do modelo.";
       const provider = data.provider || providerBadge;
       const usageInfo = data.usage
-        ? `
-
-${formatUsageText(data.usage.input_tokens, data.usage.output_tokens, data.usage.cost_cents)}`
+        ? `\n\n💰 Custo da ação: R$ ${(data.usage.cost_cents / 100).toFixed(4)}`
         : "";
 
       // 🌊 Streamer visual: revela a resposta em chunks antes de consolidar
