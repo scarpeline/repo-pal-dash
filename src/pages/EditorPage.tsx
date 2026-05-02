@@ -835,9 +835,8 @@ const EditorPage = () => {
 
       {/* Main content wrapper */}
       <div className={`flex-1 flex overflow-hidden gap-2 ${bottomOpen ? 'md:ml-80' : ''}`}>
-            <div className="flex-1 flex overflow-hidden gap-2">
-              
-              {/* Editor Panel - Only visible if there are open tabs */}
+        <div className="flex-1 flex overflow-hidden gap-2">
+          {/* Editor Panel - Only visible if there are open tabs */}
               {openTabs.length > 0 && (
                 <div className={`flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden ${showPreview ? "hidden lg:flex w-1/2" : "flex-1"}`}>
                   <div className="h-10 bg-muted/30 border-b border-border flex items-center overflow-x-auto shrink-0 px-1">
