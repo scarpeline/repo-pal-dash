@@ -26,7 +26,6 @@ const App = () => (
       <Sonner />
       <InstallPWA />
       <GlobalCTA />
-      <SocialProofPopup />
       <BrowserRouter>
         <AuthProvider>
           <LanguageProvider>
