@@ -686,22 +686,40 @@ const SuperAdmin = () => {
     }
     const allowed = ADMIN_EMAILS.includes(emailNorm);
     if (!allowed) {
-      toast.error("Credenciais inválidas.");
+      toast.error("Este email não está na lista de Super Admins autorizados.");
       return;
     }
     setGateLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: emailNorm, password: gatePassword });
-    setGateLoading(false);
-    if (error) {
-      toast.error("Credenciais inválidas.");
-      return;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: emailNorm, password: gatePassword });
+      
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Senha incorreta para este email de admin.");
+        } else {
+          toast.error("Erro ao entrar: " + error.message);
+        }
+        return;
+      }
+
+      if (data.user) {
+        // Email autorizado + senha correta = acesso liberado direto, sem código/segunda senha
+        sessionStorage.setItem("superadmin_verified", "true");
+        setIsVerified(true);
+        setGateEmail("");
+        setGatePassword("");
+        toast.success("Acesso de Super Admin liberado.");
+        
+        // Pequeno delay para garantir que o AuthContext atualizou o 'user'
+        setTimeout(() => {
+          fetchAll();
+        }, 500);
+      }
+    } catch (err: any) {
+      toast.error("Erro inesperado: " + err.message);
+    } finally {
+      setGateLoading(false);
     }
-    // Email autorizado + senha correta = acesso liberado direto, sem código/segunda senha
-    sessionStorage.setItem("superadmin_verified", "true");
-    setIsVerified(true);
-    setGateEmail("");
-    setGatePassword("");
-    toast.success("Acesso de Super Admin liberado.");
   };
 
   // Generate and send verification code
@@ -783,10 +801,17 @@ const SuperAdmin = () => {
 
   // Verifica a senha do Super Admin via Edge Function (segredo fica só no backend)
   const verifyWithPassword = async () => {
-    if (!adminPassword) return;
+    if (!adminPassword) {
+      toast.error("Digite a senha do Super Admin.");
+      return;
+    }
+    
+    setGateLoading(true);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/superadmin-verify`, {
         method: "POST",
         headers: {
@@ -795,17 +820,23 @@ const SuperAdmin = () => {
         },
         body: JSON.stringify({ password: adminPassword }),
       });
+      
       const data = await res.json().catch(() => ({}));
+      
       if (res.ok && data?.ok) {
         setIsVerified(true);
         sessionStorage.setItem("superadmin_verified", "true");
         setAdminPassword("");
-        toast.success("Acesso liberado.");
+        toast.success("Acesso de Super Admin verificado!");
       } else {
-        toast.error("Senha incorreta.");
+        const errMsg = data?.error || "Senha incorreta.";
+        toast.error(errMsg);
       }
-    } catch {
-      toast.error("Falha ao verificar. Tente novamente.");
+    } catch (err: any) {
+      console.error("Verification error:", err);
+      toast.error("Falha na comunicação com o servidor. Verifique sua conexão.");
+    } finally {
+      setGateLoading(false);
     }
   };
   
