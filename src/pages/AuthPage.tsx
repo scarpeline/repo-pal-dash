@@ -23,13 +23,15 @@ const Auth = () => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        toast.success("Login realizado!");
+      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session) {
+        toast.success("Acesso autorizado!");
         navigate("/", { replace: true });
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,7 +98,7 @@ const Auth = () => {
       }
 
       // Tokens received and session set
-      toast.success("Login realizado!");
+      toast.success("Acesso autorizado com Google!");
       navigate("/", { replace: true });
     } catch (err: any) {
       toast.error(err.message || "Erro ao conectar com Google");
