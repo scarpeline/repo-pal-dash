@@ -1198,6 +1198,18 @@ const SuperAdmin = () => {
                     <Label htmlFor="name" className="text-right text-xs">Nome</Label>
                     <Input id="name" value={newFullName} onChange={(e) => setNewFullName(e.target.value)} className="col-span-3 h-8 text-sm" />
                   </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="balance" className="text-right text-xs">Saldo (R$)</Label>
+                    <Input 
+                      id="balance" 
+                      type="number" 
+                      step="0.01"
+                      value={newBalance} 
+                      onChange={(e) => setNewBalance(e.target.value)} 
+                      className="col-span-3 h-8 text-sm font-bold text-[hsl(var(--success))]" 
+                    />
+                  </div>
                   
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="text-right text-xs pt-1">Funções</Label>
