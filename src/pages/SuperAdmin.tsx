@@ -368,24 +368,34 @@ const SuperAdmin = () => {
   };
 
   const quickDonate = async (userId: string) => {
-    const amtStr = prompt("Quantos Reais (R$) adicionar ao saldo deste usuário?");
+    const amtStr = prompt("Quantos Reais (R$) ADICIONAR ou REMOVER (use sinal de -) do saldo deste usuário?");
     if (!amtStr) return;
-    const cents = Math.round(parseFloat(amtStr) * 100);
-    if (isNaN(cents) || cents <= 0) return toast.error("Valor inválido");
+    const amount = parseFloat(amtStr.replace(",", "."));
+    const cents = Math.round(amount * 100);
+    if (isNaN(cents) || cents === 0) return toast.error("Valor inválido");
     
     const { data: bal } = await supabase.from("balances").select("balance_cents, total_deposited_cents").eq("user_id", userId).single();
     if (bal) {
       const current = bal as any;
+      const newBalanceCents = current.balance_cents + cents;
+      
       await supabase.from("balances").update({
-        balance_cents: current.balance_cents + cents,
-        total_deposited_cents: current.total_deposited_cents + cents,
+        balance_cents: newBalanceCents,
+        // Só adiciona ao total depositado se for positivo
+        total_deposited_cents: cents > 0 ? current.total_deposited_cents + cents : current.total_deposited_cents,
         updated_at: new Date().toISOString(),
       } as any).eq("user_id", userId);
+
       await supabase.from("transactions").insert({
-        user_id: userId, type: "deposit", amount_cents: cents,
-        description: "Bônus manual (Super Admin)", payment_method: "admin_credit", status: "confirmed",
+        user_id: userId, 
+        type: cents > 0 ? "deposit" : "withdrawal", 
+        amount_cents: Math.abs(cents),
+        description: cents > 0 ? "Bônus manual (Super Admin)" : "Remoção manual de crédito (Super Admin)", 
+        payment_method: "admin_adjustment", 
+        status: "confirmed",
       } as any);
-      toast.success(`R$ ${amtStr} doados com sucesso!`);
+
+      toast.success(`R$ ${Math.abs(amount).toFixed(2)} ${cents > 0 ? "adicionados" : "removidos"} com sucesso!`);
       fetchAll();
     }
   };
