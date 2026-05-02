@@ -626,7 +626,7 @@ const AIChat = ({
         )}
 
         {/* Barra de controles ACIMA do campo de digitação */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar">
           <input
             ref={fileInputRef}
             type="file"
@@ -639,7 +639,7 @@ const AIChat = ({
           <button
             type="button"
             onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-md border text-xs font-medium ${
+            className={`shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 rounded-md border text-[11px] font-medium ${
               autoFix
                 ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40 hover:bg-emerald-500/25"
                 : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
@@ -654,21 +654,21 @@ const AIChat = ({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50"
+            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-2 py-1.5 hover:bg-muted rounded-md border border-border transition-colors disabled:opacity-50 text-[11px]"
             title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
           >
-            {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
-            <span className="text-xs">Anexar</span>
+            {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+            <span>Anexar</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowModelSelect(!showModelSelect)}
-            className="ml-auto text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1 hover:bg-muted rounded-md border border-border"
+            className="shrink-0 flex items-center gap-1.5 transition-colors px-2 py-1.5 hover:bg-muted rounded-md border border-border text-muted-foreground hover:text-foreground text-[11px]"
             title={`Modelo: ${currentModel.label}`}
           >
-            <Settings2 className="w-4 h-4" />
-            <span className="text-xs max-w-[140px] truncate">
+            <Settings2 className="w-3.5 h-3.5" />
+            <span className="max-w-[120px] truncate">
               {currentModel.label}
             </span>
           </button>
