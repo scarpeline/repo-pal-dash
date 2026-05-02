@@ -800,11 +800,11 @@ const EditorPage = () => {
         )}
 
         {/* Main content wrapper with flex-row for vertical Chat */}
-        <div className="flex-1 flex overflow-hidden gap-2">
+        <div className="flex-1 flex overflow-hidden gap-2 relative">
           
           {/* Vertical Panel: Chat & Terminal */}
           {bottomOpen && (
-            <div className="absolute inset-0 z-30 md:relative md:inset-auto md:z-0 w-full md:w-80 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right duration-300">
+            <div className="absolute inset-y-0 left-0 z-30 md:z-40 w-full md:w-80 bg-card border border-border rounded-xl shadow-sm flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-left duration-300">
               <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
                 <div className="flex items-center gap-1">
                   {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
@@ -833,7 +833,7 @@ const EditorPage = () => {
           )}
 
           {/* Editor & Preview Area */}
-          <div className="flex-1 flex flex-col overflow-hidden gap-2">
+          <div className={`flex-1 flex flex-col overflow-hidden gap-2 ${bottomOpen ? 'md:pl-80' : ''}`}>
             <div className="flex-1 flex overflow-hidden gap-2">
               
               {/* Editor Panel - Only visible if there are open tabs */}
