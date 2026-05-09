@@ -11,19 +11,19 @@ import { toast } from "sonner";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente" },
-  { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código" },
-  { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar" },
-  { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo" },
-  { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners" },
-  { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos" },
-  { id: "claude-haiku",         label: "Claude 3.5 Haiku",          desc: "Anthropic · rápido para revisão e chat" },
-  { id: "claude-sonnet",        label: "Claude 3.5 Sonnet",         desc: "Anthropic · edição avançada de app e código" },
-  { id: "claude-opus",          label: "Claude 3 Opus",             desc: "Anthropic · raciocínio profundo e tarefas difíceis" },
-  { id: "kimi",                 label: "Kimi K1.5 Pro",             desc: "Moonshot · contexto longo e análise" },
-  { id: "deepseek",             label: "DeepSeek Coder",            desc: "DeepSeek · programação, debug e refatoração" },
-  { id: "openai-4o",            label: "GPT-4o",                    desc: "OpenAI · raciocínio avançado e visão" },
-  { id: "openai-4o-mini",       label: "GPT-4o Mini",               desc: "OpenAI · inteligência rápida e econômica" },
+  { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente", speed: "Rápido", quality: "Adaptativo", cost: "Otimizado", category: "Recomendado" },
+  { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código", speed: "Instantâneo", quality: "Alta", cost: "Baixo", category: "Programação" },
+  { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar", speed: "Rápido", quality: "Alta", cost: "Baixo", category: "Programação" },
+  { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo", speed: "Médio", quality: "Extrema", cost: "Médio", category: "Arquitetura" },
+  { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners", speed: "Rápido", quality: "Alta", cost: "Médio", category: "Multimodal" },
+  { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos", speed: "Lento", quality: "Alta", cost: "Alto", category: "Multimodal" },
+  { id: "claude-haiku",         label: "Claude 3.5 Haiku",          desc: "Anthropic · rápido para revisão e chat", speed: "Instantâneo", quality: "Média", cost: "Muito Baixo", category: "Chat" },
+  { id: "claude-sonnet",        label: "Claude 3.5 Sonnet",         desc: "Anthropic · edição avançada de app e código", speed: "Rápido", quality: "Extrema", cost: "Médio", category: "Programação" },
+  { id: "claude-opus",          label: "Claude 3 Opus",             desc: "Anthropic · raciocínio profundo e tarefas difíceis", speed: "Lento", quality: "Extrema", cost: "Alto", category: "Raciocínio" },
+  { id: "kimi",                 label: "Kimi K1.5 Pro",             desc: "Moonshot · contexto longo e análise", speed: "Médio", quality: "Alta", cost: "Baixo", category: "Análise" },
+  { id: "deepseek",             label: "DeepSeek Coder",            desc: "DeepSeek · programação, debug e refatoração", speed: "Rápido", quality: "Alta", cost: "Muito Baixo", category: "Programação" },
+  { id: "openai-4o",            label: "GPT-4o",                    desc: "OpenAI · raciocínio avançado e visão", speed: "Médio", quality: "Extrema", cost: "Médio", category: "Multimodal" },
+  { id: "openai-4o-mini",       label: "GPT-4o Mini",               desc: "OpenAI · inteligência rápida e econômica", speed: "Instantâneo", quality: "Média", cost: "Muito Baixo", category: "Chat" },
 ];
 
 const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
@@ -586,12 +586,180 @@ const AIChat = ({
         <div ref={bottomRef} />
       </div>
 
-
-
       {/* Input area */}
       <form onSubmit={handleSubmit} className="relative border-t border-border bg-card p-3 space-y-2 shrink-0">
+        {/* Barra de controles ACIMA do campo de digitação - Minimalista */}
+        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2 mb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isThinking || isReadingFiles}
+              className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-md transition-all disabled:opacity-50"
+              title="Anexar arquivo"
+            >
+              {isReadingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            </button>
+
+            <div className="h-4 w-[1px] bg-border/50 mx-1" />
+
+            <button
+              type="button"
+              onClick={() => setAutoFix((v) => !v)}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium transition-all border ${
+                autoFix
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : "text-muted-foreground border-transparent hover:bg-muted"
+              }`}
+            >
+              <Check className="w-3 h-3" />
+              Auto-fix
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowModelSelect(true)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium transition-all border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <Brain className="w-3 h-3 text-primary" />
+              <span>{selectedModel === "auto" ? "Modo Inteligente" : currentModel.label}</span>
+              <ChevronDown className="w-3 h-3 opacity-50" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-primary"
+              onClick={() => setInput("Refatore este código...")}
+              title="Refatorar"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-emerald-500"
+              onClick={() => setInput("Corrija os bugs...")}
+              title="Fix Bugs"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Overlay de Seleção de IA - Expandido até o topo */}
+        {showModelSelect && (
+          <div className="absolute left-0 right-0 bottom-full z-[100] bg-background/98 backdrop-blur-md p-4 flex flex-col animate-in slide-in-from-bottom-full duration-300 border-t border-x border-border rounded-t-2xl shadow-2xl" style={{ height: 'calc(100vh - 200px)', maxHeight: '600px' }}>
+            <div className="flex items-center justify-between mb-6 pb-2 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Brain className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Modelos de IA</h3>
+                  <p className="text-[10px] text-muted-foreground">Escolha o cérebro do seu projeto</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowModelSelect(false)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-muted rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+              {/* Opção Auto-Inteligente Premium */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedModel("auto");
+                  onProviderChange?.("auto");
+                  setShowModelSelect(false);
+                  toast.success("🧠 Modo Inteligente ativado");
+                }}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all group ${
+                  selectedModel === "auto" 
+                    ? "bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.15)]" 
+                    : "bg-card border-border/50 hover:border-primary/40 hover:bg-primary/5"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Wand2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-sm block">Modo Inteligente</span>
+                      <span className="text-[10px] text-primary font-medium px-2 py-0.5 bg-primary/10 rounded-full">Recomendado</span>
+                    </div>
+                  </div>
+                  {selectedModel === "auto" && <Check className="w-5 h-5 text-primary" />}
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed pl-[52px]">
+                  Roteamento inteligente que escolhe a melhor IA baseado na complexidade da sua tarefa.
+                </p>
+              </button>
+
+              <div className="flex items-center gap-3 py-4">
+                <div className="h-[1px] flex-1 bg-border/50" />
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Modelos Profissionais</span>
+                <div className="h-[1px] flex-1 bg-border/50" />
+              </div>
+
+              {/* Grid de Cards Modernos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {visibleModels.filter(m => m.id !== 'auto').map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedModel(opt.id);
+                      onProviderChange?.(opt.id);
+                      setShowModelSelect(false);
+                      toast.success(`Modelo ${opt.label} selecionado`);
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border transition-all hover:shadow-md ${
+                      selectedModel === opt.id 
+                        ? "bg-primary/5 border-primary ring-1 ring-primary/20" 
+                        : "bg-card/50 border-border/60 hover:border-primary/30 hover:bg-muted/30"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-xs group-hover:text-primary transition-colors">{opt.label}</span>
+                        <span className="text-[9px] text-muted-foreground mt-0.5">{opt.category}</span>
+                      </div>
+                      {selectedModel === opt.id && <Check className="w-4 h-4 text-primary" />}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed mb-3 line-clamp-2">
+                      {opt.desc}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-auto">
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-muted rounded border border-border/50 text-muted-foreground uppercase tracking-tighter">Velocidade: {opt.speed}</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-muted rounded border border-border/50 text-muted-foreground uppercase tracking-tighter">Qualidade: {opt.quality}</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 bg-muted rounded border border-border/50 text-muted-foreground uppercase tracking-tighter">Custo: {opt.cost}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-xl text-center">
+              <p className="text-[10px] text-muted-foreground italic">
+                A IAProgramador utiliza os modelos mais avançados do mercado para garantir a qualidade do seu código.
+              </p>
+            </div>
+          </div>
+        )}
+
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-2">
             {attachments.map((attachment) => {
               const Icon = getAttachmentIcon(attachment.kind);
               return (
@@ -607,224 +775,8 @@ const AIChat = ({
           </div>
         )}
 
-        {/* Botões de Ações Rápidas ACIMA da barra de controles */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar mask-fade-right">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary shrink-0"
-            onClick={() => {
-              const msg = "Analise este código e sugira refatorações para torná-lo mais limpo, performático e seguindo as melhores práticas.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <RefreshCw className="w-3 h-3" />
-            Refatorar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 shrink-0"
-            onClick={() => {
-              const msg = "Encontre e corrija possíveis bugs, erros de lógica ou vulnerabilidades de segurança no código abaixo.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Wand2 className="w-3 h-3" />
-            Fix Bugs
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-500 shrink-0"
-            onClick={() => {
-              const msg = "Explique detalhadamente como este código funciona, o que cada parte faz e qual o objetivo principal.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Code2 className="w-3 h-3" />
-            Explicar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-500 shrink-0"
-            onClick={() => {
-              const msg = "Adicione comentários JSDoc/TSDoc e documentação clara para este código, explicando parâmetros e retornos.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <FileText className="w-3 h-3" />
-            Documentar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2.5 py-0 text-[10px] gap-1.5 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 shrink-0"
-            onClick={() => {
-              const msg = "Crie testes unitários abrangentes para este código usando Vitest ou Jest, cobrindo casos de sucesso e erro.";
-              setInput(msg);
-              inputRef.current?.focus();
-            }}
-          >
-            <Check className="w-3 h-3" />
-            Gerar Testes
-          </Button>
-        </div>
-
-        {/* Barra de controles ACIMA do campo de digitação */}
-        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar py-1">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*,video/*,.txt,.md,.json,.csv,.xml,.yaml,.yml,.toml,.js,.jsx,.ts,.tsx,.css,.scss,.html,.py,.php,.java,.go,.rs,.rb,.sh,.env,.log,.pdf,.doc,.docx"
-            className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
-          />
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isThinking || isReadingFiles}
-            className="text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted rounded-full border border-border transition-colors disabled:opacity-50 text-[11px] font-medium"
-            title="Anexar imagem, vídeo ou arquivo (Ctrl+V cola print)"
-          >
-            {isReadingFiles ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-            <span>Anexar Arquivo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAutoFix((v) => !v)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-full border text-[11px] font-medium ${
-              autoFix
-                ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40 hover:bg-emerald-500/25"
-                : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
-            }`}
-            title={autoFix ? "Auto-fix ativado: corrige bugs colaterais automaticamente" : "Auto-fix desativado"}
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>Auto-fix {autoFix ? "ON" : "OFF"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowModelSelect(true)}
-            className={`shrink-0 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-full border text-[11px] font-medium ${
-              selectedModel === "auto"
-                ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/25"
-                : "text-muted-foreground hover:text-foreground border-border hover:bg-muted"
-            }`}
-            title="Escolher modelo ou usar Auto-Inteligente"
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span>{selectedModel === "auto" ? "Modo Inteligente" : currentModel.label}</span>
-          </button>
-        </div>
-
-        {/* Overlay de Seleção de IA - Sobrepõe tudo */}
-        {showModelSelect && (
-          <div className="absolute inset-0 z-[100] bg-background/95 backdrop-blur-sm p-4 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Brain className="w-4 h-4 text-primary" />
-                Selecione a Inteligência Artificial
-              </h3>
-              <button 
-                type="button"
-                onClick={() => setShowModelSelect(false)}
-                className="p-1 hover:bg-muted rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-muted-foreground" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-              {/* Opção Auto-Inteligente em Destaque */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedModel("auto");
-                  onProviderChange?.("auto");
-                  setShowModelSelect(false);
-                  toast.success("🧠 Modo Inteligente ativado");
-                }}
-                className={`w-full text-left p-3 rounded-lg border transition-all ${
-                  selectedModel === "auto" 
-                    ? "bg-primary/10 border-primary shadow-sm" 
-                    : "bg-card border-border hover:border-primary/50 hover:bg-muted/50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-xs flex items-center gap-1.5">
-                    <Wand2 className="w-3.5 h-3.5 text-primary" />
-                    Modo Inteligente (Recomendado)
-                  </span>
-                  {selectedModel === "auto" && <Check className="w-3.5 h-3.5 text-primary" />}
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  O sistema escolhe automaticamente a melhor IA para cada tarefa baseado em custo e complexidade.
-                </p>
-              </button>
-
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pt-2 pb-1">
-                Modelos Disponíveis
-              </div>
-
-              {/* Lista de todas as IAs */}
-              <div className="grid grid-cols-1 gap-2">
-                {visibleModels.filter(m => m.id !== 'auto').map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedModel(opt.id);
-                      onProviderChange?.(opt.id);
-                      setShowModelSelect(false);
-                      toast.success(`Modelo ${opt.label} selecionado`);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg border transition-all ${
-                      selectedModel === opt.id 
-                        ? "bg-primary/5 border-primary" 
-                        : "bg-card/50 border-border hover:border-primary/30"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-medium text-[11px]">{opt.label}</span>
-                      {selectedModel === opt.id && <Check className="w-3 h-3 text-primary" />}
-                    </div>
-                    <p className="text-[9px] text-muted-foreground leading-tight line-clamp-2">
-                      {opt.desc}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="mt-4 p-2 bg-muted/30 rounded-md text-center">
-              <p className="text-[9px] text-muted-foreground">
-                Dica: O modo Inteligente economiza créditos escolhendo IAs mais baratas para tarefas simples.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <p className="text-[10px] text-muted-foreground px-1">
-          📎 Anexe arquivos · 📋 Cole prints com Ctrl+V · 🧠 Modo Inteligente escolhe o melhor modelo · 🪄 Auto-fix corrige bugs colaterais
-        </p>
-
-        {/* Campo de digitação expansível — Estilo Lovable */}
-        <div className="flex items-end gap-2 bg-muted/30 border border-border/50 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 focus-within:bg-muted/50 transition-all">
+        {/* Campo de digitação elegante e compacto */}
+        <div className="flex items-end gap-2 bg-muted/20 border border-border/40 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/10 focus-within:border-primary/20 transition-all shadow-inner">
           <textarea
             ref={inputRef}
             value={input}
@@ -832,8 +784,8 @@ const AIChat = ({
             onPaste={handlePaste}
             rows={1}
             style={{ color: "hsl(var(--foreground))", caretColor: "hsl(var(--primary))" }}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none leading-relaxed max-h-[220px] overflow-y-auto selection:bg-primary/30"
-            placeholder={isThinking ? "Aguarde a resposta..." : "Como posso ajudar no seu projeto hoje?"}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none leading-relaxed max-h-[180px] overflow-y-auto"
+            placeholder={isThinking ? "Processando..." : "Pergunte algo ou peça uma alteração..."}
             disabled={isThinking}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -847,12 +799,12 @@ const AIChat = ({
             type="submit"
             disabled={isThinking || isReadingFiles || (!input.trim() && attachments.length === 0)}
             size="sm"
-            className="shrink-0 h-9 w-9 p-0 rounded-lg"
+            className="shrink-0 h-8 w-8 p-0 rounded-lg shadow-sm transition-transform active:scale-95"
           >
             {isThinking ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5" />
             )}
           </Button>
         </div>

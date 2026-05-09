@@ -800,14 +800,14 @@ const EditorPage = () => {
           </div>
         )}
 
-        {/* Vertical Panel: Chat & Terminal - Posicionado entre sidebar e conteúdo principal */}
+        {/* Vertical Panel: Chat & Terminal - Design Minimalista */}
         {bottomOpen && (
-          <div className="flex flex-col w-full md:w-80 bg-card border border-border rounded-xl shadow-2xl shrink-0 overflow-hidden z-30">
-            <div className="h-10 bg-muted/30 border-b border-border flex items-center justify-between px-3 shrink-0">
+          <div className="flex flex-col w-full md:w-[380px] bg-slate-950 border border-border/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden z-30 transition-all duration-300">
+            <div className="h-9 bg-slate-900/50 border-b border-border/40 flex items-center justify-between px-3 shrink-0">
               <div className="flex items-center gap-1">
                 {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
-                  <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${bottomTab === tab.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
-                    <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+                  <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${bottomTab === tab.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                    <tab.icon className="w-3 h-3" /> {tab.label}
                   </button>
                 ))}
               </div>
