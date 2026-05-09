@@ -134,17 +134,22 @@ const GitHubConnect = ({ isConnected, user, onDisconnect, onCloneUrl, onConnecte
   return (
     <div className="p-2 space-y-2">
       <div className="flex items-center justify-between px-1">
-        <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="flex items-center gap-2 hover:bg-muted/50 p-1 rounded transition-colors"
-        >
+        <div className="flex items-center gap-2">
           {user?.avatar_url && <img src={user.avatar_url} className="w-5 h-5 rounded-full border border-primary/30" alt="" />}
           <span className="text-[11px] font-bold text-foreground">@{user?.login}</span>
-          {isCollapsed ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronUp className="w-3 h-3 text-muted-foreground" />}
-        </button>
-        <button onClick={onDisconnect} className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-destructive/10 transition-colors" title="Desconectar">
-          <LogOut className="w-3.5 h-3.5" />
-        </button>
+        </div>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50 transition-colors"
+            title={isCollapsed ? "Expandir" : "Recolher"}
+          >
+            {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={onDisconnect} className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-destructive/10 transition-colors" title="Desconectar">
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       
       {!isCollapsed && onCloneUrl && (
