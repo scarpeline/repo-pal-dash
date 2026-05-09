@@ -758,6 +758,23 @@ const AIChat = ({
           </div>
         )}
 
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {attachments.map((attachment) => {
+              const Icon = getAttachmentIcon(attachment.kind);
+              return (
+                <div key={attachment.id} className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2 py-1 text-xs text-foreground">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                  <span className="max-w-[120px] truncate">{attachment.name}</span>
+                  <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded text-muted-foreground hover:text-foreground" aria-label={`Remover ${attachment.name}`}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Campo de digitação elegante e compacto */}
         <div className="flex items-end gap-2 bg-muted/20 border border-border/40 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-primary/10 focus-within:border-primary/20 transition-all shadow-inner">
           <textarea
