@@ -801,18 +801,29 @@ const EditorPage = () => {
         )}
 
         {/* Vertical Panel: Chat & Terminal - Design Minimalista */}
-        {bottomOpen && (
-          <div className="flex flex-col w-full md:w-[380px] bg-slate-950 border border-border/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden z-30 transition-all duration-300">
-            <div className="h-9 bg-slate-900/50 border-b border-border/40 flex items-center justify-between px-3 shrink-0">
-              <div className="flex items-center gap-1">
-                {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
-                  <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${bottomTab === tab.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                    <tab.icon className="w-3 h-3" /> {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden min-h-0 bg-slate-950/40 backdrop-blur-md">
+        <div className={`flex flex-col bg-slate-950 border border-border/60 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden z-30 transition-all duration-300 ${bottomOpen ? "w-full md:w-[380px]" : "w-10"}`}>
+          <div className="h-9 bg-slate-900/50 border-b border-border/40 flex items-center justify-between px-1 shrink-0">
+            {bottomOpen ? (
+              <>
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {([{ id: "chat" as const, icon: MessageSquare, label: "Chat IA" }, { id: "terminal" as const, icon: Terminal, label: "Terminal" }]).map(tab => (
+                    <button key={tab.id} onClick={() => setBottomTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${bottomTab === tab.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                      <tab.icon className="w-3 h-3" /> <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setBottomOpen(false)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/20 rounded-md transition-colors" title="Recolher">
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setBottomOpen(true)} className="w-full h-full flex items-center justify-center text-muted-foreground hover:text-primary transition-colors" title="Abrir Chat">
+                <PanelLeftOpen className="w-4 h-4 rotate-180" />
+              </button>
+            )}
+          </div>
+          {bottomOpen && (
+            <div className="flex-1 overflow-hidden min-h-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300">
               {bottomTab === "terminal" ? <TerminalPanel messages={termMessages} onCommand={handleTermCommand} /> : (
                 <AIChat 
                   messages={chatMessages} 
@@ -826,8 +837,8 @@ const EditorPage = () => {
                 />
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden gap-2">
