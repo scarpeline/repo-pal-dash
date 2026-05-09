@@ -17,6 +17,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
   const [searchParams] = useSearchParams();
 
   const refCode = searchParams.get("ref");
@@ -104,6 +105,29 @@ const Auth = () => {
     } catch (err: any) {
       toast.error(err.message || "Erro ao conectar com Google");
       setGoogleLoading(false);
+    }
+  };
+
+  const handleGithubLogin = async () => {
+    setGithubLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("github", {
+        redirect_uri: `${window.location.origin}/`,
+      });
+
+      if (result.error) {
+        throw result.error instanceof Error ? result.error : new Error(String(result.error));
+      }
+
+      if (result.redirected) {
+        return;
+      }
+
+      toast.success("Acesso autorizado com GitHub!");
+      navigate("/", { replace: true });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao conectar com GitHub");
+      setGithubLoading(false);
     }
   };
 
@@ -204,9 +228,14 @@ const Auth = () => {
                 <Button
                   variant="outline"
                   className="flex-1 h-12 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white gap-3 rounded-xl transition-all"
-                  onClick={() => navigate("/?gh_connected=1")}
+                  onClick={handleGithubLogin}
+                  disabled={githubLoading}
                 >
-                  <Github className="w-5 h-5" />
+                  {githubLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Github className="w-5 h-5" />
+                  )}
                   <span className="font-semibold text-sm">GitHub</span>
                 </Button>
 
