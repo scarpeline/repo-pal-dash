@@ -586,8 +586,8 @@ const AIChat = ({
         <div ref={bottomRef} />
       </div>
 
-
-
+      {/* Input area */}
+      <form onSubmit={handleSubmit} className="relative border-t border-border bg-card p-3 space-y-2 shrink-0">
         {/* Barra de controles ACIMA do campo de digitação - Minimalista */}
         <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2 mb-1">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
