@@ -111,20 +111,14 @@ const Auth = () => {
   const handleGithubLogin = async () => {
     setGithubLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("github", {
-        redirect_uri: `${window.location.origin}/`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
       });
 
-      if (result.error) {
-        throw result.error instanceof Error ? result.error : new Error(String(result.error));
-      }
-
-      if (result.redirected) {
-        return;
-      }
-
-      toast.success("Acesso autorizado com GitHub!");
-      navigate("/", { replace: true });
+      if (error) throw error;
     } catch (err: any) {
       toast.error(err.message || "Erro ao conectar com GitHub");
       setGithubLoading(false);
