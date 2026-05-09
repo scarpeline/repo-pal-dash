@@ -11,19 +11,19 @@ import { toast } from "sonner";
 
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
-  { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente" },
-  { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código" },
-  { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar" },
-  { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo" },
-  { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners" },
-  { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos" },
-  { id: "claude-haiku",         label: "Claude 3.5 Haiku",          desc: "Anthropic · rápido para revisão e chat" },
-  { id: "claude-sonnet",        label: "Claude 3.5 Sonnet",         desc: "Anthropic · edição avançada de app e código" },
-  { id: "claude-opus",          label: "Claude 3 Opus",             desc: "Anthropic · raciocínio profundo e tarefas difíceis" },
-  { id: "kimi",                 label: "Kimi K1.5 Pro",             desc: "Moonshot · contexto longo e análise" },
-  { id: "deepseek",             label: "DeepSeek Coder",            desc: "DeepSeek · programação, debug e refatoração" },
-  { id: "openai-4o",            label: "GPT-4o",                    desc: "OpenAI · raciocínio avançado e visão" },
-  { id: "openai-4o-mini",       label: "GPT-4o Mini",               desc: "OpenAI · inteligência rápida e econômica" },
+  { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente", speed: "Rápido", quality: "Adaptativo", cost: "Otimizado", category: "Recomendado" },
+  { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código", speed: "Instantâneo", quality: "Alta", cost: "Baixo", category: "Programação" },
+  { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar", speed: "Rápido", quality: "Alta", cost: "Baixo", category: "Programação" },
+  { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo", speed: "Médio", quality: "Extrema", cost: "Médio", category: "Arquitetura" },
+  { id: "google-image",         label: "Gemini Imagem",             desc: "Google · criar imagens, logos e banners", speed: "Rápido", quality: "Alta", cost: "Médio", category: "Multimodal" },
+  { id: "google-video",         label: "Gemini Vídeo",              desc: "Google · planejar e criar vídeos para projetos", speed: "Lento", quality: "Alta", cost: "Alto", category: "Multimodal" },
+  { id: "claude-haiku",         label: "Claude 3.5 Haiku",          desc: "Anthropic · rápido para revisão e chat", speed: "Instantâneo", quality: "Média", cost: "Muito Baixo", category: "Chat" },
+  { id: "claude-sonnet",        label: "Claude 3.5 Sonnet",         desc: "Anthropic · edição avançada de app e código", speed: "Rápido", quality: "Extrema", cost: "Médio", category: "Programação" },
+  { id: "claude-opus",          label: "Claude 3 Opus",             desc: "Anthropic · raciocínio profundo e tarefas difíceis", speed: "Lento", quality: "Extrema", cost: "Alto", category: "Raciocínio" },
+  { id: "kimi",                 label: "Kimi K1.5 Pro",             desc: "Moonshot · contexto longo e análise", speed: "Médio", quality: "Alta", cost: "Baixo", category: "Análise" },
+  { id: "deepseek",             label: "DeepSeek Coder",            desc: "DeepSeek · programação, debug e refatoração", speed: "Rápido", quality: "Alta", cost: "Muito Baixo", category: "Programação" },
+  { id: "openai-4o",            label: "GPT-4o",                    desc: "OpenAI · raciocínio avançado e visão", speed: "Médio", quality: "Extrema", cost: "Médio", category: "Multimodal" },
+  { id: "openai-4o-mini",       label: "GPT-4o Mini",               desc: "OpenAI · inteligência rápida e econômica", speed: "Instantâneo", quality: "Média", cost: "Muito Baixo", category: "Chat" },
 ];
 
 const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
