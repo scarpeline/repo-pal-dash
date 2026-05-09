@@ -13,6 +13,7 @@ const RepoBrowser = ({ token, onSelectRepo, onBack }: RepoBrowserProps) => {
   const [repos, setRepos] = useState<GHRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     getRepos(token).then((r) => { setRepos(r); setLoading(false); }).catch(() => setLoading(false));
