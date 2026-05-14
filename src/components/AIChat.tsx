@@ -3,7 +3,7 @@ import {
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
   Code2, Bot, User, Copy, Check, Paperclip, X,
   FileImage, FileVideo, FileText, File as FileIcon, Wand2,
-  Wallet, RefreshCw, Brain
+  Wallet, RefreshCw, Brain, Shield, Cpu, Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
   { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente", speed: "Rápido", quality: "Adaptativo", cost: "Otimizado", category: "Recomendado" },
+  { id: "autonomous-expert",    label: "Agente Autônomo",         desc: "Especialista em Cibersegurança e Engenharia Reversa", speed: "Rápido", quality: "Especialista", cost: "Premium", category: "Autônomo" },
   { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código", speed: "Instantâneo", quality: "Alta", cost: "Baixo", category: "Programação" },
   { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar", speed: "Rápido", quality: "Alta", cost: "Baixo", category: "Programação" },
   { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo", speed: "Médio", quality: "Extrema", cost: "Médio", category: "Arquitetura" },
@@ -28,6 +29,7 @@ const AI_MODELS = [
 
 const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
   "google-code-fast": "google/gemini-2.0-flash",
+  "autonomous-expert": "google/gemini-1.5-pro",
   "google-code-balanced": "google/gemini-2.0-flash",
   "google-code-pro": "google/gemini-1.5-pro",
   "google-image": "google/gemini-2.0-flash",
@@ -675,6 +677,37 @@ const AIChat = ({
 
             <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
               {/* Opção Auto-Inteligente Premium */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedModel("autonomous-expert");
+                  onProviderChange?.("autonomous-expert");
+                  setShowModelSelect(false);
+                  toast.success("Módulo Autônomo de Engenharia & Segurança Ativado");
+                }}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all group mb-3 ${
+                  selectedModel === "autonomous-expert" 
+                    ? "bg-primary/15 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)]" 
+                    : "bg-gradient-to-br from-primary/5 to-blue-500/5 border-primary/20 hover:border-primary/40"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/25 flex items-center justify-center group-hover:scale-110 transition-transform border border-primary/30">
+                      <Cpu className="w-6 h-6 text-primary animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm block">Agente Autônomo</span>
+                        <span className="text-[10px] text-white font-bold px-2 py-0.5 bg-primary rounded-full shadow-lg">PRO</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Engenharia Reversa & Segurança Ativa</p>
+                    </div>
+                  </div>
+                  {selectedModel === "autonomous-expert" && <Check className="w-5 h-5 text-primary" />}
+                </div>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {

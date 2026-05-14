@@ -99,6 +99,7 @@ const getModelBadge = (model?: string) => {
     "claude-sonnet": "Claude 3.5 Sonnet",
     "claude-opus": "Claude 3 Opus",
     openai: "GPT-4o mini",
+    "autonomous-expert": "Agente Autônomo (Cibersegurança)",
   };
 
   return badges[model || "auto"] || model || "Auto";
@@ -347,6 +348,20 @@ const EditorPage = () => {
     const requestedModel = model || activeProvider || "auto";
     const providerBadge = getModelBadge(requestedModel);
 
+    // Contexto extra se for o Agente Autônomo
+    let finalMessage = message;
+    if (requestedModel === "autonomous-expert") {
+      finalMessage = `[MODO AGENTE AUTÔNOMO: ARQUITETO & CIBERSEGURANÇA]\n
+OBJETIVO: Realizar análise profunda de engenharia reversa e cibersegurança.\n
+TAREFA: ${message}\n
+INSTRUÇÕES:
+1. Analise vulnerabilidades (XSS, SQLi, CSRF, JWT inseguro, etc).
+2. Proponha patches imediatos.
+3. Mapeie dependências e arquitetura.
+4. Explique cada alteração sob a ótica de segurança e performance.
+5. Se detectar bugs de 'tela branca' ou runtime, corrija-os prioritariamente.`;
+    }
+
     try {
       const modifier = new AIFileModifier(ghToken!, selectedRepo, branch);
       const activityLog = ["🤖 Analisando solicitação..."];
@@ -365,7 +380,7 @@ const EditorPage = () => {
       const autoFixDirective = autoFix
         ? `\n\n[MODO CORREÇÃO AUTOMÁTICA ATIVADO]\nAlém de atender o pedido acima, varra os arquivos relevantes do repositório, identifique bugs evidentes, imports quebrados, conflitos, problemas de tipagem, runtime errors e tela branca, e inclua as correções necessárias no mesmo conjunto de "modifications". Se encontrar melhorias seguras (acessibilidade, performance trivial, código morto), aplique-as também e explique cada alteração no "summary". Nunca peça arquivos ao usuário — você já tem o repositório.`
         : `\n\n[MODO CORREÇÃO AUTOMÁTICA DESATIVADO]\nFaça apenas o que foi pedido. Não aplique correções extras nem refatore o que não foi solicitado.`;
-      const commandWithAttachments = `${message}${summarizeAttachmentsForPrompt(attachments, true)}${autoFixDirective}`;
+      const commandWithAttachments = `${finalMessage}${summarizeAttachmentsForPrompt(attachments, true)}${autoFixDirective}`;
       const result = await modifier.processCommand(
         commandWithAttachments,
         requestedModel,

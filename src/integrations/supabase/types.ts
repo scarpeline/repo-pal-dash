@@ -91,6 +91,56 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_results: {
+        Row: {
+          agent_type: string
+          created_at: string | null
+          description: string | null
+          file_path: string | null
+          id: string
+          line_number: number | null
+          project_id: string
+          raw_data: Json | null
+          remediation_plan: string | null
+          severity: string | null
+          vulnerability_type: string | null
+        }
+        Insert: {
+          agent_type: string
+          created_at?: string | null
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          line_number?: number | null
+          project_id: string
+          raw_data?: Json | null
+          remediation_plan?: string | null
+          severity?: string | null
+          vulnerability_type?: string | null
+        }
+        Update: {
+          agent_type?: string
+          created_at?: string | null
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          line_number?: number | null
+          project_id?: string
+          raw_data?: Json | null
+          remediation_plan?: string | null
+          severity?: string | null
+          vulnerability_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_results_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -114,6 +164,57 @@ export type Database = {
           value?: string | null
         }
         Relationships: []
+      }
+      autonomous_patches: {
+        Row: {
+          analysis_result_id: string | null
+          applied_at: string | null
+          created_at: string | null
+          description: string | null
+          diff: string
+          id: string
+          project_id: string
+          status: string | null
+          title: string
+        }
+        Insert: {
+          analysis_result_id?: string | null
+          applied_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          diff: string
+          id?: string
+          project_id: string
+          status?: string | null
+          title: string
+        }
+        Update: {
+          analysis_result_id?: string | null
+          applied_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          diff?: string
+          id?: string
+          project_id?: string
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autonomous_patches_analysis_result_id_fkey"
+            columns: ["analysis_result_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_results"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autonomous_patches_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       balances: {
         Row: {
@@ -332,6 +433,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      project_memory: {
+        Row: {
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          project_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_memory_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          architecture_map: Json | null
+          created_at: string | null
+          id: string
+          last_analyzed_at: string | null
+          name: string
+          performance_score: number | null
+          provider: string | null
+          quality_score: number | null
+          repository_url: string | null
+          scalability_score: number | null
+          security_score: number | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          architecture_map?: Json | null
+          created_at?: string | null
+          id?: string
+          last_analyzed_at?: string | null
+          name: string
+          performance_score?: number | null
+          provider?: string | null
+          quality_score?: number | null
+          repository_url?: string | null
+          scalability_score?: number | null
+          security_score?: number | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          architecture_map?: Json | null
+          created_at?: string | null
+          id?: string
+          last_analyzed_at?: string | null
+          name?: string
+          performance_score?: number | null
+          provider?: string | null
+          quality_score?: number | null
+          repository_url?: string | null
+          scalability_score?: number | null
+          security_score?: number | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       token_usage: {
         Row: {

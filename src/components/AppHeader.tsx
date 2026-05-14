@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Code2, LogOut, Wallet, Shield, Languages, Brain } from "lucide-react";
+import { Code2, LogOut, Wallet, Shield, Languages, Brain, Cpu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
@@ -63,6 +63,9 @@ export default function AppHeader({ repoName, onBack, onWallet, onAdmin }: AppHe
           <>
             <Button variant="ghost" size="icon" onClick={() => navigate("/obsidian")} className="h-8 w-8" title="Cérebro Obsidian">
               <Brain className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/autonomous")} className="h-8 w-8" title="Autonomous AI">
+              <Cpu className="h-4 w-4 text-primary" />
             </Button>
             {isAdmin && onAdmin && (
               <Button variant="ghost" size="icon" onClick={onAdmin} className="h-8 w-8" title={t("admin")}>
