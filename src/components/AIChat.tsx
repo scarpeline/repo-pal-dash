@@ -3,7 +3,7 @@ import {
   Send, Loader2, Settings2, ChevronDown, ChevronRight, 
   Code2, Bot, User, Copy, Check, Paperclip, X,
   FileImage, FileVideo, FileText, File as FileIcon, Wand2,
-  Wallet, RefreshCw, Brain
+  Wallet, RefreshCw, Brain, Shield, Cpu, Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 // Modelos específicos por provider — o que o usuário vê e seleciona
 const AI_MODELS = [
   { id: "auto",                 label: "Modo Inteligente",       desc: "Roteia para código, imagem ou vídeo automaticamente", speed: "Rápido", quality: "Adaptativo", cost: "Otimizado", category: "Recomendado" },
+  { id: "autonomous-expert",    label: "Agente Autônomo",         desc: "Especialista em Cibersegurança e Engenharia Reversa", speed: "Rápido", quality: "Especialista", cost: "Premium", category: "Autônomo" },
   { id: "google-code-fast",     label: "Gemini 2.0 Flash",          desc: "Google · edição rápida de app e código", speed: "Instantâneo", quality: "Alta", cost: "Baixo", category: "Programação" },
   { id: "google-code-balanced", label: "Gemini 2.0 Flash",          desc: "Google · melhor equilíbrio para programar", speed: "Rápido", quality: "Alta", cost: "Baixo", category: "Programação" },
   { id: "google-code-pro",      label: "Gemini 1.5 Pro",            desc: "Google · código complexo, arquitetura e contexto longo", speed: "Médio", quality: "Extrema", cost: "Médio", category: "Arquitetura" },
@@ -28,6 +29,7 @@ const AI_MODELS = [
 
 const MODEL_ID_BY_SHORT_ID: Record<string, string> = {
   "google-code-fast": "google/gemini-2.0-flash",
+  "autonomous-expert": "google/gemini-1.5-pro",
   "google-code-balanced": "google/gemini-2.0-flash",
   "google-code-pro": "google/gemini-1.5-pro",
   "google-image": "google/gemini-2.0-flash",
