@@ -17,6 +17,7 @@ import AffiliatePage from "./pages/AffiliatePage";
 import RepoFullAccess from "./pages/RepoFullAccess";
 import EmailCampaignPage from "./pages/EmailCampaignPage";
 import ObsidianPage from "./pages/ObsidianPage";
+import AutonomousDashboard from "./pages/AutonomousDashboard";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/email-campaigns" element={<EmailCampaignPage />} />
               <Route path="/repo-access" element={<RepoFullAccess />} />
               <Route path="/obsidian" element={<ObsidianPage />} />
+              <Route path="/autonomous" element={<AutonomousDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </LanguageProvider>
