@@ -680,6 +680,37 @@ const AIChat = ({
               <button
                 type="button"
                 onClick={() => {
+                  setSelectedModel("autonomous-expert");
+                  onProviderChange?.("autonomous-expert");
+                  setShowModelSelect(false);
+                  toast.success("Módulo Autônomo de Engenharia & Segurança Ativado");
+                }}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all group mb-3 ${
+                  selectedModel === "autonomous-expert" 
+                    ? "bg-primary/15 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)]" 
+                    : "bg-gradient-to-br from-primary/5 to-blue-500/5 border-primary/20 hover:border-primary/40"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/25 flex items-center justify-center group-hover:scale-110 transition-transform border border-primary/30">
+                      <Cpu className="w-6 h-6 text-primary animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm block">Agente Autônomo</span>
+                        <span className="text-[10px] text-white font-bold px-2 py-0.5 bg-primary rounded-full shadow-lg">PRO</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Engenharia Reversa & Segurança Ativa</p>
+                    </div>
+                  </div>
+                  {selectedModel === "autonomous-expert" && <Check className="w-5 h-5 text-primary" />}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   setSelectedModel("auto");
                   onProviderChange?.("auto");
                   setShowModelSelect(false);
