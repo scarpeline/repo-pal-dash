@@ -13,7 +13,6 @@ serve(async (req) => {
   try {
     const { projectId, codeSnippet, agentType } = await req.json();
 
-    // Specialized agents logic
     let analysis = [];
     if (agentType === "backend") {
       analysis = [

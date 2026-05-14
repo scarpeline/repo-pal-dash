@@ -14,10 +14,6 @@ serve(async (req) => {
     const { repositoryUrl, action } = await req.json();
 
     if (action === "map_architecture") {
-      // Logic to clone (using a temporary dir if possible) or use GitHub API to list files
-      // and detect patterns for Frontend, Backend, DB, etc.
-      // This is a simulation/orchestrator call.
-      
       const architecture = {
         frontend: { tech: "React/Vite", files: ["src/", "package.json"], score: 85 },
         backend: { tech: "Node.js/Edge Functions", files: ["supabase/functions/"], score: 90 },
