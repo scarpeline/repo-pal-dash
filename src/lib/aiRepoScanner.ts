@@ -115,6 +115,7 @@ export class AIRepoScanner {
       files.push(...loaded.filter(Boolean) as { path: string; content: string; type: 'file' | 'dir' }[]);
     }
 
+    this.loadedPaths = files.filter((f) => f.path !== '_REPOSITORY_MAP.md').map((f) => f.path);
     return files;
   }
 
@@ -130,10 +131,16 @@ export class AIRepoScanner {
            !excludePatterns.some(pattern => path.includes(pattern));
   }
 
-  async applyModifications(modifications: FileModification[]): Promise<{ success: string[]; errors: string[] }> {
+  async applyModifications(
+    modifications: FileModification[],
+    onProgress?: (msg: string) => void
+  ): Promise<{ success: string[]; errors: string[] }> {
     const results: { success: string[]; errors: string[] } = { success: [], errors: [] };
 
+    let index = 0;
     for (const mod of modifications) {
+      index += 1;
+      onProgress?.(`💾 (${index}/${modifications.length}) Salvando ${mod.path}...`);
       try {
         const { getFileSha } = await import("@/lib/github");
         
