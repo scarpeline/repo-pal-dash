@@ -166,9 +166,56 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
           const jsonMatch = lastText.match(/\{[\s\S]*\}/);
           if (jsonMatch) jsonStr = jsonMatch[0];
           const parsed = JSON.parse(jsonStr);
-          const modifications: FileModification[] = (parsed.modifications || []).map((m: any) => ({ path: m.path, content: m.content, operation: m.operation || 'update', message: m.message || `Modificação via IA: ${command}` }));
+          const raw: FileModification[] = (parsed.modifications || []).map((m: any) => ({
+            path: String(m.path || "").trim(),
+            content: typeof m.content === "string" ? m.content : "",
+            operation: (m.operation === 'create' ? 'create' : 'update') as 'create' | 'update',
+            message: m.message || `Modificação via IA: ${command.slice(0, 60)}`,
+            reason: m.reason || m.message || "",
+          }));
+
+          const rejected: string[] = [];
+          const modifications: FileModification[] = [];
+
+          for (const mod of raw) {
+            const cleanPath = mod.path
+              .replace(/^\.\//, "")
+              .replace(new RegExp(`^${this.repo.full_name}/`), "")
+              .replace(new RegExp(`^${this.repo.name}/`), "")
+              .replace(/^\/+/, "");
+
+            if (!cleanPath) { rejected.push("caminho vazio"); continue; }
+            if (!mod.content.trim()) { rejected.push(`${cleanPath} (conteúdo vazio)`); continue; }
+            if (/\[arquivo (truncado|omitido)/i.test(mod.content) || /\.\.\.\s*(resto|restante|mantenha|keep)/i.test(mod.content)) {
+              rejected.push(`${cleanPath} (código incompleto devolvido pela IA)`);
+              continue;
+            }
+            if (partial.has(cleanPath)) {
+              rejected.push(`${cleanPath} (só foi carregado parcialmente — não posso reescrever com segurança)`);
+              continue;
+            }
+
+            const existsInRepo = this.scanner.knownPaths.includes(cleanPath);
+            modifications.push({ ...mod, path: cleanPath, operation: existsInRepo ? 'update' : 'create' });
+          }
+
           const summary = parsed.summary || `${modifications.length} arquivo(s) para modificar.`;
-          if (modifications.length > 0 || !looksActionable || attempt === MAX_ATTEMPTS - 1) return { message: `🎯 ${summary}`, modifications, usage: lastUsage, provider: lastProvider };
+          const plan = modifications.length
+            ? `\n\n**📝 O que estou editando:**\n${modifications.map(m => `- \`${m.path}\` — ${m.operation === 'create' ? 'criar' : 'editar'}: ${m.reason || m.message}`).join("\n")}`
+            : "";
+          const rejectedNote = rejected.length
+            ? `\n\n⚠️ **Ignorei por segurança (${rejected.length}):**\n${rejected.map(r => `- ${r}`).join("\n")}`
+            : "";
+          const needFiles: string[] = Array.isArray(parsed.need_files) ? parsed.need_files : [];
+          const needNote = needFiles.length
+            ? `\n\n📎 A IA pediu mais contexto destes arquivos: ${needFiles.slice(0, 8).join(", ")}`
+            : "";
+
+          modifications.forEach(m => onProgress?.(`✏️ ${m.operation === 'create' ? 'Criando' : 'Editando'} ${m.path}`));
+
+          if (modifications.length > 0 || !looksActionable || attempt === MAX_ATTEMPTS - 1) {
+            return { message: `🎯 ${summary}${plan}${rejectedNote}${needNote}`, modifications, usage: lastUsage, provider: lastProvider };
+          }
         } catch {
           if (!looksActionable || attempt === MAX_ATTEMPTS - 1) return { message: lastText, modifications: [], usage: lastUsage, provider: lastProvider };
         }
