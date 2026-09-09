@@ -44,6 +44,8 @@ export class AIFileModifier {
 
       let totalSize = 0;
       const fileMap: { path: string; content: string }[] = [];
+      const fullyLoaded = new Set<string>();
+      const partial = new Set<string>();
 
       for (const file of files) {
         const normalizedContent = file.content.length > MAX_FILE_CONTENT_CHARS
