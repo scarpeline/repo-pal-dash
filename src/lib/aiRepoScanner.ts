@@ -5,6 +5,8 @@ export interface FileModification {
   content: string;
   operation: 'update' | 'create';
   message: string;
+  /** Explicação curta (1 linha) do que foi alterado neste arquivo e por quê. */
+  reason?: string;
 }
 
 export class AIRepoScanner {
@@ -12,6 +14,10 @@ export class AIRepoScanner {
   private owner: string;
   private repo: string;
   private branch: string;
+  /** Todos os caminhos processáveis vistos no último scan (usado para validar caminhos da IA). */
+  public knownPaths: string[] = [];
+  /** Caminhos cujo conteúdo COMPLETO foi carregado no último scan. */
+  public loadedPaths: string[] = [];
 
   constructor(token: string, repo: GitHubRepo, branch: string = 'main') {
     this.token = token;
@@ -63,12 +69,20 @@ export class AIRepoScanner {
       if (node.type === 'dir' && node.children) walk(node.children);
     });
     walk(tree);
+    this.knownPaths = [...paths];
 
     const terms = command.toLowerCase().match(/[a-zà-ú0-9_-]{4,}/gi) || [];
     const whiteScreen = /tela\s+branca|white\s*screen|blank/i.test(command);
+    // Caminhos/arquivos citados explicitamente no pedido têm prioridade máxima
+    const mentioned = (command.match(/[\w./-]+\.(tsx?|jsx?|css|scss|json|md|html|py|php|go|ya?ml|vue|svelte|rs|rb|sh)/gi) || [])
+      .map((m) => m.toLowerCase());
     const scorePath = (path: string) => {
       const lower = path.toLowerCase();
       let score = 0;
+      for (const m of mentioned) {
+        if (lower === m || lower.endsWith(`/${m}`)) score += 500;
+        else if (lower.includes(m)) score += 250;
+      }
       if (/^(package\.json|vite\.config|index\.html|src\/main|src\/app|src\/pages\/index|src\/pages\/dashboard|src\/contexts\/auth|src\/integrations\/)/i.test(path)) score += 80;
       if (lower.startsWith('src/pages/') || lower.startsWith('src/components/') || lower.startsWith('src/hooks/') || lower.startsWith('src/lib/')) score += 30;
       if (whiteScreen && /app|main|index|router|route|auth|layout|error|callback|vite|package/.test(lower)) score += 70;
