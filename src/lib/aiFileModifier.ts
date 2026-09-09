@@ -229,12 +229,15 @@ REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
     }
   }
 
-  async executeModifications(modifications: FileModification[]): Promise<string> {
+  async executeModifications(
+    modifications: FileModification[],
+    onProgress?: (msg: string) => void
+  ): Promise<string> {
     if (modifications.length === 0) {
       return "❌ Nenhuma modificação para aplicar.";
     }
 
-    const results = await this.scanner.applyModifications(modifications);
+    const results = await this.scanner.applyModifications(modifications, onProgress);
     
     let message = `🚀 **Modificações Aplicadas!**
 
