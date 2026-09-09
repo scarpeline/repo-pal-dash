@@ -56,12 +56,17 @@ export class AIFileModifier {
 
         if (totalSize + normalizedContent.length > MAX_FILE_CONTEXT_CHARS) {
           fileMap.push({ path: file.path, content: `[arquivo omitido para reduzir consumo de contexto]` });
+          partial.add(file.path);
           continue;
         }
 
         fileMap.push({ path: file.path, content: normalizedContent });
         totalSize += normalizedContent.length;
+        if (normalizedContent === file.content) fullyLoaded.add(file.path);
+        else partial.add(file.path);
       }
+
+      onProgress?.(`🔎 Contexto pronto: ${fullyLoaded.size} arquivo(s) com conteúdo completo${partial.size ? `, ${partial.size} parcial(is)` : ""}.`);
 
       const session = (await supabase.auth.getSession()).data.session;
       if (!session) {
