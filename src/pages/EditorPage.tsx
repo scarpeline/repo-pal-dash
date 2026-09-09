@@ -405,8 +405,8 @@ INSTRUÇÕES:
         return;
       }
 
-      addProgress("⚡ Aplicando alterações no GitHub...");
-      const executionResult = await modifier.executeModifications(result.modifications);
+      addProgress(`⚡ Aplicando ${result.modifications.length} alteração(ões) em ${selectedRepo.full_name} (${branch})...`);
+      const executionResult = await modifier.executeModifications(result.modifications, addProgress);
       const usageInfo = result.usage
         ? `\n\n💰 Custo da ação: R$ ${(result.usage.cost_cents / 100).toFixed(4)}`
         : "";
