@@ -108,10 +108,15 @@ ${fileMap.map(f => `--- ARQUIVO: ${f.path} ---
 ${f.content}
 `).join("\n\n")}
 
+ARQUIVOS COM CONTEÚDO COMPLETO (editáveis): ${Array.from(fullyLoaded).join(", ") || "nenhum"}
+ARQUIVOS PARCIAIS (NÃO reescrever): ${Array.from(partial).join(", ") || "nenhum"}
+
 REGRAS DE RESPOSTA JSON (OBRIGATÓRIO):
 - Retorne APENAS o JSON puro.
-- Formato: { "modifications": [{ "path": "string", "content": "string", "operation": "update"|"create", "message": "string" }], "summary": "string" }
-- "summary" deve ser em Português Brasileiro, explicando o "porquê" das decisões técnicas.
+- Formato: { "modifications": [{ "path": "string", "content": "string", "operation": "update"|"create", "message": "string", "reason": "string" }], "summary": "string", "need_files": ["string"] }
+- "reason": UMA frase curta em Português explicando o que mudou naquele arquivo (ex: "Corrigido import quebrado do AuthContext que causava tela branca").
+- "message": mensagem de commit curta e específica.
+- "summary" deve ser em Português Brasileiro, curto e claro, explicando o "porquê" das decisões técnicas.
 - Se o usuário der uma ordem (corrija, mude, adicione), você DEVE preencher o array "modifications". Explicações sem código para pedidos de ação serão consideradas falhas de execução.`;
 
       const looksActionable = /\b(corrig|consert|arrum|fix|debug|refator|edit|alter|mud|troc|cri|adicion|remov|implement|ajust|otimiz|melhor|atualiz|resolv|apli|fa[çc]a|tela\s+branca|white\s*screen)\b/i.test(command);
