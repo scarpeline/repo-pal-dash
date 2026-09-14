@@ -41,7 +41,7 @@
   color: #888;
 }
 
-/* 🎨 Safe areas para iPhone notch e barras de navegação */
+/* 📱 Safe areas para iPhone notch e barras de navegação */
 .safe-area-pt {
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -68,7 +68,7 @@
   display: none;
 }
 
-/* 🎨 Touch action utilities */
+/* 👆 Touch action utilities */
 .touch-pan-y {
   touch-action: pan-y;
 }
@@ -81,7 +81,7 @@
   touch-action: none;
 }
 
-/* 🎨 Animate in utilities para mobile */
+/* 🚀 Animate in utilities para mobile */
 @media (prefers-reduced-motion: reduce) {
   .animate-in,
   .slide-in-from-left,
