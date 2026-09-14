@@ -119,6 +119,37 @@ export class AIRepoScanner {
     return files;
   }
 
+  /**
+   * Carrega o conteúdo COMPLETO de caminhos específicos (usado quando a IA pede
+   * mais contexto ou quando um arquivo veio truncado no primeiro scan).
+   */
+  async loadFiles(paths: string[]): Promise<{ path: string; content: string }[]> {
+    const unique = Array.from(new Set(paths.map((p) => p.replace(/^\.\//, "").replace(/^\/+/, "")))).filter(Boolean);
+    const out: { path: string; content: string }[] = [];
+
+    for (let i = 0; i < unique.length; i += 6) {
+      const chunk = unique.slice(i, i + 6);
+      const loaded = await Promise.all(chunk.map(async (path) => {
+        const candidate = this.knownPaths.includes(path)
+          ? path
+          : this.knownPaths.find((k) => k.toLowerCase().endsWith(`/${path.toLowerCase()}`) || k.toLowerCase() === path.toLowerCase());
+        if (!candidate) return null;
+        try {
+          const { content } = await getFileContent(this.token, this.owner, this.repo, candidate, this.branch);
+          return { path: candidate, content };
+        } catch (error) {
+          console.warn(`Could not read file: ${candidate}`, error);
+          return null;
+        }
+      }));
+      out.push(...loaded.filter(Boolean) as { path: string; content: string }[]);
+    }
+
+    const loadedSet = new Set([...this.loadedPaths, ...out.map((f) => f.path)]);
+    this.loadedPaths = Array.from(loadedSet);
+    return out;
+  }
+
   private shouldProcessFile(path: string): boolean {
     const extensions = [
       '.tsx', '.ts', '.jsx', '.js', '.css', '.scss', '.json', '.md', '.html',
