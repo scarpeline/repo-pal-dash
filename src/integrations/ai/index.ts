@@ -1,4 +1,4 @@
-// 🧠 Sistema Inteligente de Roteamento de IAs
+// 🤖 Sistema Inteligente de Roteamento de IAs
 // Analisa a complexidade da tarefa e escolhe a melhor IA automaticamente
 
 export interface AIProvider {
@@ -25,7 +25,7 @@ export interface AIProvider {
   };
 }
 
-// 🎯 Configuração de todos os provedores de IA
+// ⚙️ Configuração de todos os provedores de IA
 // Preços em USD por 1M tokens (abril 2026)
 export const AI_PROVIDERS: AIProvider[] = [
   {
@@ -212,7 +212,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     name: "OpenAI GPT-4o",
     id: "openai",
     baseUrl: "https://api.openai.com/v1",
-    apiKeyEnv: "chave_API_openai",
+    apiKeyEnv: "OPENAI_API_KEY", // Alterado de 'chave_API_openai' para 'OPENAI_API_KEY'
     models: ["gpt-4o"],
     defaultModel: "gpt-4o",
     enabled: true,
@@ -261,7 +261,7 @@ export function getActiveAI(): AIProvider {
   return enabled || AI_PROVIDERS[0]; // Default para Gemini
 }
 
-// 🎯 Níveis de complexidade
+// 📊 Níveis de complexidade
 export type ComplexityLevel = "simple" | "medium" | "complex" | "expert";
 
 export interface TaskAnalysis {
@@ -299,7 +299,7 @@ export function analyzeTask(messages: ChatMessage[]): TaskAnalysis {
   else if (isComplex || isBackend || requiresLongContext) complexity = "complex";
   else if (isCode && content.length > 1000) complexity = "complex";
   
-  // 🎯 ROTEAMENTO INTELIGENTE - Escolher melhor IA
+  // ⚙️ ROTEAMENTO INTELIGENTE - Escolher melhor IA
   let recommendedProvider = AI_PROVIDERS[0]; // Default: Gemini
   let reasoning = "";
   
@@ -376,7 +376,7 @@ export interface ChatMessage {
   model?: string;
 }
 
-// 🎯 Função principal com roteamento automático
+// ⚙️ Função principal com roteamento automático
 export async function sendMessageWithRouting(
   messages: ChatMessage[],
   forceProvider?: string
@@ -466,7 +466,7 @@ async function sendToGemini(
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta";
 }
 
-// 🌐 OpenAI-compatible API (DeepSeek, Groq, Mistral, Kimi, OpenRouter, OpenAI)
+// 🌍 OpenAI-compatible API (DeepSeek, Groq, Mistral, Kimi, OpenRouter, OpenAI)
 async function sendToOpenAICompatible(
   messages: ChatMessage[],
   apiKey: string,
@@ -504,12 +504,12 @@ async function sendToOpenAICompatible(
 export function getAISelectorOptions(): { value: string; label: string; description: string }[] {
   return AI_PROVIDERS.map(p => ({
     value: p.id,
-    label: `${p.name} ${p.enabled ? "✓" : "○"}`,
-    description: `💰 $${p.pricing.inputPer1M}/$${p.pricing.outputPer1M} | ⚡ ${p.characteristics.speed}/10 | 🎯 ${p.characteristics.bestFor.join(", ")}`,
+    label: `${p.name} ${p.enabled ? "✅" : "⚪"}`,
+    description: `💵 $${p.pricing.inputPer1M}/$${p.pricing.outputPer1M} | ⚡ ${p.characteristics.speed}/10 | ⚙️ ${p.characteristics.bestFor.join(", ")}`,
   }));
 }
 
-// 🎛️ Funções utilitárias
+// 🛠️ Funções utilitárias
 export function getEnabledProviders(): AIProvider[] {
   return AI_PROVIDERS.filter(p => p.enabled);
 }
@@ -532,7 +532,7 @@ export function formatAnalysis(analysis: TaskAnalysis): string {
    É backend: ${analysis.isBackend ? "Sim" : "Não"}
    Contexto longo: ${analysis.requiresLongContext ? "Sim" : "Não"}
    
-🎯 IA Selecionada: ${analysis.recommendedProvider.name}
+⚙️ IA Selecionada: ${analysis.recommendedProvider.name}
    💡 Motivo: ${analysis.reasoning}
   `;
 }
