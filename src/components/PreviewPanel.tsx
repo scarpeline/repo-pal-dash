@@ -117,6 +117,10 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange, toke
   };
 
   const handleRefresh = () => {
+    if (mode === "app") {
+      runApp();
+      return;
+    }
     setKey((k) => k + 1);
     onRefresh();
   };
