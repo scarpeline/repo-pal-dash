@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye } from "lucide-react";
-
+import { useState, useEffect, useMemo, useRef } from "react";
+import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye, Play, Loader2, AlertTriangle, Rocket } from "lucide-react";
+import { buildRepoApp } from "@/lib/repoRunner";
 
 interface PreviewPanelProps {
   url: string;
@@ -8,6 +8,12 @@ interface PreviewPanelProps {
   fileContent?: string;
   fileName?: string;
   onUrlChange?: (url: string) => void;
+  /** Dados do repositório conectado para rodar o app ao vivo no navegador */
+  token?: string;
+  owner?: string;
+  repo?: string;
+  branch?: string;
+  repoLabel?: string;
 }
 
 const getLanguage = (name: string): string => {
