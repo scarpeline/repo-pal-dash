@@ -216,9 +216,44 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange, toke
         )}
       </div>
 
+      {/* Avisos da compilação do app */}
+      {mode === "app" && appWarnings.length > 0 && (
+        <div className="px-3 py-1.5 bg-warning/10 border-b border-warning/30 text-[11px] text-warning flex items-start gap-1.5">
+          <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+          <span className="truncate">{appWarnings.join(" • ")}</span>
+        </div>
+      )}
+
       {/* Preview content */}
       <div className="flex-1 relative overflow-auto flex justify-center">
-        {mode === "source" && fileContent ? (
+        {mode === "app" ? (
+          appLoading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-sm text-muted-foreground">
+              <Loader2 className="w-7 h-7 animate-spin text-primary" />
+              <p className="font-medium text-foreground">Compilando o app do repositório</p>
+              <p className="text-xs text-muted-foreground/70">{appStatus}</p>
+            </div>
+          ) : appError ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+              <AlertTriangle className="w-8 h-8 text-destructive" />
+              <p className="font-medium text-foreground">Não foi possível rodar o app</p>
+              <p className="text-xs text-muted-foreground max-w-md">{appError}</p>
+              <button onClick={runApp} className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground">
+                Tentar novamente
+              </button>
+            </div>
+          ) : appHtml ? (
+            <div style={viewportStyles[viewport]} className="h-full transition-all duration-300 mx-auto">
+              <iframe
+                key={`app-${key}`}
+                srcDoc={appHtml}
+                className="w-full h-full border-none bg-white"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                title="App do repositório"
+              />
+            </div>
+          ) : null
+        ) : mode === "source" && fileContent ? (
           <pre className="w-full p-4 text-sm text-foreground font-mono whitespace-pre-wrap overflow-auto bg-editor-bg">
             {fileContent}
           </pre>
