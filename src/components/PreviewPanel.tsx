@@ -181,8 +181,17 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange, toke
         </div>
 
         {/* Mode toggle */}
-        {fileContent && (
+        {(fileContent || appHtml) && (
           <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
+            {appHtml && (
+              <button
+                onClick={() => setMode("app")}
+                className={`p-1 rounded transition-colors ${mode === "app" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title="App ao vivo"
+              >
+                <Rocket className="w-3 h-3" />
+              </button>
+            )}
             <button
               onClick={() => setMode("preview")}
               className={`p-1 rounded transition-colors ${mode === "preview" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
