@@ -894,6 +894,11 @@ INSTRUÇÕES:
                 onRefresh={() => {}} 
                 fileContent={activeFile?.content} 
                 fileName={activeFile?.name} 
+                token={ghToken || undefined}
+                owner={selectedRepo?.owner.login}
+                repo={selectedRepo?.name}
+                branch={branch}
+                repoLabel={selectedRepo?.full_name}
               />
             </div>
           )}

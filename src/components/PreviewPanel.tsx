@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye } from "lucide-react";
-
+import { useState, useEffect, useMemo, useRef } from "react";
+import { ExternalLink, RefreshCw, Monitor, Smartphone, Tablet, Code, Eye, Play, Loader2, AlertTriangle, Rocket } from "lucide-react";
+import { buildRepoApp } from "@/lib/repoRunner";
 
 interface PreviewPanelProps {
   url: string;
@@ -8,6 +8,12 @@ interface PreviewPanelProps {
   fileContent?: string;
   fileName?: string;
   onUrlChange?: (url: string) => void;
+  /** Dados do repositório conectado para rodar o app ao vivo no navegador */
+  token?: string;
+  owner?: string;
+  repo?: string;
+  branch?: string;
+  repoLabel?: string;
 }
 
 const getLanguage = (name: string): string => {
@@ -34,10 +40,53 @@ const renderMarkdown = (md: string): string => {
     .replace(/\n/g, '<br/>');
 };
 
-const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: PreviewPanelProps) => {
+const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange, token, owner, repo, branch, repoLabel }: PreviewPanelProps) => {
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [key, setKey] = useState(0);
-  const [mode, setMode] = useState<"preview" | "source">("preview");
+  const [mode, setMode] = useState<"preview" | "source" | "app">("preview");
+
+  // ── App ao vivo do repositório conectado (compilado no navegador) ──
+  const canRunApp = Boolean(token && owner && repo && branch);
+  const [appHtml, setAppHtml] = useState<string | null>(null);
+  const [appLoading, setAppLoading] = useState(false);
+  const [appError, setAppError] = useState<string | null>(null);
+  const [appStatus, setAppStatus] = useState("");
+  const [appWarnings, setAppWarnings] = useState<string[]>([]);
+  const buildIdRef = useRef(0);
+
+  const runApp = async () => {
+    if (!canRunApp) return;
+    const id = ++buildIdRef.current;
+    setMode("app");
+    setAppLoading(true);
+    setAppError(null);
+    setAppWarnings([]);
+    setAppStatus("Preparando ambiente...");
+    try {
+      const bundle = await buildRepoApp(token!, owner!, repo!, branch!, (msg) => {
+        if (buildIdRef.current === id) setAppStatus(msg);
+      });
+      if (buildIdRef.current !== id) return;
+      setAppHtml(bundle.html);
+      setAppWarnings(bundle.warnings.slice(0, 5));
+      setKey((k) => k + 1);
+    } catch (err) {
+      if (buildIdRef.current !== id) return;
+      setAppError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (buildIdRef.current === id) setAppLoading(false);
+    }
+  };
+
+  // Ao trocar de repositório/branch, limpa o app compilado
+  useEffect(() => {
+    setAppHtml(null);
+    setAppError(null);
+    setAppWarnings([]);
+    if (mode === "app") setMode("preview");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner, repo, branch]);
+
 
   const lang = fileName ? getLanguage(fileName) : "text";
   const hasPreviewable = lang === "html" || lang === "markdown" || lang === "svg";
@@ -68,6 +117,10 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
   };
 
   const handleRefresh = () => {
+    if (mode === "app") {
+      runApp();
+      return;
+    }
     setKey((k) => k + 1);
     onRefresh();
   };
@@ -96,7 +149,19 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
           </div>
         )}
 
-        {/* Saldo/depósito ficam apenas no topo do app — removido daqui para evitar duplicação */}
+        {/* Rodar o app do repositório conectado direto no navegador */}
+        {canRunApp && (
+          <button
+            onClick={runApp}
+            disabled={appLoading}
+            title={`Rodar o app de ${repoLabel || `${owner}/${repo}`} (${branch})`}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
+          >
+            {appLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{appLoading ? "Compilando..." : "Rodar app"}</span>
+          </button>
+        )}
+
 
         {/* Viewport controls */}
         <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
@@ -116,8 +181,17 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
         </div>
 
         {/* Mode toggle */}
-        {fileContent && (
+        {(fileContent || appHtml) && (
           <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
+            {appHtml && (
+              <button
+                onClick={() => setMode("app")}
+                className={`p-1 rounded transition-colors ${mode === "app" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title="App ao vivo"
+              >
+                <Rocket className="w-3 h-3" />
+              </button>
+            )}
             <button
               onClick={() => setMode("preview")}
               className={`p-1 rounded transition-colors ${mode === "preview" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
@@ -142,9 +216,44 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: Pr
         )}
       </div>
 
+      {/* Avisos da compilação do app */}
+      {mode === "app" && appWarnings.length > 0 && (
+        <div className="px-3 py-1.5 bg-warning/10 border-b border-warning/30 text-[11px] text-warning flex items-start gap-1.5">
+          <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+          <span className="truncate">{appWarnings.join(" • ")}</span>
+        </div>
+      )}
+
       {/* Preview content */}
       <div className="flex-1 relative overflow-auto flex justify-center">
-        {mode === "source" && fileContent ? (
+        {mode === "app" ? (
+          appLoading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-sm text-muted-foreground">
+              <Loader2 className="w-7 h-7 animate-spin text-primary" />
+              <p className="font-medium text-foreground">Compilando o app do repositório</p>
+              <p className="text-xs text-muted-foreground/70">{appStatus}</p>
+            </div>
+          ) : appError ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+              <AlertTriangle className="w-8 h-8 text-destructive" />
+              <p className="font-medium text-foreground">Não foi possível rodar o app</p>
+              <p className="text-xs text-muted-foreground max-w-md">{appError}</p>
+              <button onClick={runApp} className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground">
+                Tentar novamente
+              </button>
+            </div>
+          ) : appHtml ? (
+            <div style={viewportStyles[viewport]} className="h-full transition-all duration-300 mx-auto">
+              <iframe
+                key={`app-${key}`}
+                srcDoc={appHtml}
+                className="w-full h-full border-none bg-white"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                title="App do repositório"
+              />
+            </div>
+          ) : null
+        ) : mode === "source" && fileContent ? (
           <pre className="w-full p-4 text-sm text-foreground font-mono whitespace-pre-wrap overflow-auto bg-editor-bg">
             {fileContent}
           </pre>
