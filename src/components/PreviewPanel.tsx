@@ -149,7 +149,19 @@ const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange, toke
           </div>
         )}
 
-        {/* Saldo/depósito ficam apenas no topo do app — removido daqui para evitar duplicação */}
+        {/* Rodar o app do repositório conectado direto no navegador */}
+        {canRunApp && (
+          <button
+            onClick={runApp}
+            disabled={appLoading}
+            title={`Rodar o app de ${repoLabel || `${owner}/${repo}`} (${branch})`}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
+          >
+            {appLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{appLoading ? "Compilando..." : "Rodar app"}</span>
+          </button>
+        )}
+
 
         {/* Viewport controls */}
         <div className="flex items-center gap-0.5 bg-input border border-border rounded-md p-0.5">
