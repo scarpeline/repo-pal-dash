@@ -40,10 +40,53 @@ const renderMarkdown = (md: string): string => {
     .replace(/\n/g, '<br/>');
 };
 
-const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange }: PreviewPanelProps) => {
+const PreviewPanel = ({ url, onRefresh, fileContent, fileName, onUrlChange, token, owner, repo, branch, repoLabel }: PreviewPanelProps) => {
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [key, setKey] = useState(0);
-  const [mode, setMode] = useState<"preview" | "source">("preview");
+  const [mode, setMode] = useState<"preview" | "source" | "app">("preview");
+
+  // ── App ao vivo do repositório conectado (compilado no navegador) ──
+  const canRunApp = Boolean(token && owner && repo && branch);
+  const [appHtml, setAppHtml] = useState<string | null>(null);
+  const [appLoading, setAppLoading] = useState(false);
+  const [appError, setAppError] = useState<string | null>(null);
+  const [appStatus, setAppStatus] = useState("");
+  const [appWarnings, setAppWarnings] = useState<string[]>([]);
+  const buildIdRef = useRef(0);
+
+  const runApp = async () => {
+    if (!canRunApp) return;
+    const id = ++buildIdRef.current;
+    setMode("app");
+    setAppLoading(true);
+    setAppError(null);
+    setAppWarnings([]);
+    setAppStatus("Preparando ambiente...");
+    try {
+      const bundle = await buildRepoApp(token!, owner!, repo!, branch!, (msg) => {
+        if (buildIdRef.current === id) setAppStatus(msg);
+      });
+      if (buildIdRef.current !== id) return;
+      setAppHtml(bundle.html);
+      setAppWarnings(bundle.warnings.slice(0, 5));
+      setKey((k) => k + 1);
+    } catch (err) {
+      if (buildIdRef.current !== id) return;
+      setAppError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (buildIdRef.current === id) setAppLoading(false);
+    }
+  };
+
+  // Ao trocar de repositório/branch, limpa o app compilado
+  useEffect(() => {
+    setAppHtml(null);
+    setAppError(null);
+    setAppWarnings([]);
+    if (mode === "app") setMode("preview");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner, repo, branch]);
+
 
   const lang = fileName ? getLanguage(fileName) : "text";
   const hasPreviewable = lang === "html" || lang === "markdown" || lang === "svg";
