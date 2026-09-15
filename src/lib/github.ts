@@ -241,7 +241,7 @@ export async function createFile(
   token: string, owner: string, repo: string, path: string,
   content: string, message: string, branch?: string
 ): Promise<void> {
-  const body: Record<string, string> = { message, content: btoa(content) };
+  const body: Record<string, string> = { message, content: btoa(unescape(encodeURIComponent(content))) };
   if (branch) body.branch = branch;
   await ghFetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, token, {
     method: "PUT",
@@ -287,4 +287,241 @@ export function getLanguageColor(lang: string | null): string {
     "C#": "#178600", PHP: "#4F5D95", Vue: "#41b883", Svelte: "#ff3e00",
   };
   return colors[lang || ""] || "#8b949e";
+}
+
+// ─────────────────────────────────────────────────────────
+// Criação de projetos (novo repositório com código inicial)
+// ─────────────────────────────────────────────────────────
+
+export type ProjectTemplate = "react-vite" | "static-site" | "node-api" | "empty";
+
+export async function createRepo(
+  token: string,
+  name: string,
+  options: { description?: string; isPrivate?: boolean } = {}
+): Promise<GitHubRepo> {
+  return ghFetch<GitHubRepo>(`${GITHUB_API}/user/repos`, token, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      description: options.description || "Projeto criado no IA Programador",
+      private: options.isPrivate ?? true,
+      auto_init: true,
+　　}),
+  });
+}
+
+function templateFiles(template: ProjectTemplate, name: string): { path: string; content: string }[] {
+  const readme = `# ${name}\n\nProjeto criado com o **IA Programador**.\n\nPeça alterações no chat e a IA edita este repositório automaticamente.\n`;
+
+  if (template === "empty") {
+    return [{ path: "README.md", content: readme }];
+  }
+
+  if (template === "static-site") {
+    return [
+      { path: "README.md", content: readme },
+      {
+        path: "index.html",
+        content: `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${name}</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>${name}</h1>
+      <p>Site criado no IA Programador. Peça mudanças no chat.</p>
+      <button id="cta">Entrar</button>
+    </main>
+    <script src="./main.js"></script>
+  </body>
+</html>
+`,
+      },
+      {
+        path: "styles.css",
+        content: `:root { color-scheme: dark; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #0b1220; color: #e6edf7; }
+main { text-align: center; padding: 2rem; }
+button { margin-top: 1rem; padding: .7rem 1.4rem; border: 0; border-radius: 999px; background: #22c55e; color: #04120a; font-weight: 700; cursor: pointer; }
+`,
+      },
+      {
+        path: "main.js",
+        content: `document.getElementById("cta")?.addEventListener("click", () => {
+  alert("Bem-vindo ao ${name}!");
+});
+`,
+      },
+    ];
+  }
+
+  if (template === "node-api") {
+    return [
+      { path: "README.md", content: readme },
+      {
+        path: "package.json",
+        content: `${JSON.stringify(
+          {
+            name: name.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+            version: "0.1.0",
+            type: "module",
+            scripts: { start: "node src/server.js" },
+            dependencies: { express: "^4.19.2" },
+          },
+          null,
+          2
+        )}\n`,
+      },
+      {
+        path: "src/server.js",
+        content: `import express from "express";
+
+const app = express();
+app.use(express.json());
+
+app.get("/health", (_req, res) => res.json({ ok: true, service: "${name}" }));
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(\`API ${name} rodando na porta \${port}\`));
+`,
+      },
+      { path: ".gitignore", content: "node_modules\n.env\n" },
+    ];
+  }
+
+  // react-vite
+  const pkgName = name.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  return [
+    { path: "README.md", content: readme },
+    { path: ".gitignore", content: "node_modules\ndist\n.env\n" },
+    {
+      path: "package.json",
+      content: `${JSON.stringify(
+        {
+          name: pkgName,
+          private: true,
+          version: "0.1.0",
+          type: "module",
+          scripts: { dev: "vite", build: "vite build", preview: "vite preview" },
+          dependencies: { react: "^18.3.1", "react-dom": "^18.3.1" },
+          devDependencies: {
+            "@vitejs/plugin-react": "^4.3.1",
+            typescript: "^5.5.4",
+            vite: "^5.4.0",
+          },
+        },
+        null,
+        2
+      )}\n`,
+    },
+    {
+      path: "index.html",
+      content: `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${name}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+`,
+    },
+    {
+      path: "vite.config.ts",
+      content: `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({ plugins: [react()] });
+`,
+    },
+    {
+      path: "src/main.tsx",
+      content: `import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+`,
+    },
+    {
+      path: "src/App.tsx",
+      content: `export default function App() {
+  return (
+    <main className="app">
+      <h1>${name}</h1>
+      <p>Projeto criado no IA Programador. Peça alterações no chat.</p>
+      <button type="button" onClick={() => alert("Bem-vindo ao ${name}!")}>
+        Entrar
+      </button>
+    </main>
+  );
+}
+`,
+    },
+    {
+      path: "src/index.css",
+      content: `:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b1220; color: #e6edf7; }
+.app { text-align: center; padding: 2rem; }
+button { margin-top: 1rem; padding: .7rem 1.4rem; border: 0; border-radius: 999px; background: #22c55e; color: #04120a; font-weight: 700; cursor: pointer; }
+`,
+    },
+  ];
+}
+
+/**
+ * Cria um repositório novo no GitHub e envia o código inicial do template.
+ */
+export async function createProject(
+  token: string,
+  name: string,
+  options: {
+    description?: string;
+    isPrivate?: boolean;
+    template?: ProjectTemplate;
+    onProgress?: (msg: string) => void;
+  } = {}
+): Promise<GitHubRepo> {
+  const safeName = name.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "");
+  if (!safeName) throw new Error("Informe um nome válido para o projeto.");
+
+  options.onProgress?.(`Criando repositório ${safeName}...`);
+  const repo = await createRepo(token, safeName, {
+    description: options.description,
+    isPrivate: options.isPrivate,
+  });
+
+  const files = templateFiles(options.template || "react-vite", safeName);
+  const branch = repo.default_branch || "main";
+
+  for (const file of files) {
+    options.onProgress?.(`Enviando ${file.path}...`);
+    try {
+      const sha = await getFileSha(token, repo.owner.login, repo.name, file.path, branch).catch(() => undefined);
+      if (sha) {
+        await updateFile(token, repo.owner.login, repo.name, file.path, file.content, `chore: ${file.path}`, sha, branch);
+      } else {
+        await createFile(token, repo.owner.login, repo.name, file.path, file.content, `chore: ${file.path}`, branch);
+      }
+    } catch (error) {
+      console.warn(`Não foi possível enviar ${file.path}`, error);
+    }
+  }
+
+  options.onProgress?.("Projeto criado com sucesso.");
+  return repo;
 }

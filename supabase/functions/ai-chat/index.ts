@@ -327,14 +327,56 @@ Deno.serve(async (req) => {
       );
     }
 
-    const geminiApiKey = envFirst("GEMINI_API_KEY", "gemini_api_key");
-    const deepseekApiKey = envFirst("DEEPSEEK_API_KEY", "deepseek_api_key");
-    const kimiApiKey = envFirst("KIMI_API_KEY", "kimi_api_key");
-    const groqApiKey = envFirst("GROQ_API_KEY", "groq_api_key");
-    const openrouterApiKey = envFirst("OPENROUTER_API_KEY", "openrouter_api_key");
-    const anthropicApiKey = envFirst("ANTHROPIC_API_KEY", "anthropic_api_key");
-    const openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key", "openai_API_KEY");
-    const lovableGatewayKey = envFirst("LOVABLE_API_KEY", "lovable_api_key");
+    let geminiApiKey = envFirst("GEMINI_API_KEY", "gemini_api_key");
+    let deepseekApiKey = envFirst("DEEPSEEK_API_KEY", "deepseek_api_key");
+    let kimiApiKey = envFirst("KIMI_API_KEY", "kimi_api_key");
+    let groqApiKey = envFirst("GROQ_API_KEY", "groq_api_key");
+    let openrouterApiKey = envFirst("OPENROUTER_API_KEY", "openrouter_api_key");
+    let anthropicApiKey = envFirst("ANTHROPIC_API_KEY", "anthropic_api_key");
+    let openaiDirectKey = envFirst("OPENAI_API_KEY", "openai_api_key", "openai_API_KEY");
+    let lovableGatewayKey = envFirst("LOVABLE_API_KEY", "lovable_api_key");
+
+    // ── Fonte de IA definida pelo Super Admin (app_settings.ai_source) ──
+    // "auto"    = usa o que estiver disponível (Lovable AI + chaves próprias)
+    // "lovable" = usa somente o Lovable AI
+    // "own"     = usa somente as chaves próprias (Gemini, DeepSeek, OpenAI, etc.)
+    let aiSource = "auto";
+    try {
+      const { data: aiSourceSetting } = await supabaseAdmin
+        .from("app_settings")
+        .select("value")
+        .eq("key", "ai_source")
+        .maybeSingle();
+      const value = String((aiSourceSetting as { value?: string } | null)?.value || "auto").trim();
+      if (value === "lovable" || value === "own") aiSource = value;
+    } catch (_e) {
+      aiSource = "auto";
+    }
+
+    if (aiSource === "lovable") {
+      geminiApiKey = "";
+      deepseekApiKey = "";
+      kimiApiKey = "";
+      groqApiKey = "";
+      openrouterApiKey = "";
+      anthropicApiKey = "";
+      openaiDirectKey = "";
+      if (!lovableGatewayKey) {
+        return new Response(
+          JSON.stringify({ error: "Modo 'Somente Lovable AI' ativo, mas o Lovable AI não está disponível. Troque a fonte de IA no Super Admin." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    } else if (aiSource === "own") {
+      lovableGatewayKey = "";
+      const hasOwnKey = !!(geminiApiKey || deepseekApiKey || kimiApiKey || groqApiKey || openrouterApiKey || anthropicApiKey || openaiDirectKey);
+      if (!hasOwnKey) {
+        return new Response(
+          JSON.stringify({ error: "Modo 'Somente minhas IAs' ativo, mas nenhuma chave própria está configurada. Cadastre uma chave ou troque a fonte de IA no Super Admin." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 30_000) => {
       const controller = new AbortController();
