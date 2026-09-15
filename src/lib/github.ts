@@ -241,7 +241,7 @@ export async function createFile(
   token: string, owner: string, repo: string, path: string,
   content: string, message: string, branch?: string
 ): Promise<void> {
-  const body: Record<string, string> = { message, content: btoa(content) };
+  const body: Record<string, string> = { message, content: btoa(unescape(encodeURIComponent(content))) };
   if (branch) body.branch = branch;
   await ghFetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, token, {
     method: "PUT",
