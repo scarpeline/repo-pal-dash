@@ -307,7 +307,7 @@ export async function createRepo(
       description: options.description || "Projeto criado no IA Programador",
       private: options.isPrivate ?? true,
       auto_init: true,
-　　}),
+    }),
   });
 }
 
