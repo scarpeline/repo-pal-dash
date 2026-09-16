@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getRepos, type GHRepo } from "@/lib/github";
 import { Loader2, Star, GitFork, Lock, Globe, ChevronDown, ChevronUp } from "lucide-react";
 import { getLanguageColor } from "@/lib/github";
+import CreateProjectDialog from "@/components/CreateProjectDialog";
 
 interface RepoBrowserProps {
   token: string;
@@ -47,7 +48,17 @@ const RepoBrowser = ({ token, onSelectRepo, onBack }: RepoBrowserProps) => {
           {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
       </div>
-      
+
+      {!isCollapsed && (
+        <div className="px-2 py-2 border-b border-border flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Seus projetos</span>
+          <CreateProjectDialog
+            token={token}
+            onCreated={(repo) => { setRepos((prev) => [repo, ...prev]); onSelectRepo(repo); }}
+          />
+        </div>
+      )}
+
       {!isCollapsed && (
         <div className="flex-1 overflow-auto animate-in fade-in slide-in-from-top-1 duration-200">
           {filtered.length > 0 ? filtered.map((repo) => (

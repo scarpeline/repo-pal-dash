@@ -93,6 +93,7 @@ const SuperAdmin = () => {
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
   const [manualDepositLink, setManualDepositLink] = useState<string>("https://w.app/ia_programador");
   const [showCredit, setShowCredit] = useState(true);
+  const [aiSource, setAiSource] = useState<"auto" | "lovable" | "own">("auto");
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitPercent, setSplitPercent] = useState("30");
 
@@ -211,6 +212,13 @@ const SuperAdmin = () => {
     // Fetch show_credit setting
     const { data: creditSetting } = await supabase.from("app_settings").select("value").eq("key", "show_credit").maybeSingle();
     if (creditSetting) setShowCredit(creditSetting.value !== "false");
+
+    // Fetch fonte de IA (Lovable AI x chaves próprias)
+    const { data: aiSourceSetting } = await supabase.from("app_settings").select("value").eq("key", "ai_source").maybeSingle();
+    const aiSourceValue = String((aiSourceSetting as { value?: string } | null)?.value || "auto");
+    if (aiSourceValue === "lovable" || aiSourceValue === "own" || aiSourceValue === "auto") {
+      setAiSource(aiSourceValue as "auto" | "lovable" | "own");
+    }
 
     // Fetch split settings
     const { data: splitSettings } = await supabase.from("app_settings").select("key, value").in("key", ["split_enabled", "split_percent"]);
@@ -1758,6 +1766,42 @@ const SuperAdmin = () => {
                 <CardDescription>Gerencie o gateway de pagamento e outras preferências globais.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+
+                {/* Fonte de IA usada pelo sistema */}
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">Quais IAs o sistema deve usar</p>
+                    <p className="text-xs text-muted-foreground">
+                      Escolha entre as IAs incluídas do Lovable, as suas próprias chaves, ou os dois juntos com troca automática.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { id: "auto", label: "Automático", desc: "Usa o que estiver disponível (recomendado)" },
+                      { id: "lovable", label: "Somente Lovable AI", desc: "Ignora suas chaves particulares" },
+                      { id: "own", label: "Somente minhas IAs", desc: "Usa apenas suas chaves (Gemini, DeepSeek, OpenAI...)" },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={async () => {
+                          setAiSource(option.id as typeof aiSource);
+                          const { error } = await supabase
+                            .from("app_settings")
+                            .upsert({ key: "ai_source", value: option.id as any }, { onConflict: "key" });
+                          if (error) toast.error("Não foi possível salvar: " + error.message);
+                          else toast.success(`IAs em uso: ${option.label}`);
+                        }}
+                        className={`text-left p-3 rounded-lg border transition-colors ${
+                          aiSource === option.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold">{option.label}</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">{option.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
 
                 {/* Toggle: Feito por O.Scarpeline */}
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
