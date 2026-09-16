@@ -212,6 +212,13 @@ const SuperAdmin = () => {
     const { data: creditSetting } = await supabase.from("app_settings").select("value").eq("key", "show_credit").maybeSingle();
     if (creditSetting) setShowCredit(creditSetting.value !== "false");
 
+    // Fetch fonte de IA (Lovable AI x chaves próprias)
+    const { data: aiSourceSetting } = await supabase.from("app_settings").select("value").eq("key", "ai_source").maybeSingle();
+    const aiSourceValue = String((aiSourceSetting as { value?: string } | null)?.value || "auto");
+    if (aiSourceValue === "lovable" || aiSourceValue === "own" || aiSourceValue === "auto") {
+      setAiSource(aiSourceValue as "auto" | "lovable" | "own");
+    }
+
     // Fetch split settings
     const { data: splitSettings } = await supabase.from("app_settings").select("key, value").in("key", ["split_enabled", "split_percent"]);
     splitSettings?.forEach((s: any) => {
