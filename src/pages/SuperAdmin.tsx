@@ -93,6 +93,7 @@ const SuperAdmin = () => {
   const [primaryGateway, setPrimaryGateway] = useState<"asaas" | "stripe">("asaas");
   const [manualDepositLink, setManualDepositLink] = useState<string>("https://w.app/ia_programador");
   const [showCredit, setShowCredit] = useState(true);
+  const [aiSource, setAiSource] = useState<"auto" | "lovable" | "own">("auto");
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitPercent, setSplitPercent] = useState("30");
 
