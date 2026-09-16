@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getRepos, type GHRepo } from "@/lib/github";
 import { Loader2, Star, GitFork, Lock, Globe, ChevronDown, ChevronUp } from "lucide-react";
 import { getLanguageColor } from "@/lib/github";
+import CreateProjectDialog from "@/components/CreateProjectDialog";
 
 interface RepoBrowserProps {
   token: string;
