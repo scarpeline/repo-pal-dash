@@ -174,6 +174,15 @@ const EditorPage = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [currentActivity, setCurrentActivity] = useState<string[]>([]);
   const [streamingContent, setStreamingContent] = useState<string>("");
+  // Ponto de restauração da última alteração feita pela IA (permite desfazer no GitHub)
+  const [lastChange, setLastChange] = useState<{
+    repoFullName: string;
+    branch: string;
+    label: string;
+    files: { path: string; content: string | null }[];
+  } | null>(null);
+  const [reverting, setReverting] = useState(false);
+
   const [streamingProvider, setStreamingProvider] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<string>("auto");
   const [showCredit, setShowCredit] = useState(true);
