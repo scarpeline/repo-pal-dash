@@ -249,6 +249,19 @@ export async function createFile(
   });
 }
 
+export async function deleteFile(
+  token: string, owner: string, repo: string, path: string,
+  message: string, sha: string, branch?: string
+): Promise<void> {
+  const body: Record<string, string> = { message, sha };
+  if (branch) body.branch = branch;
+  await ghFetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, token, {
+    method: "DELETE",
+    body: JSON.stringify(body),
+  });
+}
+
+
 export async function getCommits(token: string, owner: string, repo: string, branch?: string): Promise<GitHubCommit[]> {
   const q = branch ? `?sha=${branch}&per_page=30` : "?per_page=30";
   return ghFetch(`${GITHUB_API}/repos/${owner}/${repo}/commits${q}`, token);

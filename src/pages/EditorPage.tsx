@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Gift, LogOut, Code2, Globe, Menu, ChevronLeft
+  Wallet, Gift, LogOut, Code2, Globe, Menu, ChevronLeft, RotateCcw
 } from "lucide-react";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipe } from "@/hooks/use-swipe";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -22,8 +23,10 @@ import NotificationBell from "@/components/NotificationBell";
 import {
   getToken, clearToken, getStoredUser,
   getRepoTree, getFileContent, listBranches, parseRepoUrl, getRepoByUrl,
+  updateFile, createFile, deleteFile, getFileSha,
   type GHRepo, type GHBranch, type FileNode,
 } from "@/lib/github";
+
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUsageText } from "@/utils/credits";
@@ -171,6 +174,15 @@ const EditorPage = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [currentActivity, setCurrentActivity] = useState<string[]>([]);
   const [streamingContent, setStreamingContent] = useState<string>("");
+  // Ponto de restauração da última alteração feita pela IA (permite desfazer no GitHub)
+  const [lastChange, setLastChange] = useState<{
+    repoFullName: string;
+    branch: string;
+    label: string;
+    files: { path: string; content: string | null }[];
+  } | null>(null);
+  const [reverting, setReverting] = useState(false);
+
   const [streamingProvider, setStreamingProvider] = useState<string>("");
   const [activeProvider, setActiveProvider] = useState<string>("auto");
   const [showCredit, setShowCredit] = useState(true);
@@ -405,8 +417,27 @@ INSTRUÇÕES:
         return;
       }
 
+      // Ponto de restauração: guarda como cada arquivo estava antes da IA mexer
+      addProgress("🛟 Criando ponto de restauração antes de aplicar...");
+      const snapshot: { path: string; content: string | null }[] = [];
+      for (const mod of result.modifications) {
+        try {
+          const before = await getFileContent(ghToken!, selectedRepo.owner.login, selectedRepo.name, mod.path, branch);
+          snapshot.push({ path: mod.path, content: before.content });
+        } catch {
+          snapshot.push({ path: mod.path, content: null });
+        }
+      }
+      setLastChange({
+        repoFullName: selectedRepo.full_name,
+        branch,
+        label: message.slice(0, 60),
+        files: snapshot,
+      });
+
       addProgress(`⚡ Aplicando ${result.modifications.length} alteração(ões) em ${selectedRepo.full_name} (${branch})...`);
       const executionResult = await modifier.executeModifications(result.modifications, addProgress);
+
       const usageInfo = result.usage
         ? `\n\n💰 Custo da ação: R$ ${(result.usage.cost_cents / 100).toFixed(4)}`
         : "";
@@ -449,6 +480,69 @@ INSTRUÇÕES:
       setStreamingProvider("");
     }
   };
+
+  // Desfaz a última alteração feita pela IA, restaurando os arquivos como estavam
+  const handleRevertLastChange = async () => {
+    if (!lastChange || !selectedRepo || !ghToken) return;
+    if (lastChange.repoFullName !== selectedRepo.full_name) {
+      toast.error("A última alteração foi em outro repositório.");
+      return;
+    }
+    setReverting(true);
+    const owner = selectedRepo.owner.login;
+    const restored: string[] = [];
+    const failed: string[] = [];
+
+    for (const f of lastChange.files) {
+      try {
+        if (f.content === null) {
+          const sha = await getFileSha(ghToken, owner, selectedRepo.name, f.path, lastChange.branch);
+          await deleteFile(ghToken, owner, selectedRepo.name, f.path, `revert: remove ${f.path}`, sha, lastChange.branch);
+        } else {
+          try {
+            const sha = await getFileSha(ghToken, owner, selectedRepo.name, f.path, lastChange.branch);
+            await updateFile(ghToken, owner, selectedRepo.name, f.path, f.content, `revert: restaura ${f.path}`, sha, lastChange.branch);
+          } catch {
+            await createFile(ghToken, owner, selectedRepo.name, f.path, f.content, `revert: restaura ${f.path}`, lastChange.branch);
+          }
+        }
+        restored.push(f.path);
+      } catch (e) {
+        failed.push(`${f.path} (${e instanceof Error ? e.message : String(e)})`);
+      }
+    }
+
+    setChatMessages(p => [...p, {
+      role: "system",
+      content: `↩️ **Alteração desfeita**\n\n${restored.length ? `✅ Restaurados (${restored.length}):\n${restored.map(r => `- \`${r}\``).join("\n")}` : ""}${failed.length ? `\n\n❌ Falhas (${failed.length}):\n${failed.map(r => `- ${r}`).join("\n")}` : ""}`,
+      timestamp: new Date(),
+    }]);
+
+    if (!failed.length) {
+      toast.success("Última alteração desfeita.");
+      setLastChange(null);
+    } else {
+      toast.error("Algumas restaurações falharam.");
+    }
+
+    // Recarrega árvore e abas
+    try {
+      const tree = await getRepoTree(ghToken, owner, selectedRepo.name, lastChange.branch);
+      setFiles(tree);
+      for (const tab of openTabs) {
+        if (restored.includes(tab.path)) {
+          try {
+            const { content, sha } = await getFileContent(ghToken, owner, selectedRepo.name, tab.path, lastChange.branch);
+            setOpenTabs(prev => prev.map(t => t.path === tab.path ? { ...t, content, sha, dirty: false } : t));
+          } catch { /* arquivo removido */ }
+        }
+      }
+    } catch { /* ignora */ }
+
+    setReverting(false);
+  };
+
+
 
   const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = [], autoFix: boolean = true) => {
     const requestedModel = model || activeProvider || "auto";
@@ -678,6 +772,21 @@ INSTRUÇÕES:
             <MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />
             <span className="hidden sm:inline">Chat IA</span>
           </button>
+
+          {/* Desfazer última alteração da IA */}
+          {lastChange && selectedRepo && lastChange.repoFullName === selectedRepo.full_name && (
+            <button
+              onClick={handleRevertLastChange}
+              disabled={reverting}
+              title={`Desfazer: ${lastChange.label}`}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 md:px-2 md:py-1 rounded-xl md:rounded-lg text-amber-500 hover:bg-amber-500/10 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {reverting ? <Loader2 className="w-4 h-4 md:w-3.5 md:h-3.5 animate-spin" /> : <RotateCcw className="w-4 h-4 md:w-3.5 md:h-3.5" />}
+              <span className="hidden sm:inline">Desfazer</span>
+            </button>
+          )}
+
+
 
           {/* Preview toggle - Touch maior em mobile */}
           <button 
