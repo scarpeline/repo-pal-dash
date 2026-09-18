@@ -417,8 +417,27 @@ INSTRUÇÕES:
         return;
       }
 
+      // Ponto de restauração: guarda como cada arquivo estava antes da IA mexer
+      addProgress("🛟 Criando ponto de restauração antes de aplicar...");
+      const snapshot: { path: string; content: string | null }[] = [];
+      for (const mod of result.modifications) {
+        try {
+          const before = await getFileContent(ghToken!, selectedRepo.owner.login, selectedRepo.name, mod.path, branch);
+          snapshot.push({ path: mod.path, content: before.content });
+        } catch {
+          snapshot.push({ path: mod.path, content: null });
+        }
+      }
+      setLastChange({
+        repoFullName: selectedRepo.full_name,
+        branch,
+        label: message.slice(0, 60),
+        files: snapshot,
+      });
+
       addProgress(`⚡ Aplicando ${result.modifications.length} alteração(ões) em ${selectedRepo.full_name} (${branch})...`);
       const executionResult = await modifier.executeModifications(result.modifications, addProgress);
+
       const usageInfo = result.usage
         ? `\n\n💰 Custo da ação: R$ ${(result.usage.cost_cents / 100).toFixed(4)}`
         : "";
