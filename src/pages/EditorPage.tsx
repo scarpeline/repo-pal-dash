@@ -481,6 +481,69 @@ INSTRUÇÕES:
     }
   };
 
+  // Desfaz a última alteração feita pela IA, restaurando os arquivos como estavam
+  const handleRevertLastChange = async () => {
+    if (!lastChange || !selectedRepo || !ghToken) return;
+    if (lastChange.repoFullName !== selectedRepo.full_name) {
+      toast.error("A última alteração foi em outro repositório.");
+      return;
+    }
+    setReverting(true);
+    const owner = selectedRepo.owner.login;
+    const restored: string[] = [];
+    const failed: string[] = [];
+
+    for (const f of lastChange.files) {
+      try {
+        if (f.content === null) {
+          const sha = await getFileSha(ghToken, owner, selectedRepo.name, f.path, lastChange.branch);
+          await deleteFile(ghToken, owner, selectedRepo.name, f.path, `revert: remove ${f.path}`, sha, lastChange.branch);
+        } else {
+          try {
+            const sha = await getFileSha(ghToken, owner, selectedRepo.name, f.path, lastChange.branch);
+            await updateFile(ghToken, owner, selectedRepo.name, f.path, f.content, `revert: restaura ${f.path}`, sha, lastChange.branch);
+          } catch {
+            await createFile(ghToken, owner, selectedRepo.name, f.path, f.content, `revert: restaura ${f.path}`, lastChange.branch);
+          }
+        }
+        restored.push(f.path);
+      } catch (e) {
+        failed.push(`${f.path} (${e instanceof Error ? e.message : String(e)})`);
+      }
+    }
+
+    setChatMessages(p => [...p, {
+      role: "system",
+      content: `↩️ **Alteração desfeita**\n\n${restored.length ? `✅ Restaurados (${restored.length}):\n${restored.map(r => `- \`${r}\``).join("\n")}` : ""}${failed.length ? `\n\n❌ Falhas (${failed.length}):\n${failed.map(r => `- ${r}`).join("\n")}` : ""}`,
+      timestamp: new Date(),
+    }]);
+
+    if (!failed.length) {
+      toast.success("Última alteração desfeita.");
+      setLastChange(null);
+    } else {
+      toast.error("Algumas restaurações falharam.");
+    }
+
+    // Recarrega árvore e abas
+    try {
+      const tree = await getRepoTree(ghToken, owner, selectedRepo.name, lastChange.branch);
+      setFiles(tree);
+      for (const tab of openTabs) {
+        if (restored.includes(tab.path)) {
+          try {
+            const { content, sha } = await getFileContent(ghToken, owner, selectedRepo.name, tab.path, lastChange.branch);
+            setOpenTabs(prev => prev.map(t => t.path === tab.path ? { ...t, content, sha, dirty: false } : t));
+          } catch { /* arquivo removido */ }
+        }
+      }
+    } catch { /* ignora */ }
+
+    setReverting(false);
+  };
+
+
+
   const handleChatSend = useCallback(async (message: string, model?: string, attachments: ChatAttachment[] = [], autoFix: boolean = true) => {
     const requestedModel = model || activeProvider || "auto";
     const providerBadge = getModelBadge(requestedModel);
