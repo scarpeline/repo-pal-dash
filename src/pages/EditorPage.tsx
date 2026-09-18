@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import {
   PanelLeftClose, PanelLeftOpen, FolderGit2, Terminal, MessageSquare,
   Eye, X, FileCode, Search, GitBranch, Github, Loader2, Save,
-  Wallet, Gift, LogOut, Code2, Globe, Menu, ChevronLeft
+  Wallet, Gift, LogOut, Code2, Globe, Menu, ChevronLeft, RotateCcw
 } from "lucide-react";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipe } from "@/hooks/use-swipe";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -22,8 +23,10 @@ import NotificationBell from "@/components/NotificationBell";
 import {
   getToken, clearToken, getStoredUser,
   getRepoTree, getFileContent, listBranches, parseRepoUrl, getRepoByUrl,
+  updateFile, createFile, deleteFile, getFileSha,
   type GHRepo, type GHBranch, type FileNode,
 } from "@/lib/github";
+
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUsageText } from "@/utils/credits";
