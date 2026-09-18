@@ -773,6 +773,21 @@ INSTRUÇÕES:
             <span className="hidden sm:inline">Chat IA</span>
           </button>
 
+          {/* Desfazer última alteração da IA */}
+          {lastChange && selectedRepo && lastChange.repoFullName === selectedRepo.full_name && (
+            <button
+              onClick={handleRevertLastChange}
+              disabled={reverting}
+              title={`Desfazer: ${lastChange.label}`}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 md:px-2 md:py-1 rounded-xl md:rounded-lg text-amber-500 hover:bg-amber-500/10 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {reverting ? <Loader2 className="w-4 h-4 md:w-3.5 md:h-3.5 animate-spin" /> : <RotateCcw className="w-4 h-4 md:w-3.5 md:h-3.5" />}
+              <span className="hidden sm:inline">Desfazer</span>
+            </button>
+          )}
+
+
+
           {/* Preview toggle - Touch maior em mobile */}
           <button 
             onClick={() => setShowPreview(!showPreview)} 
